@@ -1,0 +1,48 @@
+name: FMCC Governed Alert Automation
+
+on:
+  workflow_dispatch:
+  # V2: agendamento desligado ate existir ambiente proprio aprovado pelo Diretor.
+  # schedule:
+  #   - cron: "17 * * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fmcc-governed-alert-automation
+  cancel-in-progress: false
+
+jobs:
+  evaluate-alerts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      FMCC_AUTOMATION_BASE_URL: ${{ vars.FMCC_AUTOMATION_BASE_URL }}
+      FMCC_ALERT_AUTOMATION_SCHEDULER_SECRET: ${{ secrets.FMCC_ALERT_AUTOMATION_SCHEDULER_SECRET }}
+    steps:
+      - name: Validate runtime configuration
+        id: config
+        shell: bash
+        run: |
+          if [ -z "$FMCC_AUTOMATION_BASE_URL" ] || [ -z "$FMCC_ALERT_AUTOMATION_SCHEDULER_SECRET" ]; then
+            echo "::notice::Automação governada ainda não configurada: defina FMCC_AUTOMATION_BASE_URL e FMCC_ALERT_AUTOMATION_SCHEDULER_SECRET."
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          case "$FMCC_AUTOMATION_BASE_URL" in
+            https://*) ;;
+            *)
+              echo "::error::FMCC_AUTOMATION_BASE_URL deve usar HTTPS."
+              exit 1
+              ;;
+          esac
+          echo "::add-mask::$FMCC_ALERT_AUTOMATION_SCHEDULER_SECRET"
+          echo "configured=true" >> "$GITHUB_OUTPUT"
+
+      - name: Evaluate governed alert rules
+        if: steps.config.outputs.configured == 'true'
+        shell: bash
+        run: |
+          run_id="gha-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          curl             --fail-with-body             --silent             --show-error             --retry 2             --retry-all-errors             --max-time 45             --request POST             --header "Authorization: Bearer $FMCC_ALERT_AUTOMATION_SCHEDULER_SECRET"             --header "Idempotency-Key: $run_id"             --header "X-Correlation-ID: $run_id"             "${FMCC_AUTOMATION_BASE_URL%/}/api/internal/automation/alerts/evaluate"

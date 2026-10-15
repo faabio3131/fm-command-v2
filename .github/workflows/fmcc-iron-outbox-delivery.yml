@@ -1,0 +1,58 @@
+name: FMCC IRON Governed Entitlement Outbox Delivery
+
+on:
+  workflow_dispatch:
+  # V2: agendamento desligado ate existir ambiente proprio aprovado pelo Diretor.
+  # schedule:
+  #   - cron: "*/10 * * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fmcc-iron-governed-entitlement-outbox
+  cancel-in-progress: false
+
+jobs:
+  deliver-one:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env:
+      FMCC_IRON_OUTBOX_WORKER_BASE_URL: ${{ vars.FMCC_IRON_OUTBOX_WORKER_BASE_URL }}
+      FMCC_IRON_OUTBOX_WORKER_SECRET: ${{ secrets.FMCC_IRON_OUTBOX_WORKER_SECRET }}
+    steps:
+      - name: Governed rollout gate
+        id: gate
+        shell: bash
+        run: |
+          if [ -z "$FMCC_IRON_OUTBOX_WORKER_BASE_URL" ] || [ -z "$FMCC_IRON_OUTBOX_WORKER_SECRET" ]; then
+            echo "::notice::IRON outbox delivery worker is not configured; no license operations executed."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          case "$FMCC_IRON_OUTBOX_WORKER_BASE_URL" in
+            https://*) ;;
+            *) echo "::error::Outbox worker base URL must use HTTPS"; exit 1 ;;
+          esac
+          echo "::add-mask::$FMCC_IRON_OUTBOX_WORKER_SECRET"
+          echo "ready=true" >> "$GITHUB_OUTPUT"
+      - name: Deliver one canonically verified entitlement event
+        if: steps.gate.outputs.ready == 'true'
+        shell: bash
+        run: |
+          response_file="$(mktemp)"
+          trap 'rm -f "$response_file"' EXIT
+          curl --silent --show-error --fail-with-body --max-time 30 \
+            --output "$response_file" \
+            --request POST \
+            --header "Authorization: Bearer $FMCC_IRON_OUTBOX_WORKER_SECRET" \
+            "${FMCC_IRON_OUTBOX_WORKER_BASE_URL%/}/api/internal/billing/iron/outbox/process-one"
+          # Report only the outcome class, never gym/subscription/provider IDs.
+          result="$(python3 -c 'import json,sys; x=json.load(open(sys.argv[1])); print(x.get("status","invalid"))' "$response_file")"
+          case "$result" in
+            delivered|empty) echo "Governed IRON outbox: $result" ;;
+            retry|blocked|lease_lost)
+              echo "::error::IRON outbox delivery requires review: $result"
+              exit 1 ;;
+            *) echo "::error::IRON outbox worker response invalid"; exit 1 ;;
+          esac

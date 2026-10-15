@@ -1,0 +1,91 @@
+name: FMCC Preview Deployment Gate
+
+on:
+  # V2: so manual; sem URL padrao da V1. Exige a variavel FMCC_PREVIEW_BASE_URL.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fmcc-preview-deployment-gate
+  cancel-in-progress: true
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CONFIGURED_PREVIEW_BASE_URL: ${{ vars.FMCC_PREVIEW_BASE_URL }}
+    steps:
+      - name: Resolve Preview URL
+        shell: bash
+        run: |
+          if [ -z "$CONFIGURED_PREVIEW_BASE_URL" ]; then
+            echo "::error::Defina a variavel FMCC_PREVIEW_BASE_URL (a V2 nao herda a URL da V1)."
+            exit 1
+          fi
+          base_url="$CONFIGURED_PREVIEW_BASE_URL"
+          case "$base_url" in
+            https://*) ;;
+            *)
+              echo "::error::Preview URL must use HTTPS."
+              exit 1
+              ;;
+          esac
+          echo "FMCC_PREVIEW_BASE_URL=${base_url%/}" >> "$GITHUB_ENV"
+
+      - name: Wait for exact Render commit
+        shell: bash
+        run: |
+          expected="$GITHUB_SHA"
+          echo "Waiting for Preview to deploy exact commit: $expected"
+          for attempt in $(seq 1 45); do
+            body="$(curl --silent --show-error --max-time 15 "$FMCC_PREVIEW_BASE_URL/api/version" || true)"
+            deployed="$(printf '%s' "$body" | jq -r '.gitCommit // empty' 2>/dev/null || true)"
+            branch="$(printf '%s' "$body" | jq -r '.gitBranch // empty' 2>/dev/null || true)"
+            if [ "$deployed" = "$expected" ]; then
+              echo "Preview exact SHA confirmed: $deployed on branch $branch"
+              exit 0
+            fi
+            echo "Attempt $attempt/45: deployed='${deployed:-unavailable}', expected='$expected'"
+            sleep 20
+          done
+          echo "::error::Preview did not expose the expected Render commit within the allowed window."
+          exit 1
+
+      - name: Health
+        shell: bash
+        run: |
+          body="$(curl --fail-with-body --silent --show-error --max-time 20 "$FMCC_PREVIEW_BASE_URL/api/health")"
+          echo "$body" | jq -e '.service == "fm-control-center" and .status == "ok"'
+
+      - name: Readiness
+        shell: bash
+        run: |
+          body="$(curl --fail-with-body --silent --show-error --max-time 20 "$FMCC_PREVIEW_BASE_URL/api/ready")"
+          echo "$body" | jq -e '.status == "ready"'
+
+      - name: Unauthenticated dashboard remains protected
+        shell: bash
+        run: |
+          headers="$(mktemp)"
+          curl --silent --show-error --max-time 20 --output /dev/null --dump-header "$headers" "$FMCC_PREVIEW_BASE_URL/dashboard"
+          status="$(awk 'NR==1 {print $2}' "$headers")"
+          location="$(awk 'BEGIN{IGNORECASE=1} /^location:/ {gsub("\r","",$2); print $2}' "$headers" | tail -n1)"
+          case "$status" in
+            301|302|303|307|308) ;;
+            *)
+              echo "::error::Expected dashboard auth redirect, got HTTP $status"
+              cat "$headers"
+              exit 1
+              ;;
+          esac
+          case "$location" in
+            *"/sign-in"*) ;;
+            *)
+              echo "::error::Expected redirect to /sign-in, got '$location'"
+              cat "$headers"
+              exit 1
+              ;;
+          esac
