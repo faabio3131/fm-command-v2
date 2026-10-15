@@ -14,6 +14,8 @@ Versão comercial e multi-setor do FM Command, da FM Tecnologia.
 
 Centro de comando governado para empresas que operam mais de um produto, unidade ou fonte de dados, em qualquer setor. Mantém as regras que fazem o Command confiável: dado ausente nunca vira zero, fonte e proveniência em todo número, auditoria, isolamento por cliente, IA que explica com evidência.
 
+**Decisão (15/10/2026):** a V2 já nasce multi-setor. Nada de setor fica fixo no código: métricas, painéis e pacotes por setor são configuração, e a V1 continua sendo o uso específico da FM.
+
 Plano de fases (ordem proposta, cada uma com aprovação do Diretor Executivo antes da seguinte):
 
 1. **Fundação:** repositório novo, cópia isolada da V1, tema e base de gráficos.
