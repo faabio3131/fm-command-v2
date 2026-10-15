@@ -21,6 +21,19 @@ O Diretor Executivo decidiu em 15/10/2026 que a FM não produz software apenas p
 
 Padrões assumidos, que podem ser trocados: primeiro produto global é o Command V2, primeiro mercado são os Estados Unidos, modelo de venda é autoatendimento com cartão. O lançamento em cada país depende de aprovação do Diretor Executivo.
 
+## Padrões web adotados
+
+Estes padrões valem para todo código novo da V2 e são verificados por testes (`tests/core-contracts.unit.test.ts`).
+
+- Idioma: etiquetas BCP 47 (`pt-BR`, `en-US`), texto em UTF-8, formatação de datas, números e moedas pela API `Intl`, no idioma de cada pessoa.
+- Dinheiro: inteiro na menor unidade da moeda (centavos), sempre com moeda ISO 4217. Nunca número com vírgula, nunca valor sem moeda, nunca soma entre moedas diferentes (ADR-012).
+- País: códigos ISO 3166.
+- Datas: guardadas em UTC no formato ISO 8601 com `Z`; convertidas para o fuso da empresa (nome IANA, como `America/Sao_Paulo`) só na tela.
+- Site: um endereço por idioma, com `hreflang`.
+- Acessibilidade das telas: WCAG 2.2 nível AA.
+- Segurança das rotas: OWASP ASVS como lista de conferência.
+- Web desde o início: nenhuma versão local ou mobile a migrar depois; regras de negócio em TypeScript puro, executadas no servidor da aplicação web.
+
 ## Consequências
 
 Positivas: sem a limitação do mercado brasileiro. Negativas: custo de tradução, de suporte em inglês e de conformidade com leis de privacidade de cada lugar.
