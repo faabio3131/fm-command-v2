@@ -60,6 +60,13 @@ export const enUS: Record<MessageKey, string> = {
   "shell.user.openSettings": "Open settings",
   "shell.sidebar.aria": "FM Command main navigation",
   "shell.sidebar.orgFallback": "Active organization",
+  "core.progress.queued": "Your question is in the queue…",
+  "core.progress.running": "Analyzing your operation's data…",
+  "core.progress.elapsed": "{seconds} s",
+  "core.error.busy": "Too many queries are running. Wait for one to finish and try again.",
+  "core.error.timeout": "The query took longer than expected. Please try again.",
+  "core.error.denied": "You don't have permission to query the Core.",
+  "core.error.invalid": "Invalid question. Check the text and try again.",
 
   "auth.signOut.button": "Sign out",
   "auth.signOut.busy": "Signing out…",

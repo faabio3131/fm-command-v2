@@ -43,3 +43,11 @@ export function aiServiceConfig(env: Record<string, string | undefined> = proces
     openMs: positiveInt(env.FMCC_AI_PROXY_OPEN_MS, 15_000, "FMCC_AI_PROXY_OPEN_MS"),
   };
 }
+
+/** O processo de operacao nunca executa IA (ADR-016). Nos demais, o worker liga sozinho, salvo FMCC_CORE_WORKER=off. */
+export function coreWorkerEnabled(env: Readonly<Record<string, string | undefined>> = process.env): boolean {
+  const role = env.FMCC_PROCESS_ROLE?.trim().toLowerCase() || "all";
+  if (role === "operation") return false;
+  return env.FMCC_CORE_WORKER?.trim().toLowerCase() !== "off";
+}
+

@@ -154,7 +154,7 @@ describe("ponte do processo de operacao para o de IA", () => {
   it("processo de IA fora do ar: erro rapido, depois o disjuntor poupa as conexoes; recupera sozinho", async () => {
     let t = 0;
     let alive = false; let hits = 0;
-    const url = await upstream((_q, res) => { hits += 1; alive ? res.writeHead(200).end('{"answer":"voltou"}') : res.destroy(); });
+    const url = await upstream((_q, res) => { hits += 1; if (alive) res.writeHead(200).end('{"answer":"voltou"}'); else res.destroy(); });
     const bridge = createAiBridge(cfg(url), { now: () => t });
     expect((await bridge.forward(post())).status).toBe(503);
     expect((await bridge.forward(post())).status).toBe(503);

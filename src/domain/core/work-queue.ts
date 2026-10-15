@@ -1,4 +1,9 @@
-import type { TaskType } from "./task-envelope";
+import { TASK_TYPES, type TaskType } from "./task-envelope";
+
+/** Tipos de tarefa da fila: os de IA (ADR-017) e a consulta completa ao Core, que usa varias chamadas de IA. */
+export const WORK_TYPES = [...TASK_TYPES, "core_query"] as const;
+export type WorkType = (typeof WORK_TYPES)[number];
+export const isAiTaskType = (t: WorkType): t is TaskType => (TASK_TYPES as readonly string[]).includes(t);
 
 /** Contrato da fila de trabalho do core (ADR-018). Sem dependencia de banco. */
 export type WorkState = "queued" | "running" | "succeeded" | "dead" | "expired";
@@ -7,7 +12,7 @@ export interface WorkItem {
   readonly id: string;
   readonly tenantId: string;
   readonly unitId: string | null;
-  readonly taskType: TaskType;
+  readonly taskType: WorkType;
   readonly priority: number;
   readonly locale: string;
   readonly payload: Readonly<Record<string, unknown>>;
@@ -21,7 +26,7 @@ export interface WorkItem {
 export interface EnqueueInput {
   readonly tenantId: string;
   readonly unitId?: string | null;
-  readonly taskType: TaskType;
+  readonly taskType: WorkType;
   readonly priority?: number;
   readonly locale: string;
   readonly payload: Readonly<Record<string, unknown>>;

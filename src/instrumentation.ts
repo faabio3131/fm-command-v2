@@ -16,6 +16,12 @@ export async function register(): Promise<void> {
     await runStartupMigrations();
   }
 
+  const { coreWorkerEnabled } = await import("@/config/process-role");
+  if (coreWorkerEnabled()) {
+    const { startCoreWorkers } = await import("@/application/core/core-runtime");
+    startCoreWorkers();
+  }
+
   if (ironRuntimeBootstrapEnabled()) {
     const { bootstrapIronCommercialRuntime } = await import(
       "@/application/integration/iron-runtime-bootstrap"

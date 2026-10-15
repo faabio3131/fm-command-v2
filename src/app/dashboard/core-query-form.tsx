@@ -4,9 +4,12 @@ import Image from "next/image";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { rotuloAutoridadeFonte, rotuloMetrica } from "@/presentation/pt-br";
 import { APPROVED_COMMAND_ARTWORK_SRC } from "@/presentation/command-approved-artwork";
+import { useTranslator } from "@/i18n/react/i18n-provider";
+import type { MessageKey } from "@/i18n/messages/pt-BR";
 
 type State = {
   status: "idle" | "loading" | "success" | "error";
+  progress?: { phase: "queued" | "running"; seconds: number };
   answer?: string;
   evidence?: Array<{ ref: string; sourceAuthority?: string }>;
 };
@@ -82,6 +85,22 @@ function cognitiveErrorMessage(code?: string): string {
   return "Não foi possível consultar o Core.";
 }
 
+/** Erros do modo assincrono (fila): mensagens vêm do catálogo de idiomas. */
+function asyncErrorKey(code?: string): MessageKey | null {
+  if (code === "core.query_timeout") return "core.error.timeout";
+  if (code === "core.too_many_open_queries" || code === "core.queue_busy") return "core.error.busy";
+  if (code === "security.permission_denied" || (code ?? "").startsWith("security.")) return "core.error.denied";
+  if (code === "core.argument_invalid") return "core.error.invalid";
+  return null;
+}
+
+const POLL_MAX_MS = 150_000;
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
 function voiceErrorMessage(code?: string): string {
   if (code === "not-allowed" || code === "service-not-allowed") {
     return "Permissão do microfone não concedida.";
@@ -96,7 +115,9 @@ export function CoreQueryForm({
   productContext,
   domainContext,
 }: CoreQueryFormProps = {}) {
+  const { t } = useTranslator();
   const [state, setState] = useState<State>({ status: "idle" });
+  const aliveRef = useRef(true);
   const [question, setQuestion] = useState("");
   const [listening, setListening] = useState(false);
   const [voiceMessage, setVoiceMessage] = useState("");
@@ -116,7 +137,9 @@ export function CoreQueryForm({
       ];
 
   useEffect(() => {
+    aliveRef.current = true;
     return () => {
+      aliveRef.current = false;
       const recognition = recognitionRef.current;
       if (recognition) {
         recognition.onresult = null;
@@ -223,10 +246,48 @@ export function CoreQueryForm({
         answer?: string;
         evidence?: Array<{ ref: string; sourceAuthority?: string }>;
         error?: string;
+        id?: string;
+        statusUrl?: string;
       };
 
       if (!response.ok) {
-        setState({ status: "error", answer: cognitiveErrorMessage(payload.error) });
+        const key = asyncErrorKey(payload.error);
+        setState({ status: "error", answer: key ? t(key) : cognitiveErrorMessage(payload.error) });
+        return;
+      }
+
+      // Modo da V2: 202 + id. A resposta chega pela fila; aqui só se acompanha o andamento.
+      if (response.status === 202 && typeof payload.id === "string") {
+        const startedAt = Date.now();
+        let phase: "queued" | "running" = "queued";
+        setState({ status: "loading", progress: { phase, seconds: 0 } });
+        while (aliveRef.current && Date.now() - startedAt < POLL_MAX_MS) {
+          const elapsed = Date.now() - startedAt;
+          await sleep(elapsed < 20_000 ? 1000 : 2000);
+          if (!aliveRef.current) return;
+          const poll = await fetch(`/api/core/query/${encodeURIComponent(payload.id)}`, { cache: "no-store" });
+          if (!poll.ok) {
+            setState({ status: "error", answer: cognitiveErrorMessage() });
+            return;
+          }
+          const st = await poll.json() as {
+            status?: string;
+            answer?: { answer?: string; evidence?: Array<{ ref: string; sourceAuthority?: string }> };
+            error?: string;
+          };
+          if (st.status === "succeeded" && typeof st.answer?.answer === "string" && st.answer.answer.trim()) {
+            setState({ status: "success", answer: st.answer.answer, evidence: st.answer.evidence });
+            return;
+          }
+          if (st.status === "failed") {
+            const key = asyncErrorKey(st.error);
+            setState({ status: "error", answer: key ? t(key) : cognitiveErrorMessage(st.error) });
+            return;
+          }
+          phase = st.status === "running" ? "running" : "queued";
+          setState({ status: "loading", progress: { phase, seconds: Math.round((Date.now() - startedAt) / 1000) } });
+        }
+        if (aliveRef.current) setState({ status: "error", answer: t("core.error.timeout") });
         return;
       }
 
@@ -319,6 +380,12 @@ export function CoreQueryForm({
           </button>
         </div>
         {voiceMessage ? <small className="core-voice-status" aria-live="polite">{voiceMessage}</small> : null}
+        {state.status === "loading" && state.progress ? (
+          <small className="core-voice-status core-progress" role="status" aria-live="polite">
+            {t(state.progress.phase === "running" ? "core.progress.running" : "core.progress.queued")}{" "}
+            {t("core.progress.elapsed", { seconds: state.progress.seconds })}
+          </small>
+        ) : null}
       </form>
 
       {state.answer && (

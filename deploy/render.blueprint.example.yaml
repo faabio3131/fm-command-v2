@@ -14,6 +14,7 @@ services:
         sync: false
       - key: FMCC_PROCESS_ROLE
         value: operation
+      # So necessario no modo sincrono (FMCC_CORE_QUERY_MODE=sync); no modo assincrono a operacao nao fala com a IA.
       - key: FMCC_AI_SERVICE_URL
         sync: false
       - key: RUN_MIGRATIONS_ON_STARTUP

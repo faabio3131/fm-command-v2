@@ -59,6 +59,13 @@ export const ptBR = {
   "shell.user.openSettings": "Abrir configurações",
   "shell.sidebar.aria": "Navegação principal do FM Command",
   "shell.sidebar.orgFallback": "Organização ativa",
+  "core.progress.queued": "Sua pergunta está na fila…",
+  "core.progress.running": "Analisando os dados da sua operação…",
+  "core.progress.elapsed": "{seconds} s",
+  "core.error.busy": "Há consultas demais em andamento. Aguarde uma terminar e tente de novo.",
+  "core.error.timeout": "A consulta demorou mais que o esperado. Tente novamente.",
+  "core.error.denied": "Você não tem permissão para consultar o Core.",
+  "core.error.invalid": "Pergunta inválida. Revise o texto e tente novamente.",
 
   "auth.signOut.button": "Sair",
   "auth.signOut.busy": "Saindo…",

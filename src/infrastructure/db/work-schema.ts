@@ -38,7 +38,7 @@ export const workItems = pgTable("fmcc_work_item", {
   index("fmcc_work_item_running_tenant_idx").on(t.tenantId).where(sql`${t.state} = 'running'`),
   foreignKey({ columns: [t.tenantId, t.unitId], foreignColumns: [orgUnits.tenantId, orgUnits.id], name: "fmcc_work_item_unit_fk" }),
   check("fmcc_work_item_state_ck", sql`${t.state} in ('queued','running','succeeded','dead','expired')`),
-  check("fmcc_work_item_type_ck", sql`${t.taskType} in ('analysis','synthesis','attendance','transcription','decision')`),
+  check("fmcc_work_item_type_ck", sql`${t.taskType} in ('analysis','synthesis','attendance','transcription','decision','core_query')`),
   check("fmcc_work_item_priority_ck", sql`${t.priority} between 0 and 100`),
   check("fmcc_work_item_attempts_ck", sql`${t.maxAttempts} >= 1 and ${t.attempt} >= 0 and ${t.attempt} <= ${t.maxAttempts}`),
   check("fmcc_work_item_lease_ck", sql`(${t.state} = 'running') = (${t.leaseToken} is not null and ${t.leaseUntil} is not null)`),

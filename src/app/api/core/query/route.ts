@@ -16,6 +16,8 @@ import { CognitiveModelContractError, CognitiveModelUnavailableError } from "@/d
 import { logEvent } from "@/infrastructure/observability/logger";
 import { aiServiceConfig, processRole } from "@/config/process-role";
 import { sharedAiBridge } from "@/infrastructure/core/ai-service-client";
+import { asyncCoreQueryService } from "@/application/core/core-runtime";
+import { CoreQueueBusyError } from "@/application/core/async-core-query";
 
 async function auditCoreQuery(context: TenantContext | null, result: "success" | "failure" | "denied", metadata: Record<string, unknown>) {
   if (!context) return;
@@ -24,8 +26,40 @@ async function auditCoreQuery(context: TenantContext | null, result: "success" |
   logEvent("info", "core_query_audit_recorded", { result, correlationId: context.correlationId, evidenceCount });
 }
 
+/** Padrão da V2: a pergunta entra na fila e a resposta é consultada depois. FMCC_CORE_QUERY_MODE=sync volta ao comportamento da V1. */
+function asyncMode(): boolean {
+  return process.env.FMCC_CORE_QUERY_MODE?.trim().toLowerCase() !== "sync";
+}
+
+async function submitAsync(request: Request) {
+  let context: TenantContext | null = null;
+  try {
+    context = await resolveTenantContext(await headers());
+    let body: { question?: unknown; productSlugs?: unknown };
+    try { body = await request.json() as typeof body; } catch { throw new CoreArgumentError(); }
+    if (typeof body !== "object" || body === null) throw new CoreArgumentError();
+    const sent = await asyncCoreQueryService().submit(context, {
+      question: body.question, productSlugs: body.productSlugs, idempotencyKey: request.headers.get("idempotency-key"),
+    });
+    return NextResponse.json(
+      { id: sent.id, status: "queued", statusUrl: `/api/core/query/${sent.id}` },
+      { status: 202, headers: { location: `/api/core/query/${sent.id}`, "retry-after": "1", "cache-control": "no-store" } },
+    );
+  } catch (error) {
+    if (error instanceof AuthenticationRequiredError) return NextResponse.json({ error: error.message }, { status: 401 });
+    if (error instanceof TenantScopeRequiredError || error instanceof PermissionDeniedError || error instanceof CrossTenantAccessError) {
+      await auditCoreQuery(context, "denied", { error: error.message, mode: "async" });
+      return NextResponse.json({ error: error.message }, { status: 403 });
+    }
+    if (error instanceof CoreArgumentError) return NextResponse.json({ error: error.message }, { status: 400 });
+    if (error instanceof CoreQueueBusyError) return NextResponse.json({ error: error.code }, { status: 429, headers: { "retry-after": "5" } });
+    throw error;
+  }
+}
+
 export async function POST(request: Request) {
-  // Processo de operação nunca chama o modelo (ADR-016): encaminha ao processo de IA ou recusa.
+  if (asyncMode()) return submitAsync(request);
+  // Modo síncrono (V1): processo de operação nunca chama o modelo (ADR-016): encaminha ao processo de IA ou recusa.
   if (processRole() === "operation") {
     const config = aiServiceConfig();
     if (!config) return NextResponse.json({ error: "core.ai_service_not_configured" }, { status: 503 });

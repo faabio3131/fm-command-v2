@@ -117,6 +117,13 @@ export class ProviderRouter {
     return rt;
   }
 
+  /** Ha alguma rota configurada (linha do cliente ou padrao) para este tipo de tarefa? Usado para escolher entre a politica do banco e o modelo unico da V1. */
+  async hasRoute(tenantId: string, taskType: TaskType): Promise<boolean> {
+    const cfg = await this.config();
+    const ids = new Set(cfg.providers.map((p) => p.id));
+    return cfg.rows.some((r) => r.taskType === taskType && ids.has(r.providerId) && (r.tenantId === null || r.tenantId === tenantId));
+  }
+
   async execute(input: ExecuteInput): Promise<ExecuteResult> {
     const cfg = await this.config();
     const byId = new Map(cfg.providers.map((p) => [p.id, p]));

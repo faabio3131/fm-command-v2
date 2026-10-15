@@ -1,5 +1,4 @@
-import type { TaskType } from "@/domain/core/task-envelope";
-import type { ClaimOptions, WorkItem, WorkQueue } from "@/domain/core/work-queue";
+import type { ClaimOptions, WorkItem, WorkQueue, WorkType } from "@/domain/core/work-queue";
 
 /** Erro que nao adianta repetir (dado invalido, permissao negada...): a tarefa vai direto para "dead". */
 export class PermanentTaskError extends Error {
@@ -7,7 +6,7 @@ export class PermanentTaskError extends Error {
 }
 
 export type TaskHandler = (item: WorkItem, signal: AbortSignal) => Promise<Record<string, unknown>>;
-export type HandlerRegistry = Partial<Record<TaskType, TaskHandler>>;
+export type HandlerRegistry = Partial<Record<WorkType, TaskHandler>>;
 
 export interface WorkerOptions extends ClaimOptions {
   readonly handlers: HandlerRegistry;

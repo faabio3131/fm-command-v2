@@ -1,0 +1,2 @@
+ALTER TABLE "fmcc_work_item" DROP CONSTRAINT "fmcc_work_item_type_ck";--> statement-breakpoint
+ALTER TABLE "fmcc_work_item" ADD CONSTRAINT "fmcc_work_item_type_ck" CHECK ("fmcc_work_item"."task_type" in ('analysis','synthesis','attendance','transcription','decision','core_query'));

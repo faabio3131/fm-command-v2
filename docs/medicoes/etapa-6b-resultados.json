@@ -1,0 +1,79 @@
+{
+  "geradoEm": "2026-10-15T23:04:10.014Z",
+  "ambiente": {
+    "node": "v22.22.0",
+    "cpus": 2
+  },
+  "hipoteses": "Provedores simulados (planejar ~400 ms, sintetizar ~800 ms); 2 CPUs compartilhadas por 2 servidores, gerador e banco.",
+  "P1_perguntaSimples": {
+    "envio": {
+      "status": 202,
+      "ms": 47
+    },
+    "andamento": {
+      "final": "succeeded",
+      "answerChars": 139,
+      "seen": [
+        "queued",
+        "running",
+        "succeeded"
+      ],
+      "totalMs": 965
+    },
+    "usoGravado": [
+      {
+        "provider_id": "proof-a",
+        "n": 1
+      }
+    ]
+  },
+  "P2_isolamentoELimites": {
+    "outraPessoaVe": 404,
+    "semLoginVe": 401,
+    "rajadaDe5Status": [
+      202,
+      202,
+      429,
+      429,
+      429
+    ]
+  },
+  "P3_principalForaDoAr": {
+    "andamento": {
+      "final": "succeeded",
+      "answerChars": 139,
+      "seen": [
+        "queued",
+        "running",
+        "succeeded"
+      ],
+      "totalMs": 948
+    },
+    "provedoresDeUso": [
+      "proof-b"
+    ]
+  },
+  "P4_iaDerrubada": {
+    "envioComIaMorta": {
+      "status": 202,
+      "ms": 17
+    },
+    "estadoComIaMorta": "queued",
+    "sondaOperacaoDurante": {
+      "total": 108,
+      "falhas": 0,
+      "p50": 5,
+      "p95": 9
+    },
+    "depoisQueIaVolta": {
+      "final": "succeeded",
+      "answerChars": 139,
+      "seen": [
+        "queued",
+        "running",
+        "succeeded"
+      ],
+      "totalMs": 644
+    }
+  }
+}
