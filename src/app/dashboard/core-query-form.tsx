@@ -115,7 +115,8 @@ export function CoreQueryForm({
   productContext,
   domainContext,
 }: CoreQueryFormProps = {}) {
-  const { t } = useTranslator();
+  const { t, locale } = useTranslator();
+  const [speaking, setSpeaking] = useState(false);
   const [state, setState] = useState<State>({ status: "idle" });
   const aliveRef = useRef(true);
   const runRef = useRef(0); // a cada envio/cancelamento muda; o acompanhamento antigo para sozinho
@@ -142,6 +143,7 @@ export function CoreQueryForm({
     aliveRef.current = true;
     return () => {
       aliveRef.current = false;
+      if ("speechSynthesis" in window) window.speechSynthesis.cancel(); // sair da tela cala a leitura
       const recognition = recognitionRef.current;
       if (recognition) {
         recognition.onresult = null;
@@ -166,7 +168,7 @@ export function CoreQueryForm({
     }
 
     const recognition = new Constructor();
-    recognition.lang = "pt-BR";
+    recognition.lang = locale;
     recognition.continuous = false;
     recognition.interimResults = true;
     voiceBaseRef.current = question.trim();
@@ -228,6 +230,7 @@ export function CoreQueryForm({
 
     setQuestion("");
     setVoiceMessage("");
+    stopSpeaking();
     const myRun = ++runRef.current;
     queryIdRef.current = null;
     setState({ status: "loading" });
@@ -309,8 +312,32 @@ export function CoreQueryForm({
     }
   }
 
+  function stopSpeaking() {
+    if (typeof window !== "undefined" && "speechSynthesis" in window) window.speechSynthesis.cancel();
+    setSpeaking(false);
+  }
+
+  /** Le a resposta em voz alta com as vozes do proprio navegador. O audio nao sai do aparelho e nada e gravado. */
+  function speakAnswer(text: string) {
+    if (typeof window === "undefined" || !("speechSynthesis" in window)) {
+      setVoiceMessage(t("core.voice.unavailable"));
+      return;
+    }
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = locale;
+    const language = locale.split("-")[0];
+    const voice = window.speechSynthesis.getVoices().find((v) => v.lang === locale) ?? window.speechSynthesis.getVoices().find((v) => v.lang.startsWith(language));
+    if (voice) utterance.voice = voice;
+    utterance.onend = () => setSpeaking(false);
+    utterance.onerror = () => setSpeaking(false);
+    setSpeaking(true);
+    window.speechSynthesis.speak(utterance);
+  }
+
   async function cancelQuery() {
     const id = queryIdRef.current;
+    stopSpeaking();
     runRef.current += 1; // para o acompanhamento na hora, sem esperar o servidor
     queryIdRef.current = null;
     setState({ status: "idle" });
@@ -414,6 +441,12 @@ export function CoreQueryForm({
         <div className={state.status === "error" ? "core-answer error" : "core-answer"} role="status" aria-live="polite">
           <strong>{state.status === "error" ? "Indisponível" : "Resposta"}</strong>
           <p>{state.answer}</p>
+          {state.status === "success" ? (
+            <button type="button" className="button core-listen-button" onClick={() => (speaking ? stopSpeaking() : speakAnswer(state.answer ?? ""))}
+              aria-pressed={speaking}>
+              <span aria-hidden="true">🔊</span> {speaking ? t("core.voice.stop") : t("core.voice.listen")}
+            </button>
+          ) : null}
           {state.evidence?.length ? (
             <small className="core-evidence">
               Proveniência: {state.evidence
