@@ -1,0 +1,43 @@
+{
+  "vazao5mil": {
+    "total": 5000,
+    "workers": 8,
+    "tenants": 20,
+    "done": 5000,
+    "enfileirarPorSegundo": 3743,
+    "pegarEConcluirPorSegundo": 540,
+    "pegarEConcluirMs": {
+      "p50": 14,
+      "p95": 23,
+      "p99": 31
+    },
+    "cpus": 2,
+    "node": "v22.22.0"
+  },
+  "vazao60mil": {
+    "total": 60000,
+    "workers": 8,
+    "tenants": 20,
+    "done": 60000,
+    "enfileirarPorSegundo": 5093,
+    "pegarEConcluirPorSegundo": 518,
+    "pegarEConcluirMs": {
+      "p50": 15,
+      "p95": 24,
+      "p99": 30
+    },
+    "cpus": 2,
+    "node": "v22.22.0"
+  },
+  "empresaGrande": {
+    "tarefasDaEmpresaGrande": 50000,
+    "empresasPequenas": 30,
+    "atendidasPequenas": 30,
+    "pegarMs": {
+      "p50": 4,
+      "p95": 6,
+      "max": 6
+    },
+    "cpus": 2
+  }
+}
