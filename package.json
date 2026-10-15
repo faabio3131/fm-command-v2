@@ -17,7 +17,8 @@
     "check": "npm run lint && npm run typecheck && npm run test && npm run build",
     "test:runtime-smoke": "node scripts/runtime-smoke.mjs",
     "security:secrets": "node scripts/secret-scan.mjs",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "load:ai": "tsx scripts/load/ai-path-load.ts"
   },
   "dependencies": {
     "@better-auth/drizzle-adapter": "1.7.5",
@@ -29,6 +30,7 @@
     "react-dom": "19.2.8"
   },
   "devDependencies": {
+    "@playwright/test": "^1.55.0",
     "@types/node": "^24.0.0",
     "@types/pg": "8.23.1",
     "@types/react": "^19.0.0",
@@ -36,8 +38,8 @@
     "drizzle-kit": "0.31.10",
     "eslint": "^9.0.0",
     "eslint-config-next": "16.3.8",
+    "tsx": "4.23.15",
     "typescript": "5.9.2",
-    "vitest": "5.0.1",
-    "@playwright/test": "^1.55.0"
+    "vitest": "5.0.1"
   }
 }
