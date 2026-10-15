@@ -34,6 +34,23 @@ Estes padrões valem para todo código novo da V2 e são verificados por testes 
 - Segurança das rotas: OWASP ASVS como lista de conferência.
 - Web desde o início: nenhuma versão local ou mobile a migrar depois; regras de negócio em TypeScript puro, executadas no servidor da aplicação web.
 
+## Implementação da etapa 3 (15/10/2026)
+
+- Catálogos em `src/i18n/messages/` (pt-BR é a fonte das chaves; en-US precisa ter as mesmas, conferido pelo compilador e por teste, inclusive os marcadores `{nome}` e as variantes de plural `.one`/`.other`).
+- Ordem de escolha do idioma: escolha salva da pessoa, padrão da empresa, navegador, padrão global en-US. Para visitante sem conta vale o cookie do seletor. Idioma não suportado é ignorado.
+- Perfil regional da empresa (`fmcc_org_profile`: idioma padrão, país, moeda, fuso, região dos dados) e idioma da pessoa (`fmcc_user_preference`), com validação no código e no banco. A região dos dados é hoje só um registro; a separação física não existe.
+- Menu, topo, saída e tela de entrada usam os catálogos, com seletor de idioma. Verificado na aplicação compilada: `lang` do HTML, texto em inglês e português, cookie, e a ordem pessoa > empresa > navegador com sessão real.
+- Uma catraca (`tests/i18n-hardcoded-ratchet.unit.test.ts`) impede que qualquer tela tenha mais texto fixo do que no registro e exige que tela nova nasça sem texto fixo.
+
+### O que ainda não existe
+
+- Cerca de 770 textos fixos em português nas demais telas herdadas. Migram junto com cada tela refeita.
+- Não há tela para a empresa editar o perfil regional nem API para isso; só o repositório.
+- O inglês é rascunho assistido por máquina. Precisa de revisão por pessoa nativa antes de chegar a cliente pagante.
+- E-mails, alertas e relatórios gerados ainda não usam os catálogos. A IA ainda não recebe o idioma da pessoa.
+- Os valores gerados pelo servidor (rótulos de métricas e de alertas em `src/presentation/pt-br.ts`) seguem só em português.
+- Raiz da aplicação lê cookie e cabeçalhos, então toda página é renderizada sob demanda (já era o caso de quase todas).
+
 ## Consequências
 
 Positivas: sem a limitação do mercado brasileiro. Negativas: custo de tradução, de suporte em inglês e de conformidade com leis de privacidade de cada lugar.

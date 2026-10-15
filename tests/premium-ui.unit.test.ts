@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { APPROVED_COMMAND_ARTWORK_SRC } from "../src/presentation/command-approved-artwork";
+import { ptBR } from "../src/i18n/messages/pt-BR";
 
 function source(path: string) {
   return readFileSync(resolve(process.cwd(), path), "utf8");
@@ -79,11 +80,14 @@ describe("F18 premium UX/UI", () => {
     expect(signIn).toContain('className="command-approved-artwork"');
     expect(signIn).toContain('alt="FM Command"');
     expect(signIn).toContain('className="command-auth-shell"');
-    expect(signIn).toContain("Comande sua operação com");
-    expect(signIn).toContain("inteligência governada.");
+    expect(signIn).toContain('t("auth.title.lead")');
+    expect(ptBR["auth.title.lead"]).toBe("Comande sua operação com");
+    expect(signIn).toContain('t("auth.title.emphasis")');
+    expect(ptBR["auth.title.emphasis"]).toContain("inteligência governada.");
     expect(signIn).toContain("authClient.signIn.email");
     expect(signIn).toContain("authClient.signUp.email");
-    expect(signIn).toContain("Criar uma conta");
+    expect(signIn).toContain('t("auth.switch.toSignUp")');
+    expect(ptBR["auth.switch.toSignUp"]).toBe("Criar uma conta");
     expect(signIn).not.toContain("Entrar com Microsoft");
     expect(signIn).not.toContain("Entrar com Google");
     expect(authCss).toContain(".command-auth-layout");
