@@ -2,7 +2,7 @@
 
 Versão comercial e multi-setor do FM Command, da FM Tecnologia.
 
-**Identificador técnico herdado:** FM Control Center / FMCC. O namespace técnico FMCC é preservado nesta fase, sem rename destrutivo.
+**Identificador técnico herdado:** FM Control Center / FMCC. O namespace técnico FMCC é preservado nesta fase, sem rename destrutivo. O domínio oficial da V1 é `fmcommand.com.br`; o nome e o domínio da V2 ainda serão definidos.
 
 ## Relação com a V1
 
