@@ -15,8 +15,12 @@ export class CoreQueueBusyError extends Error {
 export type CoreQueryStatus =
   | { status: "queued" | "running"; attempt: number }
   | { status: "succeeded"; answer: CoreAnswer }
+  | { status: "cancelled" }
   | { status: "failed"; error: string };
 
+export type CancelOutcome = "cancelled" | "already_finished" | "not_found";
+
+const CANCELLED_MARK = "core.query_cancelled";
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 /** So codigos conhecidos chegam a tela; o texto bruto do erro nunca sai do servidor. */
@@ -74,6 +78,28 @@ export class AsyncCoreQueryService {
     if (!row) return null;
     if (row.state === "queued" || row.state === "running") return { status: row.state, attempt: row.attempt };
     if (row.state === "succeeded" && row.result?.answer) return { status: "succeeded", answer: row.result.answer };
+    if (row.state === "dead" && row.last_error === CANCELLED_MARK) return { status: "cancelled" };
     return { status: "failed", error: publicCoreError(row.state, row.last_error) };
+  }
+
+  /**
+   * Cancela uma consulta sua que ainda esta na fila ou rodando. Se estiver rodando, o worker perde a posse
+   * (a renovacao falha), interrompe a chamada e descarta o resultado. Nao e sua / nao existe = "not_found".
+   */
+  async cancel(context: TenantContext, id: string): Promise<CancelOutcome> {
+    requirePermission(context, "metric:read");
+    if (!UUID.test(id)) return "not_found";
+    const r = await this.pool.query<{ state: string }>(
+      `WITH target AS (
+         SELECT id, state FROM fmcc_work_item
+         WHERE id=$1 AND tenant_id=$2 AND task_type='core_query' AND payload->>'userId' = $3 FOR UPDATE),
+       upd AS (
+         UPDATE fmcc_work_item w SET state='dead', lease_token=NULL, lease_until=NULL, worker_id=NULL,
+           last_error=$4, finished_at=now(), updated_at=now()
+         FROM target t WHERE w.id=t.id AND t.state IN ('queued','running') RETURNING w.id)
+       SELECT t.state FROM target t`, [id, context.tenantId, context.userId, CANCELLED_MARK]);
+    const row = r.rows[0];
+    if (!row) return "not_found";
+    return row.state === "queued" || row.state === "running" ? "cancelled" : "already_finished";
   }
 }

@@ -61,6 +61,8 @@ export const ptBR = {
   "shell.sidebar.orgFallback": "Organização ativa",
   "core.progress.queued": "Sua pergunta está na fila…",
   "core.progress.running": "Analisando os dados da sua operação…",
+  "core.cancel.button": "Cancelar",
+  "core.cancel.done": "Pergunta cancelada.",
   "core.progress.elapsed": "{seconds} s",
   "core.error.busy": "Há consultas demais em andamento. Aguarde uma terminar e tente de novo.",
   "core.error.timeout": "A consulta demorou mais que o esperado. Tente novamente.",

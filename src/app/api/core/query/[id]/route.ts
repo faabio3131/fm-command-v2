@@ -15,9 +15,27 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     if (!status) return NextResponse.json({ error: "core.query_not_found" }, { status: 404, headers: NO_STORE });
     return NextResponse.json({ id, ...status }, { headers: NO_STORE });
   } catch (error) {
-    if (error instanceof AuthenticationRequiredError) return NextResponse.json({ error: error.message }, { status: 401, headers: NO_STORE });
-    if (error instanceof TenantScopeRequiredError || error instanceof PermissionDeniedError || error instanceof CrossTenantAccessError)
-      return NextResponse.json({ error: error.message }, { status: 403, headers: NO_STORE });
-    throw error;
+    return failure(error);
   }
+}
+
+/** Cancela uma consulta sua ainda aberta. Outra pessoa/empresa/id inexistente = 404; ja terminada = 409. */
+export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    const context = await resolveTenantContext(await headers());
+    const { id } = await params;
+    const outcome = await asyncCoreQueryService().cancel(context, id);
+    if (outcome === "not_found") return NextResponse.json({ error: "core.query_not_found" }, { status: 404, headers: NO_STORE });
+    if (outcome === "already_finished") return NextResponse.json({ error: "core.query_already_finished" }, { status: 409, headers: NO_STORE });
+    return NextResponse.json({ id, status: "cancelled" }, { headers: NO_STORE });
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+function failure(error: unknown) {
+  if (error instanceof AuthenticationRequiredError) return NextResponse.json({ error: error.message }, { status: 401, headers: NO_STORE });
+  if (error instanceof TenantScopeRequiredError || error instanceof PermissionDeniedError || error instanceof CrossTenantAccessError)
+    return NextResponse.json({ error: error.message }, { status: 403, headers: NO_STORE });
+  throw error;
 }

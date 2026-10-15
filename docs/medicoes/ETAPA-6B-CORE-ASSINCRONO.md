@@ -34,3 +34,8 @@ Mais 8 testes de integração (validação, idempotência, limites, isolamento, 
 - O limite por pessoa/empresa é conferido antes de enfileirar, sem trava: envios simultâneos podem passar do limite por poucas unidades.
 - O papel do usuário é o do momento do envio; se mudar nos segundos seguintes, a consulta roda com o papel antigo.
 - A prova da etapa 4 (`two-process-proof.ts`) agora força o modo síncrono para continuar medindo o mesmo caminho.
+
+
+## Atualização — cancelamento (15/10)
+
+`DELETE /api/core/query/{id}` cancela uma consulta sua ainda na fila ou rodando (outra pessoa/empresa/id inexistente: 404; já terminada: 409). O item vai para `dead` com marca `core.query_cancelled` e perde a posse: o worker que estiver rodando falha na renovação, interrompe a chamada e o resultado tardio é descartado (testado: `lease_lost`). O cancelamento libera a vaga do limite por pessoa. A tela ganhou o botão "Cancelar" ao lado do andamento. Sem migração. Continua aberto: o limite por pessoa sem trava sob envios simultâneos.

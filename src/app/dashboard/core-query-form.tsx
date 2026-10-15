@@ -118,6 +118,8 @@ export function CoreQueryForm({
   const { t } = useTranslator();
   const [state, setState] = useState<State>({ status: "idle" });
   const aliveRef = useRef(true);
+  const runRef = useRef(0); // a cada envio/cancelamento muda; o acompanhamento antigo para sozinho
+  const queryIdRef = useRef<string | null>(null);
   const [question, setQuestion] = useState("");
   const [listening, setListening] = useState(false);
   const [voiceMessage, setVoiceMessage] = useState("");
@@ -226,6 +228,8 @@ export function CoreQueryForm({
 
     setQuestion("");
     setVoiceMessage("");
+    const myRun = ++runRef.current;
+    queryIdRef.current = null;
     setState({ status: "loading" });
 
     try {
@@ -258,13 +262,14 @@ export function CoreQueryForm({
 
       // Modo da V2: 202 + id. A resposta chega pela fila; aqui só se acompanha o andamento.
       if (response.status === 202 && typeof payload.id === "string") {
+        queryIdRef.current = payload.id;
         const startedAt = Date.now();
         let phase: "queued" | "running" = "queued";
         setState({ status: "loading", progress: { phase, seconds: 0 } });
-        while (aliveRef.current && Date.now() - startedAt < POLL_MAX_MS) {
+        while (aliveRef.current && runRef.current === myRun && Date.now() - startedAt < POLL_MAX_MS) {
           const elapsed = Date.now() - startedAt;
           await sleep(elapsed < 20_000 ? 1000 : 2000);
-          if (!aliveRef.current) return;
+          if (!aliveRef.current || runRef.current !== myRun) return;
           const poll = await fetch(`/api/core/query/${encodeURIComponent(payload.id)}`, { cache: "no-store" });
           if (!poll.ok) {
             setState({ status: "error", answer: cognitiveErrorMessage() });
@@ -275,6 +280,8 @@ export function CoreQueryForm({
             answer?: { answer?: string; evidence?: Array<{ ref: string; sourceAuthority?: string }> };
             error?: string;
           };
+          if (runRef.current !== myRun) return;
+          if (st.status === "cancelled") return;
           if (st.status === "succeeded" && typeof st.answer?.answer === "string" && st.answer.answer.trim()) {
             setState({ status: "success", answer: st.answer.answer, evidence: st.answer.evidence });
             return;
@@ -287,7 +294,7 @@ export function CoreQueryForm({
           phase = st.status === "running" ? "running" : "queued";
           setState({ status: "loading", progress: { phase, seconds: Math.round((Date.now() - startedAt) / 1000) } });
         }
-        if (aliveRef.current) setState({ status: "error", answer: t("core.error.timeout") });
+        if (aliveRef.current && runRef.current === myRun) setState({ status: "error", answer: t("core.error.timeout") });
         return;
       }
 
@@ -299,6 +306,20 @@ export function CoreQueryForm({
       setState({ status: "success", answer: payload.answer, evidence: payload.evidence });
     } catch {
       setState({ status: "error", answer: cognitiveErrorMessage() });
+    }
+  }
+
+  async function cancelQuery() {
+    const id = queryIdRef.current;
+    runRef.current += 1; // para o acompanhamento na hora, sem esperar o servidor
+    queryIdRef.current = null;
+    setState({ status: "idle" });
+    setVoiceMessage(t("core.cancel.done"));
+    if (!id) return;
+    try {
+      await fetch(`/api/core/query/${encodeURIComponent(id)}`, { method: "DELETE" });
+    } catch {
+      /* se a rede falhar, a consulta termina sozinha; a tela ja foi liberada */
     }
   }
 
@@ -383,7 +404,8 @@ export function CoreQueryForm({
         {state.status === "loading" && state.progress ? (
           <small className="core-voice-status core-progress" role="status" aria-live="polite">
             {t(state.progress.phase === "running" ? "core.progress.running" : "core.progress.queued")}{" "}
-            {t("core.progress.elapsed", { seconds: state.progress.seconds })}
+            {t("core.progress.elapsed", { seconds: state.progress.seconds })}{" "}
+            <button type="button" className="button core-cancel-button" onClick={cancelQuery}>{t("core.cancel.button")}</button>
           </small>
         ) : null}
       </form>

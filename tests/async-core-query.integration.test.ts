@@ -116,4 +116,38 @@ describe("consulta assincrona ao Core (ADR-016)", () => {
     await queue.sweepExpired();
     expect(await service.status(c, id)).toEqual({ status: "failed", error: "core.query_timeout" });
   });
+
+  it("cancela so a propria consulta aberta; libera o limite; resposta tardia do worker e descartada", async () => {
+    const c = ctx("e", "1");
+    const q = await service.submit(c, { question: "cancelar na fila" });
+    expect(await service.cancel(ctx("e", "2"), q.id)).toBe("not_found"); // outra pessoa
+    expect(await service.cancel(ctx("f", "1"), q.id)).toBe("not_found"); // outra empresa
+    expect(await service.cancel(c, "nao-e-uuid")).toBe("not_found");
+    expect(await service.cancel(c, q.id)).toBe("cancelled");
+    expect(await service.status(c, q.id)).toEqual({ status: "cancelled" });
+    expect(await service.cancel(c, q.id)).toBe("already_finished");
+    expect(await runOnce(async () => answer)).toBe("idle"); // nada para o worker pegar
+
+    for (let i = 0; i < CORE_QUERY_LIMITS.perUser; i++) await service.submit(c, { question: `q${i}` });
+    const open = await pool.query<{ id: string }>("SELECT id FROM fmcc_work_item WHERE tenant_id=$1 AND state='queued' LIMIT 1", [c.tenantId]);
+    expect(await service.cancel(c, open.rows[0]!.id)).toBe("cancelled");
+    await service.submit(c, { question: "cabe de novo" }); // o cancelamento liberou uma vaga
+
+    // cancelada durante a execucao: o resultado que chegar depois nao reescreve o estado
+    await clean(); // so a consulta deste trecho pode ser pega pelo worker
+    const c2 = ctx("g", "1");
+    const run = await service.submit(c2, { question: "cancelar rodando" });
+    let release!: () => void;
+    const gate = new Promise<void>((r) => { release = r; });
+    const worker = runOnce(async () => { await gate; return answer; });
+    for (let i = 0; i < 100; i++) {
+      const s = await pool.query("SELECT state FROM fmcc_work_item WHERE id=$1", [run.id]);
+      if (s.rows[0].state === "running") break;
+      await new Promise((r) => setTimeout(r, 20));
+    }
+    expect(await service.cancel(c2, run.id)).toBe("cancelled");
+    release();
+    expect(await worker).toBe("lease_lost");
+    expect(await service.status(c2, run.id)).toEqual({ status: "cancelled" });
+  });
 });

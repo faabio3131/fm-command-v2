@@ -62,6 +62,8 @@ export const enUS: Record<MessageKey, string> = {
   "shell.sidebar.orgFallback": "Active organization",
   "core.progress.queued": "Your question is in the queue…",
   "core.progress.running": "Analyzing your operation's data…",
+  "core.cancel.button": "Cancel",
+  "core.cancel.done": "Question cancelled.",
   "core.progress.elapsed": "{seconds} s",
   "core.error.busy": "Too many queries are running. Wait for one to finish and try again.",
   "core.error.timeout": "The query took longer than expected. Please try again.",
