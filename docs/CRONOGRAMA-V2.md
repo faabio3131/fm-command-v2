@@ -32,6 +32,15 @@
 
 Soma dos pesos: 100%. Hoje, com a etapa 0 em revisão: 8% entregue em PR, 0% em produção.
 
+## Base reaproveitada: Core Base
+
+O Core Base (`FM-Core-Base-`, cópia isolada do fm-ai-platform no ponto 5a17b0c8) é a base pronta das etapas 5, 6 e 7. Como a V2 segue o ADR-013 (o produto tem o seu core, só a fundação é compartilhada), o aproveitamento é por porte, não por cópia do projeto:
+
+- Das regras do roteador (prioridade, reserva só em falha transitória, recusa de dois provedores no mesmo nível), da política de repetição e da caixa de entrada de eventos com fila de falhas, cada comportamento vira um teste na V2 antes de ser portado para TypeScript. O Core Base serve de gabarito: os mesmos casos de teste valem para as duas implementações.
+- A tabela de preços e o controle de custo da IA (FinOps) vêm junto, ligados ao evento de uso e custo que já existe nos contratos.
+- Fica de fora o que é do serviço Python (FastAPI, RBAC próprio), porque a V2 já tem autenticação e permissão.
+- Se o Diretor Executivo preferir rodar o Core Base como serviço separado chamado por API, isso reverte o ADR-013 e o ADR-015 e acopla versão, disponibilidade e custo entre produtos. É decisão dele, não do agente.
+
 ## Decisões que só o Diretor Executivo pode tomar
 
 - Aprovar as sete regras do core como regra constitucional e os ADR-015 a 020 (hoje PROPOSED).
