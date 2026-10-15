@@ -15,14 +15,14 @@
 |---|---|---|---|---|---|
 | 0 | Fundação | Repositório da V2, cópia isolada da V1, arquitetura, ADR-015 a 020, contratos do core e roteamento | PRs #1, #2 e #3, testes verdes | 8% | Em revisão |
 | 1 | Medir | Teste de carga no caminho da IA com provedor simulado | Relatório com limite real de requisições e tempo de resposta | 4% | Entregue em PR (parcial): `docs/medicoes/ETAPA-1-CARGA-IA.md`. Falta rota com banco e provedor real 🛑 |
-| 2 | Hierarquia de unidades | Matriz, regiões e filiais; unidade de origem em cada métrica; permissão por unidade (ADR-019) | Testes de isolamento entre unidades e entre empresas | 8% | Pendente |
+| 2 | Hierarquia de unidades | Matriz, regiões e filiais; unidade de origem em cada métrica; permissão por unidade (ADR-019) | Testes de isolamento entre unidades e entre empresas | 8% | Entregue em PR: regras, tabelas, repositório e 43 testes (17 no PostgreSQL). Sem API, tela nem rotas de V1 ligadas ao escopo (ver ADR-019) |
 | 3 | Idiomas e perfil | Arquivos de tradução pt-BR e en-US, perfil da empresa (idioma, país, moeda, fuso), seletor de idioma por usuário | Teste que falha se houver texto fixo na interface; formatação por `Intl` | 7% | Pendente |
 | 4 | IA fora da operação | Rotas com IA em processo próprio (ADR-016) | Painel e alertas sem lentidão com a IA sob carga simulada | 6% | Pendente |
 | 5 | Fila de trabalho | Fila no banco com worker, prioridade, limite por cliente e repetição (ADR-018) | Nenhuma tarefa perdida sob falha provocada | 8% | Pendente |
 | 6 | Provedores de IA | Adaptadores, política salva no banco por tarefa e por cliente, limite e disjuntor (ADR-017) | Falha de um provedor não derruba a tarefa; testes com provedor simulado | 8% | Pendente; chave real 🛑 |
 | 7 | Decisões rápidas | Tipo de tarefa "decisão" com avaliação em dados sintéticos | Concordância, custo e tempo contra o planejador atual | 3% | Pendente; escolha do modelo 🛑 |
 | 8 | Cobrança configurável | Interface única de meio de cobrança, Asaas como um provedor, assinatura e planos em moeda por país | Troca de provedor por configuração, sem mudar código | 6% | Pendente; conta e preços 🛑 |
-| 9 | Ver (Fase 2) | Gráficos em cada tela, painéis do cliente, consolidação e ranking entre filiais, filtro por região | Números do gráfico iguais aos do motor de métricas; "Indisponível" nunca vira zero | 14% | Pendente |
+| 9 | Ver (Fase 2) | Gráficos em cada tela, painéis do cliente, consolidação e ranking entre filiais, filtro por região | Números do gráfico iguais aos do motor de métricas; "Indisponível" nunca vira zero. Pré-requisito: todas as rotas e páginas que criam `MetricService` passam a usar o escopo de unidades antes de existir qualquer API ou tela que crie unidades | 14% | Pendente |
 | 10 | Ao vivo (Fase 3) | Números e alertas atualizando sem recarregar a página | Atualização dentro do tempo-alvo em teste | 8% | Pendente |
 | 11 | Orquestrador e agentes | Piloto em uma funcionalidade, com orçamento por agente e confirmação humana | Tarefas dentro do orçamento; nenhuma ação sem confirmação | 6% | Pendente; funcionalidade do piloto 🛑 |
 | 12 | Agir (Fase 4) | Alertas por e-mail e WhatsApp, relatórios agendados, exportação | Envio em ambiente de teste; recibo de cada envio | 7% | Pendente; provedor de e-mail e WhatsApp 🛑 |
@@ -30,7 +30,7 @@
 | 14 | Pré-lançamento | Revisão de segurança, testes de ponta a ponta, documentação, homologação | Todos os testes verdes; checklist de lançamento fechado | 2% | Pendente |
 | — | Lançamento 🛑 | Mesclar em `main`, publicar, domínio, primeiro país, primeiros clientes | Aprovação expressa do Diretor Executivo | — | Sempre decisão sua |
 
-Soma dos pesos: 100%. Hoje: etapa 0 em revisão e etapa 1 entregue em PR (parcial), 12% em PR, 0% em produção.
+Soma dos pesos: 100%. Hoje: etapas 0, 1 (parcial) e 2 entregues em PR, 20% em PR, 0% em produção.
 
 ## Base reaproveitada: Core Base
 

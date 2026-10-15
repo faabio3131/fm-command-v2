@@ -14,6 +14,7 @@ function normalizeQuality(value: string): MetricQualityStatus {
 function mapMetric(row: typeof metricValues.$inferSelect): MetricView {
   return {
     productId: row.productId ?? undefined,
+    unitId: row.unitId ?? undefined,
     metricId: row.metricId, metricVersion: row.metricVersion, value: row.value, unit: row.unit,
     currency: row.currency ?? undefined, periodStart: row.periodStart ?? undefined, periodEnd: row.periodEnd ?? undefined,
     asOf: row.asOf ?? undefined, computedAt: row.computedAt, sourceTimestamp: row.sourceTimestamp ?? undefined,
@@ -23,11 +24,13 @@ function mapMetric(row: typeof metricValues.$inferSelect): MetricView {
 }
 
 export class PostgresMetricStore implements MetricStore {
-  async factsForMetric(input: { tenantId: string; productId?: string; factType: string; periodStart?: Date; periodEnd?: Date }) {
+  async factsForMetric(input: { tenantId: string; productId?: string; unitId?: string; factType: string; periodStart?: Date; periodEnd?: Date }) {
     const clauses = [
       eq(canonicalFacts.tenantId, input.tenantId),
       eq(canonicalFacts.factType, input.factType),
       input.productId ? eq(canonicalFacts.productId, input.productId) : isNull(canonicalFacts.productId),
+      // Sem unidade pedida, só dado da empresa; com unidade, só dessa unidade (consolidação é da Fase 2).
+      input.unitId ? eq(canonicalFacts.unitId, input.unitId) : isNull(canonicalFacts.unitId),
     ];
     if (input.periodStart) clauses.push(gte(canonicalFacts.sourceTimestamp, input.periodStart));
     if (input.periodEnd) clauses.push(lte(canonicalFacts.sourceTimestamp, input.periodEnd));
@@ -39,29 +42,31 @@ export class PostgresMetricStore implements MetricStore {
   }
 
   async saveValue(input: {
-    tenantId: string; productId?: string; metricId: string; metricVersion: number; value: string | null; unit: string; currency?: string;
+    tenantId: string; productId?: string; unitId?: string; metricId: string; metricVersion: number; value: string | null; unit: string; currency?: string;
     periodStart?: Date; periodEnd?: Date; asOf?: Date; computedAt: Date; sourceTimestamp?: Date; freshnessStatus: MetricFreshnessStatus;
     qualityStatus: MetricQualityStatus; sourceAuthority: string; provenanceRefs: readonly string[];
   }) {
     await db.insert(metricValues).values({
-      tenantId: input.tenantId, productId: input.productId, metricId: input.metricId, metricVersion: input.metricVersion, value: input.value,
+      tenantId: input.tenantId, productId: input.productId, unitId: input.unitId, metricId: input.metricId, metricVersion: input.metricVersion, value: input.value,
       unit: input.unit, currency: input.currency, periodStart: input.periodStart, periodEnd: input.periodEnd, asOf: input.asOf,
       computedAt: input.computedAt, sourceTimestamp: input.sourceTimestamp, freshnessStatus: input.freshnessStatus,
       qualityStatus: input.qualityStatus, sourceAuthority: input.sourceAuthority, provenanceRefs: [...input.provenanceRefs],
     });
   }
 
-  async latestValue(tenantId: string, metricId: string, productId?: string): Promise<MetricView | null> {
+  async latestValue(tenantId: string, metricId: string, productId?: string, unitId?: string): Promise<MetricView | null> {
     const productClause = productId ? eq(metricValues.productId, productId) : isNull(metricValues.productId);
+    const unitClause = unitId ? eq(metricValues.unitId, unitId) : isNull(metricValues.unitId);
     const rows = await db.select().from(metricValues).where(and(
-      eq(metricValues.tenantId, tenantId), eq(metricValues.metricId, metricId), productClause,
+      eq(metricValues.tenantId, tenantId), eq(metricValues.metricId, metricId), productClause, unitClause,
     )).orderBy(desc(metricValues.computedAt)).limit(1);
     return rows[0] ? mapMetric(rows[0]) : null;
   }
 
-  async recentValues(tenantId: string, metricId: string, productId: string, limit: number): Promise<readonly MetricView[]> {
+  async recentValues(tenantId: string, metricId: string, productId: string, limit: number, unitId?: string): Promise<readonly MetricView[]> {
+    const unitClause = unitId ? eq(metricValues.unitId, unitId) : isNull(metricValues.unitId);
     const rows = await db.select().from(metricValues).where(and(
-      eq(metricValues.tenantId, tenantId), eq(metricValues.metricId, metricId), eq(metricValues.productId, productId),
+      eq(metricValues.tenantId, tenantId), eq(metricValues.metricId, metricId), eq(metricValues.productId, productId), unitClause,
     )).orderBy(desc(metricValues.computedAt)).limit(limit);
     return rows.map(mapMetric);
   }
