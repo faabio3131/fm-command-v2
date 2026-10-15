@@ -51,6 +51,13 @@ O Core Base (`FM-Core-Base-`, cópia isolada do fm-ai-platform no ponto 5a17b0c8
 - Padrões do mercado global (Command V2 primeiro, Estados Unidos primeiro, autoatendimento com cartão) e o lançamento em cada país.
 - Advogado e contador para a venda no exterior.
 
+## Decisões já tomadas (15/10/2026)
+
+- **Revisores independentes:** autorizados nas etapas de isolamento, dinheiro e segurança (regra 6 do AGENTS.md vale).
+- **Ordem dos PRs:** do #1 ao #8, um por vez, cada um só depois da revisão e do "pode mesclar" do Diretor. Nada é mesclado sem esse aviso.
+- **Inglês (en-US):** a revisão fica com a IA (Claude), por decisão do Diretor. Continua sendo revisão de IA, não de pessoa nativa; quem vende em inglês assume esse risco, e a revisão por nativo segue recomendada antes de cobrar clientes nos Estados Unidos.
+- **Provedor de IA real:** seguimos com provedor simulado; chave e teto de gasto são definidos antes da etapa 6.
+
 ## Riscos do próprio cronograma
 
 - A cadeia de PRs empilhados cresce a cada etapa. Quanto mais tarde a primeira revisão, maior a revisão. Sugestão: mesclar em `main` na ordem a cada poucas etapas.
