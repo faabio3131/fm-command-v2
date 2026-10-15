@@ -1,0 +1,44 @@
+import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+
+describe("F17 alerts UI", () => {
+  it("expõe empty state, idempotência e preview sem ação crítica direta", () => {
+    const page = readFileSync(resolve(process.cwd(), "src/app/dashboard/alerts/page.tsx"), "utf8");
+    const control = readFileSync(resolve(process.cwd(), "src/app/dashboard/alerts/alert-control-panel.tsx"), "utf8");
+    const archivePage = readFileSync(resolve(process.cwd(), "src/app/dashboard/alerts/rules/[ruleId]/page.tsx"), "utf8");
+    const archiveActions = readFileSync(resolve(process.cwd(), "src/app/dashboard/alerts/rules/[ruleId]/archived-rule-actions.tsx"), "utf8");
+    expect(page).toContain("Valor desconhecido nunca vira zero");
+    expect(page).toContain("limite configurado");
+    expect(page).toContain("reconhecimento e intenção ficam rastreáveis");
+    expect(page).toContain("Identificador único + bloqueio");
+    expect(page).toContain("Prévia somente");
+    expect(control).toContain("Nenhuma regra operacional");
+    expect(control).toContain("Preparar investigação");
+    expect(control).toContain("Desativar");
+    expect(control).toContain("Arquivar");
+    expect(control).toContain("Histórico arquivado");
+    expect(control).toContain("Abrir arquivo");
+    expect(control).toContain("/dashboard/alerts/rules/");
+    expect(archivePage).toContain("Arquivo governado de regra");
+    expect(archivePage).toContain("Comparação atual");
+    expect(archivePage).toContain("Linha do tempo");
+    expect(archivePage).toContain("Ocorrências vinculadas");
+    expect(archiveActions).toContain("Criar nova regra baseada nesta");
+    expect(control).toContain("Já existe uma regra ativa equivalente.");
+    expect(control).toContain("Avaliação concluída: métrica indisponível; nenhum alerta criado.");
+    expect(control).toContain("limite não atingido; nenhum alerta criado.");
+    expect(control).toContain("rotuloMetrica(rule.metricId)");
+    expect(control).toContain("rotuloOperadorAlerta(rule.operator)");
+    expect(control).toContain("rotuloSeveridadeAlerta(rule.severity)");
+    expect(control).toContain("Identificador técnico:");
+    expect(control).not.toContain("<label>Threshold");
+    expect(page).not.toContain("Unknown nunca vira zero");
+    expect(page).not.toContain("Fingerprint + lock");
+    expect(page).not.toContain("Preview somente");
+    expect(page).not.toContain("threshold configurado");
+    expect(page).not.toContain("acknowledgement");
+    expect(page).not.toContain("intent ficam rastreáveis");
+    expect(control).not.toContain("/execute");
+  });
+});

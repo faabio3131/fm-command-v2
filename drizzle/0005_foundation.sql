@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "fmcc_billing_provider_invoice_uq" ON "fmcc_billing_provider_payment" USING btree ("tenant_id","invoice_id");
