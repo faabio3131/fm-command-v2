@@ -24,5 +24,6 @@ Status atualizado em 24/09/2026:
 | ADR-018 | Fila de trabalho do core (revisa ADR-011) | PROPOSED |
 | ADR-019 | Estrutura de matriz, filiais e regiões | PROPOSED |
 | ADR-020 | Mercado global: idiomas, moeda, fuso e região | PROPOSED |
+| ADR-021 | Assinatura do FM Command e meio de cobrança configurável | PROPOSED |
 
 ADRs substituídos não devem ser apagados; devem ser marcados SUPERSEDED.
