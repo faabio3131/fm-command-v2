@@ -60,44 +60,5 @@ describe("F07 Source Registry", () => {
       name: "Billing", sourceType: "billing-fixture", authoritativeDomain: "billing", syncMode: "pull",
     })).rejects.toThrow("security.permission_denied:source:write");
   });
-  it("rejeita troca de credencial, tipo e produto entre IRON e Kordena", async () => {
-    const products = {
-      async findById(tenantId: string, productId: string) {
-        if (tenantId !== "t1") return null;
-        const slug = productId === "iron-id" ? "iron" : productId === "kordena-id" ? "kordena" : null;
-        return slug ? { id: productId, tenantId, slug, name: slug, status: "active" as const } : null;
-      },
-      async findBySlug() { return null; },
-      async list() { return []; },
-      async create() { throw new Error("unused"); },
-    };
-    let creates = 0;
-    const repository = { ...repo(), async create(tenantId: string, input: Parameters<SourceRepository["create"]>[1]) {
-      creates += 1;
-      return repo().create(tenantId, input);
-    } };
-    const service = new SourceRegistryService(repository, products);
-    const valid = {
-      productId: "iron-id",
-      name: "IRON FIT CORE Commercial",
-      sourceType: "iron-commercial-v1",
-      authoritativeDomain: "commercial",
-      syncMode: "pull" as const,
-      mappingVersion: "iron-commercial-v1",
-      secretRef: "env:FMCC_IRON_CONTROL_PLANE_TOKEN",
-    };
-    await expect(service.register(owner, valid)).resolves.toMatchObject({ productId: "iron-id" });
-    for (const invalid of [
-      { ...valid, productId: "kordena-id" },
-      { ...valid, secretRef: "env:FMCC_KORDENA_CONTROL_PLANE_TOKEN" },
-      { ...valid, sourceType: "kordena-commercial-v1" },
-      { ...valid, authoritativeDomain: "student-finance" },
-      { ...valid, mappingVersion: "kordena-commercial-v1" },
-      { ...valid, productId: undefined },
-    ]) {
-      await expect(service.register(owner, invalid)).rejects.toThrow("integration.product_source_binding_invalid");
-    }
-    expect(creates).toBe(1);
-  });
 
 });

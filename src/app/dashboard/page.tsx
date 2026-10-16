@@ -3,7 +3,6 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { buildActivityFeedService } from "@/application/activity/activity-feed-composition";
 import { buildAlertService } from "@/application/alerts/alert-composition";
-import { loadTenantIntegrationFeatures } from "@/application/integration/tenant-integration-features";
 import { createMetricService } from "@/application/metrics/metric-composition";
 import { OperationalHealthService } from "@/application/operations/operational-health-service";
 import { ProductRegistryService } from "@/application/products/product-registry-service";
@@ -56,7 +55,7 @@ export default async function DashboardPage() {
   const metricService = createMetricService();
   const productsRepository = new PostgresProductRepository();
   const canReadActivity = roleHasPermission(context.role, "audit:read");
-  const [metrics, products, alertOverview, operationalHealth, activityFeed, identity, integrationFeatures] = await Promise.all([
+  const [metrics, products, alertOverview, operationalHealth, activityFeed, identity] = await Promise.all([
     metricService.overview(context).catch((error) => {
       // Quem só enxerga unidades específicas não tem métrica do nível da empresa: o painel abre sem elas (ADR-019).
       if (error instanceof PermissionDeniedError) return [];
@@ -72,9 +71,6 @@ export default async function DashboardPage() {
       ? buildActivityFeedService().page(context, { page: 1, pageSize: 6 })
       : Promise.resolve(null),
     loadDashboardIdentity(context).catch(() => null),
-    loadTenantIntegrationFeatures(context).catch(() => ({
-      kordenaCommercial: false,
-    })),
   ]);
   const governedAvailable = metrics.filter(({ value }) => value?.value !== null && value).length;
   const activeProducts = products.filter((product) => product.status === "active").length;
@@ -236,9 +232,6 @@ export default async function DashboardPage() {
         <Link href="/dashboard/customers"><strong>Clientes / Uso / Suporte</strong><span>F15 · agregados governados</span></Link>
         <Link href="/dashboard/intelligence"><strong>Inteligência Executiva</strong><span>F16 · análise avançada governada</span></Link>
         <Link href="/dashboard/alerts"><strong>Alertas e Automações</strong><span>F17 · regras e workflows governados</span></Link>
-        {integrationFeatures.kordenaCommercial ? (
-          <Link href="/dashboard/commercial/kordena"><strong>Kordena Comercial</strong><span>Integração comercial governada</span></Link>
-        ) : null}
         {roleHasPermission(context.role, "source:read") ? <Link href="/dashboard/sources"><strong>Fontes e Integrações</strong><span>Malha de Integrações · conexões governadas</span></Link> : null}
       </section>
 

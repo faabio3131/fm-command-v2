@@ -49,17 +49,12 @@ describe("CME-09 source/provider governance", () => {
     expect(createRoute).not.toContain("secretRef: source.secretRef");
   });
 
-  it("classifica 429 e 5xx do Kordena como retryable", () => {
-    const connector = source(
-      "src/infrastructure/integration/kordena-commercial-connector.ts",
-    );
+  it("o runtime classifica erro transitório do conector como retryable", () => {
     const runtime = source(
       "src/application/integration/connector-runtime.ts",
     );
 
-    expect(connector).toContain("response.status === 429");
-    expect(connector).toContain("response.status >= 500");
-    expect(connector).toContain("RetryableConnectorError");
+    expect(runtime).toContain("RetryableConnectorError");
     expect(runtime).toContain("error instanceof RetryableConnectorError");
   });
 

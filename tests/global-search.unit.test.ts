@@ -14,17 +14,16 @@ function buildService(options?: {
   sourceCounter?: { value: number };
   activityCounter?: { value: number };
   rateLimitCounter?: { value: number };
-  kordenaCommercial?: boolean;
 }) {
   return new GlobalSearchService(
     {
       async list() {
         return [
           {
-            id: "product-kordena",
+            id: "product-exemplo",
             tenantId: "tenant-a",
-            slug: "kordena",
-            name: "Kordena",
+            slug: "produtos-exemplo",
+            name: "Produtos Exemplo",
             status: "active" as const,
           },
           {
@@ -42,11 +41,11 @@ function buildService(options?: {
         if (options?.sourceCounter) options.sourceCounter.value += 1;
         return [
           {
-            id: "source-kordena",
+            id: "source-exemplo",
             tenantId: "tenant-a",
-            productId: "product-kordena",
-            name: "Kordena Commercial",
-            sourceType: "kordena-commercial",
+            productId: "product-exemplo",
+            name: "Fonte de Produtos",
+            sourceType: "exemplo-commercial",
             authoritativeDomain: "commercial",
             status: "healthy" as const,
             syncMode: "pull" as const,
@@ -160,15 +159,12 @@ function buildService(options?: {
       },
     },
     async () => ({ kind: "all" as const }),
-    async () => ({
-      kordenaCommercial: options?.kordenaCommercial ?? true,
-    }),
   );
 }
 
 describe("R9 Global Search", () => {
   it("compõe navegação, produto e fonte no tenant sem expor secrets/config", async () => {
-    const result = await buildService().search(owner, "kordena", 20);
+    const result = await buildService().search(owner, "produtos", 20);
 
     expect(result.items.map((item) => item.kind)).toEqual(
       expect.arrayContaining(["navigation", "product", "source"]),
@@ -182,30 +178,12 @@ describe("R9 Global Search", () => {
     expect(serialized).not.toContain("private.example.test");
   });
 
-  it("não inventa módulo Kordena quando a feature não está configurada no tenant", async () => {
-    const result = await buildService({ kordenaCommercial: false }).search(
-      owner,
-      "kordena",
-      20,
-    );
-
-    expect(
-      result.items.some(
-        (item) =>
-          item.kind === "navigation" &&
-          item.href === "/dashboard/commercial/kordena",
-      ),
-    ).toBe(false);
-    expect(result.items.some((item) => item.kind === "product")).toBe(true);
-    expect(result.items.some((item) => item.kind === "source")).toBe(true);
-  });
-
   it("não consulta Source Registry nem atividades sem as permissões correspondentes", async () => {
     const sourceCounter = { value: 0 };
     const activityCounter = { value: 0 };
     const result = await buildService({ sourceCounter, activityCounter }).search(
       { ...owner, role: "viewer" },
-      "kordena",
+      "produtos",
     );
 
     expect(sourceCounter.value).toBe(0);
