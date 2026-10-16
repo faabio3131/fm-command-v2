@@ -23,40 +23,65 @@ export interface JsonHttpTransport {
     body: unknown,
     options: { timeoutMs: number },
   ): Promise<JsonHttpResponse>;
+  /** application/x-www-form-urlencoded (pedido de token OAuth). */
+  postForm(
+    url: string,
+    form: Readonly<Record<string, string>>,
+    options: { timeoutMs: number; headers?: Readonly<Record<string, string>> },
+  ): Promise<JsonHttpResponse>;
 }
 
 const MAX_RESPONSE_CHARS = 5_000_000;
 
-export class FetchJsonTransport implements JsonHttpTransport {
-  async post(
-    url: string,
-    body: unknown,
-    options: { timeoutMs: number },
-  ): Promise<JsonHttpResponse> {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), options.timeoutMs);
+async function send(
+  url: string,
+  init: { headers: Record<string, string>; body: string },
+  timeoutMs: number,
+): Promise<JsonHttpResponse> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { accept: "application/json", ...init.headers },
+      body: init.body,
+      redirect: "error",
+      signal: controller.signal,
+    });
+    const text = await response.text();
+    if (text.length > MAX_RESPONSE_CHARS) throw new TransportError();
+    let parsed: unknown;
     try {
-      const response = await fetch(url, {
-        method: "POST",
-        headers: { "content-type": "application/json", accept: "application/json" },
-        body: JSON.stringify(body),
-        redirect: "error",
-        signal: controller.signal,
-      });
-      const text = await response.text();
-      if (text.length > MAX_RESPONSE_CHARS) throw new TransportError();
-      let parsed: unknown;
-      try {
-        parsed = text ? JSON.parse(text) : undefined;
-      } catch {
-        parsed = undefined;
-      }
-      return { status: response.status, body: parsed };
+      parsed = text ? JSON.parse(text) : undefined;
     } catch {
-      // Nunca repassar a causa original: ela pode carregar a URL ou o corpo com credencial.
-      throw new TransportError();
-    } finally {
-      clearTimeout(timer);
+      parsed = undefined;
     }
+    return { status: response.status, body: parsed };
+  } catch {
+    // Nunca repassar a causa original: ela pode carregar a URL ou o corpo com credencial.
+    throw new TransportError();
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+export class FetchJsonTransport implements JsonHttpTransport {
+  post(url: string, body: unknown, options: { timeoutMs: number }) {
+    return send(url, { headers: { "content-type": "application/json" }, body: JSON.stringify(body) }, options.timeoutMs);
+  }
+
+  postForm(
+    url: string,
+    form: Readonly<Record<string, string>>,
+    options: { timeoutMs: number; headers?: Readonly<Record<string, string>> },
+  ) {
+    return send(
+      url,
+      {
+        headers: { "content-type": "application/x-www-form-urlencoded", ...(options.headers ?? {}) },
+        body: new URLSearchParams(form).toString(),
+      },
+      options.timeoutMs,
+    );
   }
 }

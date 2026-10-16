@@ -18,3 +18,23 @@ export const sourceCredentials = pgTable("fmcc_source_credential", {
   uniqueIndex("fmcc_source_credential_ref_uq").on(t.tenantId, t.secretRef),
   index("fmcc_source_credential_tenant_idx").on(t.tenantId),
 ]);
+
+/** Estado do fluxo OAuth em andamento: uso único, curto, preso à empresa, usuário e fonte. */
+export const oauthStates = pgTable("fmcc_oauth_state", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  /** Só o hash do `state`: um vazamento do banco não entrega estados ativos. */
+  stateHash: text("state_hash").notNull(),
+  tenantId: text("tenant_id").notNull(),
+  userId: text("user_id").notNull(),
+  sourceId: uuid("source_id").notNull(),
+  providerId: text("provider_id").notNull(),
+  verifierCiphertext: text("verifier_ciphertext"),
+  verifierIv: text("verifier_iv"),
+  verifierAuthTag: text("verifier_auth_tag"),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  consumedAt: timestamp("consumed_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  uniqueIndex("fmcc_oauth_state_hash_uq").on(t.stateHash),
+  index("fmcc_oauth_state_tenant_idx").on(t.tenantId),
+]);
