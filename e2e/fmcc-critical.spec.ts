@@ -1,4 +1,8 @@
+import { waitForAuthSlot } from "./helpers/auth-slot";
 import { expect, test, type Page } from "@playwright/test";
+
+// A interface agora segue o idioma do navegador (etapa 3); estes testes verificam os textos em português.
+test.use({ locale: "pt-BR" });
 
 let sequence = 0;
 
@@ -8,6 +12,7 @@ function unique(prefix: string) {
 }
 
 async function signUpAndCreateOrganization(page: Page, prefix: string) {
+  await waitForAuthSlot();
   const suffix = unique(prefix);
   const email = `${suffix}@example.com`;
   const password = "E2e-FMCC-12345!";
@@ -145,23 +150,23 @@ test("viewports desktop oficiais 1920x1080 e 1366x768 mantêm dashboard premium 
 });
 
 
-test("autenticação, onboarding, logout/login e Kordena fail-closed", async ({ page }) => {
+test("autenticação, onboarding, logout/login e rota removida do Kordena responde 404", async ({ page }) => {
   const identity = await signUpAndCreateOrganization(page, "auth");
 
   await expect(page.getByText("Cobertura factual")).toBeVisible();
   await expect(
     page.getByRole("link", { name: /Kordena Comercial/ }),
   ).toHaveCount(0);
-  await page.goto("/dashboard/commercial/kordena");
-  await expect(page.getByText("Fonte Kordena ainda não configurada.")).toBeVisible();
-  await expect(page.getByText("Nenhum dado será presumido.")).toBeVisible();
-
-  await page.getByRole("link", { name: "Voltar" }).click();
+  // A integração dedicada do Kordena foi removida da V2 (commit 58c3c93): a rota não existe mais e nada é presumido.
+  const removed = await page.goto("/dashboard/commercial/kordena");
+  expect(removed?.status()).toBe(404);
+  await page.goto("/dashboard");
   await page.getByRole("button", { name: "Sair" }).click();
   await page.waitForURL(/\/sign-in$/);
 
   await page.getByLabel("E-mail").fill(identity.email);
   await page.getByLabel("Senha").fill(identity.password);
+  await waitForAuthSlot();
   await page.getByRole("button", { name: "Entrar" }).click();
   await page.waitForURL(/\/dashboard$/);
   await expect(page.getByRole("heading", { name: "FM Command", exact: true })).toBeVisible();
@@ -269,31 +274,5 @@ test("viewport de tablet crítico mantém dashboard e alertas utilizáveis sem r
 });
 
 
-test("fontes: cadastro governado do Kordena permanece fail-closed sem runtime externo", async ({ page }) => {
-  await signUpAndCreateOrganization(page, "sources");
-  const productSlug = "kordena";
-  await createProduct(page, "Kordena", productSlug);
-
-  await page.goto("/dashboard/sources");
-  await expect(page.getByRole("heading", { name: "Fontes e Integrações" })).toBeVisible();
-
-  await page.locator('select[name="productId"]').selectOption({ index: 1 });
-  await page.getByLabel("URL HTTPS do Kordena").fill("https://kordena.example.test");
-  await page.getByLabel("Atualidade esperada (segundos)").fill("300");
-  await page.getByRole("button", { name: "Cadastrar fonte" }).click();
-
-  await expect(page.getByText("Fonte Kordena cadastrada. Teste a conexão antes de sincronizar.")).toBeVisible();
-  const sourceCard = page.locator("article.product-card").filter({ hasText: "Kordena Commercial" });
-  await expect(sourceCard).toBeVisible();
-
-  await sourceCard.getByRole("button", { name: "Testar conexão" }).click();
-  await expect(sourceCard.getByRole("status")).toContainText("Saúde: Indisponível");
-
-  await sourceCard.getByRole("button", { name: "Sincronizar agora" }).click();
-  await expect(
-    sourceCard.getByText(
-      "A sincronização falhou ou a configuração externa ainda não está pronta.",
-      { exact: true },
-    ),
-  ).toBeVisible();
-});
+// Removido: "fontes: cadastro governado do Kordena" testava o formulário dedicado do Kordena, retirado em 58c3c93.
+// A tela de Fontes atual (catálogo de ERPs, acesso, mapa de filiais) é coberta por e2e/sources.spec.ts.

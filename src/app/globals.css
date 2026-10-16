@@ -784,7 +784,8 @@ input:focus,select:focus,textarea:focus{
   font-size:.72rem;
   font-weight:850;
 }
-.command-user-menu>summary>span:last-child{display:grid;gap:1px;color:#d9edff}
+.command-user-menu>summary>span:last-child{display:grid;gap:1px;color:#d9edff;min-width:0;max-width:170px}
+.command-user-menu>summary>span:last-child strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .command-user-menu>summary small{color:#8ea5d1;font-size:.64rem;font-weight:650}
 .dashboard-header-context{align-self:center;color:#7187b3;font-size:.73rem;white-space:nowrap}
 @media(max-width:900px){
@@ -1882,3 +1883,14 @@ form.card>label{margin-top:2px}
 .locale-select select{min-height:34px;padding:6px 10px;border:1px solid rgba(53,119,255,.35);border-radius:10px;background:rgba(2,7,19,.6);color:#cfe0ff;font:inherit;font-size:.76rem;font-weight:700;cursor:pointer}
 .locale-select select:focus-visible{outline:2px solid var(--command-green,#00e7a2);outline-offset:2px}
 .locale-select select:disabled{opacity:.6;cursor:progress}
+
+/* Etapa 9B: filtro e gráfico de barras da comparação entre filiais */
+.units-filter{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end;max-width:var(--content);margin:0 auto 14px}
+.units-filter label{display:grid;gap:6px;color:var(--text-secondary);font-size:.9rem}
+.bar-chart{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.bar-chart-row{display:grid;grid-template-columns:minmax(90px,180px) 1fr minmax(90px,auto);gap:12px;align-items:center}
+.bar-chart-track{display:block;height:12px;border-radius:999px;background:var(--surface-soft);border:1px solid var(--line);overflow:hidden}
+.bar-chart-bar{display:block;height:100%;background:var(--info);border-radius:999px}
+.bar-chart-value{text-align:right;font-variant-numeric:tabular-nums}
+.bar-chart-row[data-available="false"] .bar-chart-value{color:var(--muted);font-weight:500}
+@media (max-width:640px){.bar-chart-row{grid-template-columns:1fr auto}.bar-chart-track{grid-column:1 / -1;order:3}}

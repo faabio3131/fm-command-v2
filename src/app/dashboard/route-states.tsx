@@ -9,7 +9,7 @@ export function RouteError({
   reset,
   compact = false,
 }: {
-  screen: "activity" | "settings" | "subscriptions" | "trials" | "notifications" | "search";
+  screen: "activity" | "settings" | "subscriptions" | "trials" | "notifications" | "search" | "units";
   reset: () => void;
   compact?: boolean;
 }) {

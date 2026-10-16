@@ -1,4 +1,5 @@
 import { execFileSync } from "node:child_process";
+import { waitForAuthSlot } from "./helpers/auth-slot";
 import { expect, test, type Page } from "@playwright/test";
 
 test.use({ locale: "pt-BR" });
@@ -15,6 +16,7 @@ function sql(query: string): string {
 }
 
 async function signUpAndCreateOrganization(page: Page) {
+  await waitForAuthSlot();
   const suffix = `src-${Date.now()}`;
   const password = "E2e-FMCC-12345!";
   const slug = `org-${suffix}`;

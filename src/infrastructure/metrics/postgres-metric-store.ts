@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, isNull, lte } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, isNull, lte } from "drizzle-orm";
 import type { MetricFreshnessStatus, MetricQualityStatus, MetricStore, MetricView } from "@/application/metrics/metric-service";
 import { db } from "@/infrastructure/db/client";
 import { canonicalFacts, metricValues } from "@/infrastructure/db/platform-schema";
@@ -61,6 +61,16 @@ export class PostgresMetricStore implements MetricStore {
       eq(metricValues.tenantId, tenantId), eq(metricValues.metricId, metricId), productClause, unitClause,
     )).orderBy(desc(metricValues.computedAt)).limit(1);
     return rows[0] ? mapMetric(rows[0]) : null;
+  }
+
+  /** Último valor de cada unidade pedida, numa só consulta. Unidade sem valor simplesmente não aparece. */
+  async latestValuesByUnit(tenantId: string, metricId: string, unitIds: readonly string[], productId?: string): Promise<readonly MetricView[]> {
+    if (unitIds.length === 0) return [];
+    const productClause = productId ? eq(metricValues.productId, productId) : isNull(metricValues.productId);
+    const rows = await db.selectDistinctOn([metricValues.unitId]).from(metricValues).where(and(
+      eq(metricValues.tenantId, tenantId), eq(metricValues.metricId, metricId), productClause, inArray(metricValues.unitId, [...unitIds]),
+    )).orderBy(metricValues.unitId, desc(metricValues.computedAt));
+    return rows.map(mapMetric);
   }
 
   async recentValues(tenantId: string, metricId: string, productId: string, limit: number, unitId?: string): Promise<readonly MetricView[]> {

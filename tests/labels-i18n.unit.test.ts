@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import * as pt from "../src/presentation/pt-br";
 import { createLabels } from "../src/presentation/labels";
 import { METRIC_REGISTRY } from "../src/domain/metrics/registry";
+import { ptBR } from "../src/i18n/messages/pt-BR";
 
 describe("rótulos por idioma", () => {
   const ptL = createLabels("pt-BR");
@@ -49,5 +50,14 @@ describe("rótulos por idioma", () => {
       expect(enL.metricName(metricId, "x")).not.toBe(displayName);
     }
     expect(enL.metricName("metrica.nova", "Nome do registro")).toBe("Nome do registro");
+  });
+});
+
+describe("comparação entre filiais (9B)", () => {
+  it("toda métrica do registro tem nome nos dois idiomas (o seletor da tela de Filiais lista o registro inteiro)", () => {
+    for (const m of METRIC_REGISTRY) {
+      expect(`label.metricName.${m.metricId}` in ptBR, m.metricId).toBe(true);
+      expect(createLabels("en-US").metricName(m.metricId, "FALLBACK"), m.metricId).not.toBe("FALLBACK");
+    }
   });
 });
