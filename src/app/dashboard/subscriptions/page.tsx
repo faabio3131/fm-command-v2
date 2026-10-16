@@ -1,3 +1,4 @@
+import { companyLevelDenied, NoCompanyAccess } from "@/app/dashboard/no-company-access";
 import Link from "next/link";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
@@ -41,6 +42,8 @@ export default async function SubscriptionsPage({
     if (error instanceof TenantScopeRequiredError) redirect("/onboarding");
     throw error;
   }
+
+  if (await companyLevelDenied(context)) return <NoCompanyAccess />;
 
   const productsRepository = new PostgresProductRepository();
   const productService = new ProductRegistryService(productsRepository);

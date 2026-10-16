@@ -24,12 +24,24 @@ async function clean() {
 beforeEach(clean);
 afterAll(clean);
 
-async function runOnce(ask: CoreGateway["ask"]) {
-  const handler = createCoreQueryHandler({ router: emptyRouter, makeGateway: () => gatewayWith(ask) });
+async function runOnce(ask: CoreGateway["ask"], roleNow: string | null = "analyst") {
+  const handler = createCoreQueryHandler({ router: emptyRouter, makeGateway: () => gatewayWith(ask), currentRole: async () => roleNow });
   return processOne(queue, { workerId: "t", leaseMs: 5000, maxPerTenant: 10, handlers: { core_query: handler } });
 }
 
 describe("consulta assincrona ao Core (ADR-016)", () => {
+  it("o papel valido e o ATUAL: rebaixado roda com o papel novo; quem saiu da empresa e negado", async () => {
+    const c = ctx("role", "1", "admin");
+    await service.submit(c, { question: "Como estamos?" });
+    let seen: TenantContext | undefined;
+    expect(await runOnce(async (context) => { seen = context; return answer; }, "viewer")).toBe("succeeded");
+    expect(seen?.role).toBe("viewer");
+    await service.submit(ctx("role", "2", "admin"), { question: "Outra?" });
+    let called = false;
+    expect(await runOnce(async () => { called = true; return answer; }, null)).toBe("dead");
+    expect(called).toBe(false);
+  });
+
   it("valida a entrada antes de enfileirar", async () => {
     const c = ctx("a", "1");
     for (const bad of [{ question: 42 }, { question: "   " }, { question: "x".repeat(4001) }, { question: "ok", productSlugs: "a" }, { question: "ok", productSlugs: ["a", "b", "c", "d", "e"] }, { question: "ok", idempotencyKey: "tem espaco" }])
@@ -71,7 +83,7 @@ describe("consulta assincrona ao Core (ADR-016)", () => {
     const c = ctx("g", "1", "viewer");
     const { id } = await service.submit(c, { question: "Como estamos?", productSlugs: ["kordena"] });
     let seen: { context: TenantContext; question: string; scope: unknown } | undefined;
-    expect(await runOnce(async (context, question, scope) => { seen = { context, question, scope }; return answer; })).toBe("succeeded");
+    expect(await runOnce(async (context, question, scope) => { seen = { context, question, scope }; return answer; }, "viewer")).toBe("succeeded");
     expect(seen).toEqual({ context: { tenantId: c.tenantId, userId: c.userId, role: "viewer", correlationId: c.correlationId }, question: "Como estamos?", scope: { productSlugs: ["kordena"] } });
     expect(await service.status(c, id)).toEqual({ status: "succeeded", answer });
     const audit = await pool.query("SELECT action, result, actor_id, metadata FROM fmcc_audit_event WHERE tenant_id=$1", [c.tenantId]);

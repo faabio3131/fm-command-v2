@@ -23,6 +23,21 @@ describe("escopo de unidades em toda leitura de metricas e fatos", () => {
     expect(composition).toMatch(/new MetricService\(new PostgresMetricStore\(\), createUnitScopeResolver\(\)\)/);
   });
 
+  it("nao ha import com apelido, heranca nem construcao reflexiva dessas classes fora da porta unica", () => {
+    const door = ["src/application/metrics/metric-composition.ts"];
+    expect(offenders(/import\s*\{[^}]*\b(MetricService|PostgresMetricStore)\b\s+as\s/, door)).toEqual([]);
+    expect(offenders(/extends\s+(MetricService|PostgresMetricStore)\b/, door)).toEqual([]);
+    expect(offenders(/Reflect\.construct|\bsql\.raw\s*\(/, [])).toEqual([]);
+    // Import de valor so na porta unica; os demais usam `import type`.
+    expect(offenders(/^import\s*\{[^}]*\b(MetricService|PostgresMetricStore)\b[^}]*\}\s*from/m, door)).toEqual([]);
+  });
+
+  it("a ingestao so ESCREVE fatos (nenhuma leitura nova em postgres-repositories)", () => {
+    const text = files.find((f) => f.path === "src/infrastructure/integration/postgres-repositories.ts")!.text;
+    const uses = [...text.matchAll(/\b(canonicalFacts|metricValues)\b/g)].map((m) => text.slice(Math.max(0, m.index! - 12), m.index! + m[0].length));
+    for (const u of uses.slice(1)) expect(u).toMatch(/insert\(/); // o primeiro e o import
+  });
+
   it("o armazenamento de metricas so e instanciado pela porta unica", () => {
     expect(offenders(/new PostgresMetricStore\s*\(/, ["src/application/metrics/metric-composition.ts"])).toEqual([]);
   });

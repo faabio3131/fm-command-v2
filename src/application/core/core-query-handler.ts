@@ -5,6 +5,9 @@ import type { ProviderRouter } from "@/application/core/provider-router";
 import { PermanentTaskError, type TaskHandler } from "@/application/core/work-worker";
 import { CognitiveModelContractError, CognitiveModelUnavailableError, type CognitiveModel } from "@/domain/core/cognitive-model";
 import { CoreReadCapabilityContractError } from "@/domain/core/read-capability";
+import { and, eq } from "drizzle-orm";
+import { db } from "@/infrastructure/db/client";
+import { member } from "@/infrastructure/db/auth-schema";
 import { normalizeRole } from "@/domain/security/permissions";
 import { CrossTenantAccessError, PermissionDeniedError, TenantScopeRequiredError, type TenantContext } from "@/domain/security/tenant-context";
 import { RoutedCognitiveModel } from "@/infrastructure/core/routed-cognitive-model";
@@ -14,6 +17,14 @@ export interface CoreQueryHandlerDeps {
   readonly router: ProviderRouter;
   /** Troca em teste. Padrao: monta o gateway real do Core com o modelo recebido (ou o da V1, se undefined). */
   readonly makeGateway?: (model: CognitiveModel | undefined) => CoreGateway;
+  /** Papel ATUAL da pessoa na empresa (null = nao e mais membro). Padrao: le o vinculo no banco. Troca em teste. */
+  readonly currentRole?: (tenantId: string, userId: string) => Promise<string | null>;
+}
+
+async function readMemberRole(tenantId: string, userId: string): Promise<string | null> {
+  const rows = await db.select({ role: member.role }).from(member)
+    .where(and(eq(member.userId, userId), eq(member.organizationId, tenantId))).limit(1);
+  return rows.length === 1 ? rows[0].role : null;
 }
 
 async function audit(context: TenantContext, result: "success" | "failure" | "denied", metadata: Record<string, unknown>) {
@@ -28,12 +39,16 @@ async function audit(context: TenantContext, result: "success" | "failure" | "de
  */
 export function createCoreQueryHandler(deps: CoreQueryHandlerDeps): TaskHandler {
   const makeGateway = deps.makeGateway ?? ((m) => buildCoreGateway(m));
+  const currentRole = deps.currentRole ?? readMemberRole;
   return async (item, signal) => {
     const p = item.payload;
     if (typeof p.question !== "string" || typeof p.userId !== "string" || !p.userId || typeof p.role !== "string" || typeof p.correlationId !== "string")
       throw new PermanentTaskError("core.argument_invalid");
     const productSlugs = Array.isArray(p.productSlugs) && p.productSlugs.every((s) => typeof s === "string") ? (p.productSlugs as string[]) : undefined;
-    const context: TenantContext = { tenantId: item.tenantId, userId: p.userId, role: normalizeRole(p.role), correlationId: p.correlationId };
+    // O papel gravado no envio nao vale: a tarefa pode esperar na fila depois de um rebaixamento ou saida da empresa (ADR-019).
+    const roleNow = await currentRole(item.tenantId, p.userId);
+    if (roleNow === null) throw new PermanentTaskError("security.permission_denied");
+    const context: TenantContext = { tenantId: item.tenantId, userId: p.userId, role: normalizeRole(roleNow), correlationId: p.correlationId };
     const last = item.attempt >= item.maxAttempts;
     try {
       const routed = await deps.router.hasRoute(item.tenantId, "analysis") && await deps.router.hasRoute(item.tenantId, "synthesis");

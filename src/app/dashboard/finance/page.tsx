@@ -1,3 +1,4 @@
+import { companyLevelDenied, NoCompanyAccess } from "@/app/dashboard/no-company-access";
 import Link from "next/link";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
@@ -21,6 +22,8 @@ export default async function FinancePage() {
     if (error instanceof TenantScopeRequiredError) redirect("/onboarding");
     throw error;
   }
+
+  if (await companyLevelDenied(context)) return <NoCompanyAccess />;
 
   const overview = await new FinancialIntelligenceService(
     createMetricService(),

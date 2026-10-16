@@ -265,7 +265,9 @@ export class CoreGateway {
               product,
               value: await this.metrics.query(context, metricId, product?.id),
             };
-          } catch {
+          } catch (error) {
+            // Negar por permissao ou unidade nao e "argumento invalido": o worker audita como negado (ADR-019).
+            if (error instanceof PermissionDeniedError || error instanceof CrossTenantAccessError) throw error;
             throw new CoreArgumentError();
           }
         }),

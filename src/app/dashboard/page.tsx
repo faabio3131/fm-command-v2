@@ -10,7 +10,7 @@ import { ProductRegistryService } from "@/application/products/product-registry-
 import { loadDashboardIdentity } from "@/application/security/dashboard-identity";
 import { resolveTenantContext } from "@/application/security/resolve-tenant-context";
 import { roleHasPermission } from "@/domain/security/permissions";
-import { AuthenticationRequiredError, TenantScopeRequiredError } from "@/domain/security/tenant-context";
+import { AuthenticationRequiredError, PermissionDeniedError, TenantScopeRequiredError } from "@/domain/security/tenant-context";
 import { PostgresOperationalHealthRepository } from "@/infrastructure/operations/postgres-health-repository";
 import { PostgresProductRepository } from "@/infrastructure/products/postgres-product-repository";
 import { rotuloAtualidade, rotuloAutoridadeFonte, rotuloMetrica, rotuloQualidade, rotuloSeveridadeAlerta, rotuloStatusDefinicao, rotuloStatusProduto } from "@/presentation/pt-br";
@@ -57,7 +57,11 @@ export default async function DashboardPage() {
   const productsRepository = new PostgresProductRepository();
   const canReadActivity = roleHasPermission(context.role, "audit:read");
   const [metrics, products, alertOverview, operationalHealth, activityFeed, identity, integrationFeatures] = await Promise.all([
-    metricService.overview(context),
+    metricService.overview(context).catch((error) => {
+      // Quem só enxerga unidades específicas não tem métrica do nível da empresa: o painel abre sem elas (ADR-019).
+      if (error instanceof PermissionDeniedError) return [];
+      throw error;
+    }),
     new ProductRegistryService(productsRepository).list(context),
     buildAlertService().overview(context),
     new OperationalHealthService(

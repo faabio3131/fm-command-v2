@@ -35,12 +35,12 @@ O ADR-002 isola cada empresa cliente por `tenant_id` em esquema compartilhado. E
 - `UnitAccessDeniedError` passou a ser uma `PermissionDeniedError`: as rotas que já respondem 403 para permissão negada respondem o mesmo para unidade negada.
 - **Trava permanente por teste** (`metric-service-composition.unit.test.ts`): falha se alguém montar `new MetricService(...)` ou `new PostgresMetricStore()` fora da porta única, ou ler as tabelas de fatos/valores fora dos arquivos conhecidos.
 - Empresa sem árvore de unidades segue sem restrição (comportamento da V1); verificado.
-- **Efeito a conhecer:** em empresa COM árvore de unidades, quem não enxerga tudo e pede métrica sem informar unidade recebe 403 (dado no nível da empresa). As telas atuais não pedem unidade; elas só passam a mostrar números por filial com a parte B (seletor de unidade, consolidação e ranking).
+- **Efeito a conhecer:** em empresa COM árvore de unidades, quem não enxerga tudo e pede métrica sem informar unidade recebe 403 na API; nas telas, o painel abre sem métricas e as demais telas de métricas mostram "sem acesso ao nível da empresa" (nunca erro 500). As telas atuais não pedem unidade; elas só passam a mostrar números por filial com a parte B (seletor de unidade, consolidação e ranking).
 - Ainda aberto: a ingestão de fatos não grava unidade (fica nula = nível da empresa); definir como cada fonte informa a filial é parte B/etapa 10.
 
 ### O que ainda não existe
 
-- Nenhuma API, tela ou rota cria unidades ou concede acesso; só o repositório. As rotas e páginas herdadas da V1 (cerca de 19 pontos que montam `MetricService`) ainda não usam o escopo. **Antes de existir qualquer entrada que crie unidades, todas elas precisam usar o resolvedor de escopo** (requisito da etapa 9).
+- Nenhuma API, tela ou rota cria unidades ou concede acesso; só o repositório. As rotas e páginas herdadas da V1 (19 pontos) já usam o escopo desde a etapa 9, parte A (ver abaixo). **Nenhuma entrada que crie unidades pode existir antes de a decisão A2 (abaixo) ser tomada e de os itens da parte B estarem fechados.**
 - Ciclo, profundidade e "filial sem filhos" são garantidos pelo aplicativo com trava por empresa; o banco não os garante (escrita direta no banco os contorna). Um gatilho no banco pode fechar isso.
 - Quem pode conceder acesso (`member:manage`) é checagem do chamador futuro, não do repositório.
 - A revisão do isolamento foi uma passada adversarial minha, não de um segundo agente.
@@ -56,3 +56,12 @@ Erro de escopo entre unidades tem impacto alto. Mitigação: testes de isolament
 ## Condições de revisão
 
 Revisar ao validar o primeiro cliente com filiais.
+
+### Correções da revisão independente da parte A (16/10/2026)
+
+- `MetricService` exige o resolvedor de escopo no construtor (não existe mais serviço sem escopo); testes usam `tests/helpers/unrestricted-scope.ts`.
+- Alertas ainda não têm unidade: seus valores são dado do nível da empresa. Quem não tem acesso a esse nível recebe lista vazia em alertas, busca e notificações.
+- Telas de métricas, `/api/metrics/overview` e `src/app/dashboard/error.tsx`: negação vira 403 ou aviso, não 500.
+- Core: a negação de permissão ou de unidade não vira "argumento inválido"; o worker relê o papel ATUAL da pessoa (quem saiu da empresa é negado).
+- **Decisão pendente (A2), de Fábio:** dados de fonte externa sem unidade (resumo comercial do Kordena, saúde operacional) contam como "dado da empresa"? Se sim, passam a exigir acesso ao nível da empresa. Até a decisão, continuam visíveis para quem tem `commercial:read`; por isso nenhuma entrada que crie unidades deve existir ainda.
+- Abertos (baixo): o resolvedor consulta o banco uma vez por serviço montado, não uma vez por requisição; `inArray` com dezenas de milhares de unidades.

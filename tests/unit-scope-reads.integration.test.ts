@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { eq, inArray } from "drizzle-orm";
 import { createMetricService } from "@/application/metrics/metric-composition";
 import { createUnitScopeResolver } from "@/application/organization/unit-scope";
+import { buildAlertService } from "@/application/alerts/alert-composition";
 import { buildActivityFeedService } from "@/application/activity/activity-feed-composition";
 import { UnitAccessDeniedError } from "@/domain/organization/unit-hierarchy";
 import { PermissionDeniedError, type TenantContext } from "@/domain/security/tenant-context";
@@ -110,6 +111,22 @@ describe("feed de atividades respeita a unidade", () => {
   it("gerente de Sao Paulo ve so o dele; pessoa sem concessao nao ve nada", async () => {
     expect((await feed().page(ctx(A, "gerente-sp", "analyst"), { pageSize: 50 })).items).toHaveLength(1);
     expect(await amounts(ctx(A, "sem-acesso", "analyst"))).toEqual([]);
+  });
+});
+
+describe("alertas e telas: dado da empresa so para quem tem acesso a esse nivel", () => {
+  it("gerente de filial recebe lista vazia de alertas; dono segue vendo (e empresa sem arvore nao muda)", async () => {
+    const service = buildAlertService();
+    expect(await service.overview(ctx(A, "gerente-sp", "analyst"))).toEqual({ rules: [], occurrences: [] });
+    expect(await service.overview(ctx(A, "sem-acesso", "viewer"))).toEqual({ rules: [], occurrences: [] });
+    await expect(service.overview(ctx(A, "dono", "owner"))).resolves.toBeDefined();
+    await expect(service.overview(ctx(V1, "qualquer", "viewer"))).resolves.toBeDefined();
+  });
+  it("a porta de metricas informa quem pode ler dado da empresa", async () => {
+    const m = createMetricService();
+    expect(await m.canReadCompanyLevel(ctx(A, "gerente-sp", "analyst"))).toBe(false);
+    expect(await m.canReadCompanyLevel(ctx(A, "dono", "owner"))).toBe(true);
+    expect(await m.canReadCompanyLevel(ctx(V1, "qualquer", "viewer"))).toBe(true);
   });
 });
 

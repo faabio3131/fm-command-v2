@@ -1,3 +1,4 @@
+import { unrestrictedScope } from "./helpers/unrestricted-scope";
 import { afterEach, describe, expect, it } from "vitest";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/infrastructure/db/client";
@@ -178,7 +179,7 @@ describe("F07/F08 PostgreSQL tenant isolation", () => {
       },
     });
 
-    const metrics = new MetricService(new PostgresMetricStore());
+    const metrics = new MetricService(new PostgresMetricStore(), unrestrictedScope);
     const metric = await metrics.recompute(context, {
       metricId: "billing.gross_billed",
       periodStart: new Date("2026-09-20T00:00:00Z"),
