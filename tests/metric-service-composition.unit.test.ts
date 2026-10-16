@@ -34,8 +34,20 @@ describe("escopo de unidades em toda leitura de metricas e fatos", () => {
 
   it("a ingestao so ESCREVE fatos (nenhuma leitura nova em postgres-repositories)", () => {
     const text = files.find((f) => f.path === "src/infrastructure/integration/postgres-repositories.ts")!.text;
-    const uses = [...text.matchAll(/\b(canonicalFacts|metricValues)\b/g)].map((m) => text.slice(Math.max(0, m.index! - 12), m.index! + m[0].length));
-    for (const u of uses.slice(1)) expect(u).toMatch(/insert\(/); // o primeiro e o import
+    // Invariante: as tabelas de fatos e valores so aparecem como alvo de INSERT. Citar as colunas dentro do
+    // proprio INSERT (alvo e condicao do "atualiza se a origem for mais nova", etapa 8E) nao e leitura;
+    // ler (from/join/query), atualizar ou apagar fora do INSERT continua proibido.
+    const forbidden = /(from|innerJoin|leftJoin|rightJoin|fullJoin|update|delete)\(\s*(canonicalFacts|metricValues)\b|\bquery\.(canonicalFacts|metricValues)\b/;
+    expect(text).not.toMatch(forbidden);
+    const inserts = [...text.matchAll(/insert\(\s*(canonicalFacts|metricValues)\b/g)];
+    expect(inserts.length).toBeGreaterThan(0);
+    // Toda citacao da tabela fora do import tem de estar dentro de uma instrucao que comeca em insert(.
+    const body = text.slice(text.indexOf("export class"));
+    for (const m of body.matchAll(/\b(canonicalFacts|metricValues)\b/g)) {
+      const head = body.slice(0, m.index!);
+      const statementStart = Math.max(head.lastIndexOf("await db"), head.lastIndexOf("return db"));
+      expect(body.slice(statementStart, m.index! + m[0].length)).toMatch(/insert\(\s*(canonicalFacts|metricValues)\b/);
+    }
   });
 
   it("o armazenamento de metricas so e instanciado pela porta unica", () => {

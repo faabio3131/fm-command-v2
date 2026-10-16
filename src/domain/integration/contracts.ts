@@ -37,12 +37,20 @@ export interface ConnectorFact {
   readonly factType: string;
   readonly payload: Record<string, unknown>;
   readonly sourceTimestamp: Date;
+  /**
+   * Identificador da unidade no sistema de origem (filial, departamento).
+   * O runtime o traduz para a unidade do Command pelo mapa configurado na
+   * fonte; sem mapa, o dado entra sem unidade (nunca atribuído por palpite).
+   */
+  readonly unitRef?: string;
 }
 
 export interface ConnectorPullResult {
   readonly facts: readonly ConnectorFact[];
   readonly nextCursor?: string;
   readonly rateLimitRemaining?: number;
+  /** Registros que o conector leu mas não pôde converter (ex.: sem identificador). */
+  readonly skipped?: number;
 }
 
 export interface ConnectorContext {
@@ -69,6 +77,33 @@ export class RetryableConnectorError extends Error {
   constructor(message = "integration.connector_retryable_error") {
     super(message);
     this.name = "RetryableConnectorError";
+  }
+}
+
+/** Credencial inválida, revogada ou sem permissão no sistema de origem. Não se repete sozinha. */
+export class ConnectorAuthError extends Error {
+  constructor(message = "integration.connector_auth_error") {
+    super(message);
+    this.name = "ConnectorAuthError";
+  }
+}
+
+/** O sistema de origem pediu para esperar. Repetir agora agrava o bloqueio. */
+export class ConnectorRateLimitedError extends Error {
+  constructor(
+    readonly retryAfterSeconds?: number,
+    message = "integration.connector_rate_limited",
+  ) {
+    super(message);
+    this.name = "ConnectorRateLimitedError";
+  }
+}
+
+/** Fonte mal configurada ou cursor inválido. Corrigir a configuração, não repetir. */
+export class ConnectorConfigError extends Error {
+  constructor(message = "integration.connector_config_invalid") {
+    super(message);
+    this.name = "ConnectorConfigError";
   }
 }
 
@@ -137,6 +172,7 @@ export interface CanonicalFactRepository {
     sourceId: string;
     mappingVersion: string;
     fact: ConnectorFact;
+    unitId?: string;
     correlationId: string;
   }): Promise<void>;
 }

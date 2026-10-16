@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import pg from "pg";
 const client = new pg.Client({ connectionString: process.env.DATABASE_URL });
 try {
@@ -8,7 +9,9 @@ try {
   const tables = await client.query("SELECT tablename FROM pg_tables WHERE schemaname='public' AND tablename LIKE 'fmcc_billing_%' ORDER BY tablename");
   assert.equal(tables.rowCount, 14, "Expected fourteen Billing tables including IRON payer enrollment");
   const migrations = await client.query("SELECT count(*)::int AS n FROM drizzle.__drizzle_migrations");
-  assert.equal(migrations.rows[0].n, 12, "Expected migrations 0000-0011");
+  // Esperado = migrações do diário do repositório (a lista cresce a cada etapa; um número fixo ficava velho).
+  const expectedMigrations = JSON.parse(readFileSync(new URL("../drizzle/meta/_journal.json", import.meta.url), "utf8")).entries.length;
+  assert.equal(migrations.rows[0].n, expectedMigrations, `Expected ${expectedMigrations} migrations from the journal`);
   const idx = await client.query("SELECT indexname FROM pg_indexes WHERE tablename='fmcc_billing_provider_payment' AND indexname='fmcc_billing_provider_invoice_uq'");
   assert.equal(idx.rowCount, 1, "Missing one-payment-per-invoice index");
   for (const [tableName,indexName] of [

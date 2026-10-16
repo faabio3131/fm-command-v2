@@ -95,6 +95,22 @@ export class PostgresSourceRepository
     return mapSource(rows[0]);
   }
 
+  async attachSecretRef(
+    tenantId: string,
+    sourceId: string,
+    secretRef: string,
+  ): Promise<void> {
+    await db
+      .update(sourceDefinitions)
+      .set({ secretRef, updatedAt: new Date() })
+      .where(
+        and(
+          eq(sourceDefinitions.tenantId, tenantId),
+          eq(sourceDefinitions.id, sourceId),
+        ),
+      );
+  }
+
   async updateStatus(
     tenantId: string,
     sourceId: string,
@@ -360,6 +376,7 @@ export class PostgresCanonicalFactRepository
       payload: Record<string, unknown>;
       sourceTimestamp: Date;
     };
+    unitId?: string;
     correlationId: string;
   }) {
     await db
@@ -367,6 +384,7 @@ export class PostgresCanonicalFactRepository
       .values({
         tenantId: input.tenantId,
         productId: input.productId,
+        unitId: input.unitId,
         sourceId: input.sourceId,
         externalId: input.fact.externalId,
         factType: input.fact.factType,
@@ -377,6 +395,24 @@ export class PostgresCanonicalFactRepository
           correlationId: input.correlationId,
         },
       })
-      .onConflictDoNothing();
+      // Um registro do ERP muda (título em aberto vira pago). A versão mais
+      // nova da origem vence; repetir a mesma leitura não altera nada.
+      .onConflictDoUpdate({
+        target: [
+          canonicalFacts.tenantId,
+          canonicalFacts.sourceId,
+          canonicalFacts.externalId,
+          canonicalFacts.mappingVersion,
+        ],
+        set: {
+          payload: sql`excluded.payload`,
+          unitId: sql`excluded.unit_id`,
+          sourceTimestamp: sql`excluded.source_timestamp`,
+          provenance: sql`excluded.provenance`,
+          ingestedAt: sql`now()`,
+        },
+        // Só grava quando a origem não é mais velha E algo mudou (releitura idêntica não toca a linha).
+        setWhere: sql`excluded.source_timestamp >= ${canonicalFacts.sourceTimestamp} AND (excluded.payload IS DISTINCT FROM ${canonicalFacts.payload} OR excluded.unit_id IS DISTINCT FROM ${canonicalFacts.unitId})`,
+      });
   }
 }

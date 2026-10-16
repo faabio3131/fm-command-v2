@@ -1,4 +1,7 @@
 import {
+  ConnectorAuthError,
+  ConnectorConfigError,
+  ConnectorRateLimitedError,
   RetryableConnectorError,
   type CanonicalFactRepository,
   type Connector,
@@ -13,7 +16,26 @@ import {
 } from "@/domain/security/tenant-context";
 import { logEvent } from "@/infrastructure/observability/logger";
 
-export { RetryableConnectorError } from "@/domain/integration/contracts";
+export {
+  ConnectorAuthError,
+  ConnectorConfigError,
+  ConnectorRateLimitedError,
+  RetryableConnectorError,
+} from "@/domain/integration/contracts";
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** unitRef (origem) -> unitId (Command), pelo mapa `config.unitMap` da fonte. */
+function resolveUnitId(
+  config: Readonly<Record<string, unknown>>,
+  unitRef: string | undefined,
+): string | undefined {
+  if (!unitRef) return undefined;
+  const map = config.unitMap;
+  if (!map || typeof map !== "object" || Array.isArray(map)) return undefined;
+  const target = (map as Record<string, unknown>)[unitRef];
+  return typeof target === "string" && UUID.test(target) ? target : undefined;
+}
 
 export class ConnectorNotRegisteredError extends Error {
   constructor(sourceType: string) {
@@ -44,6 +66,24 @@ function safeConnectorFailure(
     return {
       errorCode: error.name,
       errorMessage: "integration.connector_retryable_error",
+    };
+  }
+  if (error instanceof ConnectorAuthError) {
+    return {
+      errorCode: error.name,
+      errorMessage: "integration.connector_auth_error",
+    };
+  }
+  if (error instanceof ConnectorRateLimitedError) {
+    return {
+      errorCode: error.name,
+      errorMessage: "integration.connector_rate_limited",
+    };
+  }
+  if (error instanceof ConnectorConfigError) {
+    return {
+      errorCode: error.name,
+      errorMessage: "integration.connector_config_invalid",
     };
   }
   if (error instanceof ConnectorUnsupportedModeError) {
@@ -201,6 +241,7 @@ export class ConnectorRuntime {
           sourceId: source.id,
           mappingVersion: source.mappingVersion,
           fact,
+          unitId: resolveUnitId(source.config, fact.unitRef),
           correlationId: context.correlationId,
         });
       }
@@ -215,6 +256,7 @@ export class ConnectorRuntime {
         executionId,
         correlationId: context.correlationId,
         ingested: result.facts.length,
+        skipped: result.skipped ?? 0,
         rateLimitRemaining: result.rateLimitRemaining,
       });
       return {
