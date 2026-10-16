@@ -1,6 +1,6 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 import { resolveGatewaySecret, ASAAS_SANDBOX_SECRET_REF } from "@/infrastructure/billing/secret-resolver";
-import { PaymentProviderError, WebhookRejectedError, type CreateSubscriptionInput, type CustomerInput, type PaymentEvent, type PaymentProvider, type ProviderSubscription } from "@/domain/subscription/payment-provider";
+import { PaymentProviderError, WebhookRejectedError, type CreateSubscriptionInput, type CustomerInput, type PaymentEvent, type PaymentProvider, type ProviderCapabilities, type ProviderSubscription } from "@/domain/subscription/payment-provider";
 
 const SANDBOX_BASE = "https://api-sandbox.asaas.com/v3";
 const ENDPOINT = /^\/(customers|subscriptions)(\/[A-Za-z0-9_-]{1,64})?(\?externalReference=[A-Za-z0-9_-]{1,64}&limit=1)?$/;
@@ -14,6 +14,7 @@ const ENDPOINT = /^\/(customers|subscriptions)(\/[A-Za-z0-9_-]{1,64})?(\?externa
 export class AsaasPaymentProvider implements PaymentProvider {
   readonly id = "asaas";
   readonly currencies = ["BRL"] as const;
+  readonly capabilities: ProviderCapabilities = { billingMode: "provider_recurring", methods: ["boleto", "pix", "card"], refunds: true };
   constructor(private readonly opts: { transport?: typeof fetch; env?: Record<string, string | undefined>; now?: () => Date } = {}) {}
   private get env() { return this.opts.env ?? process.env; }
 

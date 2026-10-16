@@ -309,7 +309,7 @@ describe("troca de meio de cobranca por configuracao", () => {
     expect((await repo.current(`${TP}br2`))!.providerId).toBe("sim_b");
     expect((await repo.current(`${TP}br`))!.providerId).toBe("sim_a"); // a existente segue no provedor em que nasceu
   });
-  it("rota do pais vence a da moeda; rota desligada ou provedor ausente = sem meio de cobranca; moeda nao suportada e recusada", async () => {
+  it("rota do pais vence a da moeda; rota desligada ou provedor ausente = sem meio de cobranca; provedor que nao cobra a moeda e pulado", async () => {
     await pool.query(`INSERT INTO fmcc_saas_payment_route(currency, country, provider_id) VALUES('BRL','PT','sim_b')`);
     await profile("pt", "BRL", "PT");
     await subscribe("pt");
@@ -317,8 +317,69 @@ describe("troca de meio de cobranca por configuracao", () => {
     await pool.query(`UPDATE fmcc_saas_payment_route SET enabled=false WHERE currency='BRL'`);
     await expect(subscribe("br")).rejects.toMatchObject({ code: "subscription.no_payment_method" });
     await pool.query(`UPDATE fmcc_saas_payment_route SET enabled=true, provider_id='sim_c' WHERE currency='USD'`); // sim_c so cobra BRL
-    await expect(subscribe("us")).rejects.toMatchObject({ code: "subscription.provider_currency_unsupported" });
+    await expect(subscribe("us")).rejects.toMatchObject({ code: "subscription.no_payment_method" }); // sim_c nao cobra USD: sem reserva, nao ha meio
     await pool.query(`UPDATE fmcc_saas_payment_route SET provider_id='nao_configurado' WHERE currency='USD'`);
     await expect(subscribe("us")).rejects.toMatchObject({ code: "subscription.no_payment_method" });
+  });
+});
+
+describe("varios provedores por rota (reserva) e capacidades", () => {
+  const route = (currency: string, provider: string, priority: number, country: string | null = null) =>
+    pool.query(`INSERT INTO fmcc_saas_payment_route(currency, country, provider_id, priority) VALUES($1,$2,$3,$4)`, [currency, country, provider, priority]);
+
+  it("usa o de menor prioridade; se estiver desligado, o seguinte assume; a existente nao muda", async () => {
+    await pool.query(`DELETE FROM fmcc_saas_payment_route WHERE currency='BRL'`);
+    await route("BRL", "sim_a", 0); await route("BRL", "sim_b", 1);
+    await subscribe("br");
+    expect((await repo.current(`${TP}br`))!.providerId).toBe("sim_a");
+    await pool.query(`UPDATE fmcc_saas_payment_route SET enabled=false WHERE provider_id='sim_a'`);
+    await profile("br2", "BRL", "BR");
+    await subscribe("br2");
+    expect((await repo.current(`${TP}br2`))!.providerId).toBe("sim_b");
+    expect((await repo.current(`${TP}br`))!.providerId).toBe("sim_a");
+  });
+
+  it("provedor sem configuracao neste ambiente e pulado; rota do pais vem antes da generica", async () => {
+    await pool.query(`DELETE FROM fmcc_saas_payment_route WHERE currency='BRL'`);
+    await route("BRL", "nao_configurado", 0); await route("BRL", "sim_b", 1); await route("BRL", "sim_a", 0, "BR");
+    await subscribe("br");
+    expect((await repo.current(`${TP}br`))!.providerId).toBe("sim_a"); // pais BR antes da generica
+    await pool.query(`UPDATE fmcc_saas_payment_route SET enabled=false WHERE country='BR'`);
+    await profile("br2", "BRL", "BR");
+    await subscribe("br2");
+    expect((await repo.current(`${TP}br2`))!.providerId).toBe("sim_b"); // generica: o nao configurado e pulado
+  });
+
+  it("o banco recusa prioridade repetida e o mesmo provedor duas vezes na mesma rota", async () => {
+    await pool.query(`DELETE FROM fmcc_saas_payment_route WHERE currency='BRL'`);
+    await route("BRL", "sim_a", 0);
+    await expect(route("BRL", "sim_b", 0)).rejects.toThrow();
+    await expect(route("BRL", "sim_a", 1)).rejects.toThrow();
+  });
+
+  it("provedor que cobra a cada ciclo (ainda nao implementado) e declarado mas nunca escolhido", async () => {
+    const invoiceOnly = new SimulatedPaymentProvider("sim_c", "x", ["BRL"], { billingMode: "invoice_each_cycle", methods: ["pix", "boleto"], refunds: false });
+    const svc = new SubscriptionService(repo, new PaymentProviderRegistry({ sim_a: () => simA, sim_c: () => invoiceOnly }), () => now);
+    await pool.query(`DELETE FROM fmcc_saas_payment_route WHERE currency='BRL'`);
+    await route("BRL", "sim_c", 0);
+    await expect(svc.subscribe(ctx("br"), { planId: "saas-it-pro", customer, idempotencyKey: "kinv" })).rejects.toMatchObject({ code: "subscription.no_payment_method" });
+    expect(invoiceOnly.calls.createCustomer).toBe(0);
+    await route("BRL", "sim_a", 1); // com uma reserva que cobra sozinha, segue
+    expect((await svc.subscribe(ctx("br"), { planId: "saas-it-pro", customer, idempotencyKey: "kinv2" })).subscription.state).toBe("pending");
+  });
+
+  it("compara o liquido por rota com as taxas configuradas (sem taxa = fim da lista, nunca zero)", async () => {
+    await pool.query(`DELETE FROM fmcc_saas_payment_route WHERE currency='BRL'`);
+    await route("BRL", "sim_a", 0); await route("BRL", "sim_b", 1);
+    const ins = (p: string, m: string, fixed: number) => pool.query(`INSERT INTO fmcc_saas_fee_schedule(provider_id, method, currency, fixed_minor, effective_from) VALUES($1,$2,'BRL',$3,'2026-01-01')`, [p, m, fixed]);
+    await ins("sim_a", "pix", 300); await ins("sim_b", "pix", 100);
+    expect(await service.compareRoutes("BRL", "BR", "pix", 4900)).toEqual([
+      { providerId: "sim_b", priority: 1, feeMinor: 100, netMinor: 4800 },
+      { providerId: "sim_a", priority: 0, feeMinor: 300, netMinor: 4600 },
+    ]);
+    await pool.query(`DELETE FROM fmcc_saas_fee_schedule WHERE provider_id='sim_b'`);
+    const r = await service.compareRoutes("BRL", "BR", "pix", 4900);
+    expect(r.map((x) => x.providerId)).toEqual(["sim_a", "sim_b"]);
+    expect(r[1]).toMatchObject({ feeMinor: null, netMinor: null });
   });
 });

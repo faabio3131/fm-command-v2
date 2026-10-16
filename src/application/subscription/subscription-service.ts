@@ -67,6 +67,37 @@ export class SubscriptionService {
     return schedule ? estimateFee(schedule, amountMinor, currency) : null;
   }
 
+  /**
+   * Escolhe o provedor da NOVA assinatura: o primeiro, na ordem das rotas, que este ambiente tem configurado, que cobra a moeda e que sabe cobrar
+   * sozinho a cada ciclo. Provedor desligado, nao configurado ou incompativel e pulado (reserva). Nao ha troca no meio da criacao:
+   * depois de reservar, a assinatura fica com o provedor escolhido (repetir em outro poderia cobrar em dobro).
+   */
+  private async chooseProvider(currency: string, country: string): Promise<{ providerId: string; provider: PaymentProvider } | null> {
+    for (const route of await this.repo.routesFor(currency, country)) {
+      let provider: PaymentProvider | null = null;
+      try { provider = this.providers.get(route.providerId); } catch { provider = null; }
+      if (provider && provider.currencies.includes(currency) && provider.capabilities.billingMode === "provider_recurring") return { providerId: route.providerId, provider };
+    }
+    return null;
+  }
+
+  /**
+   * Uso interno (decisao de rota e margem): para uma moeda/pais, cada provedor utilizavel com o liquido estimado de um pagamento
+   * naquela forma, do maior liquido para o menor. Sem taxa configurada o liquido e null e o provedor vai para o fim.
+   * Apenas informa; a escolha da rota continua sendo sua (prioridade na tabela de rotas).
+   */
+  async compareRoutes(currency: string, country: string, method: PaymentMethod, amountMinor: number, at: Date = this.clock()) {
+    const rows = [];
+    for (const route of await this.repo.routesFor(currency, country)) {
+      let provider: PaymentProvider | null = null;
+      try { provider = this.providers.get(route.providerId); } catch { provider = null; }
+      if (!provider || !provider.currencies.includes(currency) || !provider.capabilities.methods.includes(method)) continue;
+      const fee = await this.feeFor(route.providerId, method, amountMinor, currency, at);
+      rows.push({ providerId: route.providerId, priority: route.priority, feeMinor: fee?.feeMinor ?? null, netMinor: fee?.netMinor ?? null });
+    }
+    return rows.sort((a, b) => (b.netMinor ?? -1) - (a.netMinor ?? -1) || a.priority - b.priority);
+  }
+
   /** Uso interno (sem papel): a empresa tem direito de uso agora? */
   async isEntitled(tenantId: string): Promise<boolean> {
     const s = await this.repo.current(tenantId);
@@ -89,10 +120,9 @@ export class SubscriptionService {
     if (!plan) throw new SubscriptionError("subscription.plan_not_found", 404);
     const price = selectPrice(plan.prices, profile);
     if (!price) throw new SubscriptionError("subscription.no_price_for_currency", 409);
-    const providerId = await this.repo.routeFor(price.currency, profile.country);
-    const provider = providerId ? this.providers.get(providerId) : null;
-    if (!providerId || !provider) throw new SubscriptionError("subscription.no_payment_method", 409);
-    if (!provider.currencies.includes(price.currency)) throw new SubscriptionError("subscription.provider_currency_unsupported", 409);
+    const chosen = await this.chooseProvider(price.currency, profile.country);
+    if (!chosen) throw new SubscriptionError("subscription.no_payment_method", 409);
+    const { providerId, provider } = chosen;
 
     let reserved;
     try { reserved = await this.repo.reserve({ tenantId: ctx.tenantId, planId: plan.id, price, providerId, idempotencyKey: key, createdBy: ctx.userId }); }

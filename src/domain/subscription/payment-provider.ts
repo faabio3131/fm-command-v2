@@ -1,4 +1,5 @@
 import type { Money } from "@/domain/core/money";
+import type { PaymentMethod } from "./fee-schedule";
 import type { BillingInterval } from "./plan";
 
 /**
@@ -36,10 +37,25 @@ export interface PaymentEvent {
   readonly occurredAt: Date;
 }
 
+/**
+ * Como o provedor cobra de novo a cada ciclo.
+ * - provider_recurring: o provedor cria a assinatura e cobra sozinho (cartao, debito automatico, Asaas).
+ * - invoice_each_cycle: o cliente paga cada ciclo por conta propria (boleto, PIX, metodos locais); o sistema gera e acompanha cada cobranca.
+ *   AINDA NAO IMPLEMENTADO: um provedor assim e declarado, mas nenhuma rota o usa ate o fluxo existir.
+ */
+export type BillingMode = "provider_recurring" | "invoice_each_cycle";
+export interface ProviderCapabilities {
+  readonly billingMode: BillingMode;
+  /** Formas de pagamento que o provedor aceita (cada uma tem sua taxa na tabela de taxas). */
+  readonly methods: readonly PaymentMethod[];
+  readonly refunds: boolean;
+}
+
 export interface PaymentProvider {
   readonly id: string;
   /** Moedas que o provedor sabe cobrar; a rota so aceita pares moeda/provedor compativeis. */
   readonly currencies: readonly string[];
+  readonly capabilities: ProviderCapabilities;
   createCustomer(input: CustomerInput): Promise<{ customerRef: string }>;
   createSubscription(input: CreateSubscriptionInput): Promise<ProviderSubscription>;
   /** Procura pela nossa referencia; usado para recuperar uma criacao cuja resposta se perdeu (nunca repete o POST as cegas). */
