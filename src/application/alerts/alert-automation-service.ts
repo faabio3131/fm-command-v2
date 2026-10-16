@@ -1,4 +1,5 @@
 import { buildAlertService } from "@/application/alerts/alert-composition";
+import { dispatchDueChannelDeliveries } from "@/application/channels/channel-composition";
 import type { AlertService } from "@/application/alerts/alert-service";
 import type { TenantContext } from "@/domain/security/tenant-context";
 import { PostgresAlertAutomationRepository } from "@/infrastructure/alerts/postgres-alert-automation-repository";
@@ -86,6 +87,8 @@ export class AlertAutomationService {
           failures += 1;
         }
       }
+
+      try { await dispatchDueChannelDeliveries(); } catch { failures += 1; }
 
       await this.runs.completeRun({
         runId,
