@@ -28,6 +28,8 @@ Plano de fases (ordem proposta, cada uma com aprovação do Diretor Executivo an
 4. **Agir:** alertas por e-mail e WhatsApp, relatórios agendados e exportação.
 5. **Abrir:** conectores para qualquer empresa e pacotes por setor.
 
+A arquitetura proposta do core cognitivo da V2 está em `docs/architecture/V2-ARQUITETURA-CORE.md`, com as decisões em `docs/architecture/adr/` (ADR-015 a ADR-020, ainda PROPOSED).
+
 O relatório de mercado e de lacunas que baseia esse plano é o documento "FM Command V2: Mercado e lacunas".
 
 ## Regras de trabalho
