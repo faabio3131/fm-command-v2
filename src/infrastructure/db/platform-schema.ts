@@ -131,6 +131,7 @@ export const metricValues = pgTable("fmcc_metric_value", {
 }, (t) => [
   index("fmcc_metric_tenant_metric_time_idx").on(t.tenantId, t.metricId, t.computedAt),
   index("fmcc_metric_tenant_product_metric_time_idx").on(t.tenantId, t.productId, t.metricId, t.computedAt),
+  index("fmcc_metric_tenant_time_idx").on(t.tenantId, t.computedAt),
   index("fmcc_metric_tenant_unit_metric_time_idx").on(t.tenantId, t.unitId, t.metricId, t.computedAt),
   foreignKey({ columns: [t.tenantId, t.unitId], foreignColumns: [orgUnits.tenantId, orgUnits.id], name: "fmcc_metric_unit_fk" }),
 ]);

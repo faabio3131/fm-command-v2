@@ -54,11 +54,13 @@ describe("escopo de unidades em toda leitura de metricas e fatos", () => {
     expect(offenders(/new PostgresMetricStore\s*\(/, ["src/application/metrics/metric-composition.ts"])).toEqual([]);
   });
 
-  it("as tabelas de fatos e valores so sao lidas por arquivos conhecidos (armazenamento de metricas, feed de atividade com escopo, ingestao)", () => {
+  it("as tabelas de fatos e valores so sao lidas por arquivos conhecidos (armazenamento de metricas, feed de atividade com escopo, marca ao vivo com escopo, ingestao)", () => {
     const allowed = [
       "src/infrastructure/db/platform-schema.ts", "src/infrastructure/db/schema.ts",
       "src/infrastructure/metrics/postgres-metric-store.ts", "src/infrastructure/activity/postgres-activity-repository.ts",
       "src/infrastructure/integration/postgres-repositories.ts",
+      // Etapa 10: marca de mudança ao vivo. Só lê o instante mais novo e exige o escopo (verificado no teste abaixo).
+      "src/infrastructure/live/postgres-live-pulse-repository.ts",
     ];
     expect(offenders(/\b(canonicalFacts|metricValues)\b|fmcc_canonical_fact|fmcc_metric_value/, allowed)).toEqual([]);
   });
@@ -69,5 +71,13 @@ describe("escopo de unidades em toda leitura de metricas e fatos", () => {
     const repo = files.find((f) => f.path === "src/infrastructure/activity/postgres-activity-repository.ts")!.text;
     expect(repo).toContain("unitCondition");
     expect(repo).toMatch(/unitScope\.kind !== "all"\) return \[\]/);
+  });
+
+  it("a marca de mudanca ao vivo exige o escopo e o aplica aos valores; auditoria so para quem enxerga tudo", () => {
+    const repo = files.find((f) => f.path === "src/infrastructure/live/postgres-live-pulse-repository.ts")!.text;
+    expect(repo).toMatch(/read\(tenantId: string, scope: UnitScope\)/);
+    expect(repo).toContain("inArray(metricValues.unitId");
+    expect(repo).toMatch(/scope\.kind === "all"\s*\?\s*db\.select\(\{ latest: max\(auditEvents/);
+    expect(repo).not.toMatch(/\.select\(\)|canonicalFacts/);
   });
 });

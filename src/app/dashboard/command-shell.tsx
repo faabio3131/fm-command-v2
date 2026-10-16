@@ -10,6 +10,7 @@ import { commandNavigationForRole } from "@/presentation/command-navigation";
 import { LanguageSelector } from "@/i18n/react/language-selector";
 import { useTranslator } from "@/i18n/react/i18n-provider";
 import type { MessageKey } from "@/i18n/translate";
+import { LiveRefresh } from "./live/live-refresh";
 import { SignOutButton } from "./sign-out-button";
 
 export function CommandShell({
@@ -119,6 +120,8 @@ export function CommandShell({
               <Link href="/dashboard/notifications">{t("shell.notifications.openCenter")}</Link>
             </div>
           </details>
+
+          <LiveRefresh />
 
           <div
             className="command-topbar-badge command-environment-badge"
