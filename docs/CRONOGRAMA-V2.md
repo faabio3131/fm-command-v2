@@ -23,15 +23,16 @@
 | 7 | Decisões rápidas | Tipo de tarefa "decisão" com avaliação em dados sintéticos | Concordância, custo e tempo contra o planejador atual | 3% | Entregue em PR (parte sintética; modelo Haiku decidido em 15/10; medição real só com chave) |
 | 7V | Voz (diretor/administrativo) | Parte 1 entregue: ditar a pergunta (idioma da tela) e ouvir a resposta (voz do navegador, sem gravar áudio, sem executar ações). Parte 2: voz de provedor com qualidade profissional, como tarefa na fila de IA | Parte 2 só com chave real e teto de gasto; áudio não guardado por padrão (LGPD) | — | Parte 1 em PR; parte 2 junto das etapas 6/7 com a chave |
 | 8 | Cobrança configurável | Interface única de meio de cobrança, Asaas como um provedor, assinatura e planos em moeda por país | Troca de provedor por configuração, sem mudar código | 6% | Entregue em PR com provedor simulado e Asaas só em sandbox; conta, preços e produção 🛑 seus Taxas de cada banco (boleto, PIX, cartão) configuráveis por vigência na etapa 8B (PR própria). Rotas com vários provedores por prioridade e capacidades por provedor na etapa 8C (PR própria; o fluxo de cobrança a cada ciclo para PIX/boleto ainda não existe). Imposto sobre a venda e mercados de língua inglesa registrados na etapa 8D (decisão de quem recolhe adiada). |
+| 8E | Conectores de dados (ERPs) | Interface única de conector, configurada por empresa (nada fixo no código); primeiro conector: Omie; depois Conta Azul e Bling (Brasil), Xero e QuickBooks (países de língua inglesa), planilha/CSV e banco de dados. Cada dado entra no motor de métricas com a unidade de origem; o que o ERP não fornece fica "Indisponível", nunca zero | Conector de ponta a ponta com dados sintéticos; teste de isolamento entre empresas; credencial do cliente guardada fora do código | 4% | Pendente; origem: pesquisa de concorrência de 16/10/2026 (projeto Sites, claude/pesquisa-concorrencia-fm-command-v2.md); ordem dos ERPs depende do Diretor 🛑 |
 | 9 | Ver (Fase 2) | Gráficos em cada tela, painéis do cliente, consolidação e ranking entre filiais, filtro por região | Números do gráfico iguais aos do motor de métricas; "Indisponível" nunca vira zero. Pré-requisito: todas as rotas e páginas que criam `MetricService` passam a usar o escopo de unidades antes de existir qualquer API ou tela que crie unidades | 14% | Em andamento: parte A (escopo em toda leitura) entregue em PR; parte B (gráficos, consolidação, ranking, filtro por região) pendente |
 | 10 | Ao vivo (Fase 3) | Números e alertas atualizando sem recarregar a página | Atualização dentro do tempo-alvo em teste | 8% | Pendente |
 | 11 | Orquestrador e agentes | Piloto em uma funcionalidade, com orçamento por agente e confirmação humana | Tarefas dentro do orçamento; nenhuma ação sem confirmação | 6% | Pendente; funcionalidade do piloto 🛑 |
 | 12 | Agir (Fase 4) | Alertas por e-mail e WhatsApp, relatórios agendados, exportação | Envio em ambiente de teste; recibo de cada envio | 7% | Pendente; provedor de e-mail e WhatsApp 🛑 |
-| 13 | Abrir (Fase 5) | Conectores para qualquer empresa e pacotes por setor (transporte, indústria) | Um conector de ponta a ponta com dados sintéticos | 5% | Pendente |
+| 13 | Abrir (Fase 5) | Pacotes por setor (transporte, indústria) sobre os conectores da 8E | Um pacote de ponta a ponta com dados sintéticos | 1% | Pendente; os conectores saíram para a etapa 8E |
 | 14 | Pré-lançamento | Revisão de segurança, testes de ponta a ponta, documentação, homologação | Todos os testes verdes; checklist de lançamento fechado | 2% | Pendente |
 | — | Lançamento 🛑 | Mesclar em `main`, publicar, domínio, primeiro país, primeiros clientes | Aprovação expressa do Diretor Executivo | — | Sempre decisão sua |
 
-Soma dos pesos: 100%. Hoje: etapas 0, 1 (parcial), 2 e 3 (parcial) entregues em PR, 27% em PR, 0% em produção.
+Soma dos pesos: 100% (a etapa 8E, nova de 16/10/2026, tomou 4% da etapa 13). Hoje: etapas 0, 1 (parcial), 2 e 3 (parcial) entregues em PR, 27% em PR, 0% em produção.
 
 ## Base reaproveitada: Core Base
 
@@ -51,6 +52,10 @@ O Core Base (`FM-Core-Base-`, cópia isolada do fm-ai-platform no ponto 5a17b0c8
 - Funcionalidade do piloto de agentes (sugestão: análise do Command V2).
 - Padrões do mercado global (Command V2 primeiro, Estados Unidos primeiro, autoatendimento com cartão) e o lançamento em cada país.
 - Advogado e contador para a venda no exterior.
+
+## Decisões já tomadas (16/10/2026)
+
+- **Rota dos dados:** o V2 lê os ERPs que o cliente já usa, não os substitui (Diretor, 16/10). Por isso os conectores (8E) vêm antes dos gráficos (9). Ver pesquisa de concorrência de 16/10/2026 (projeto Sites, claude/pesquisa-concorrencia-fm-command-v2.md).
 
 ## Decisões já tomadas (15/10/2026)
 
