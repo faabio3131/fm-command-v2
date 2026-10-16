@@ -2,17 +2,50 @@
   "id": "bling",
   "version": 1,
   "label": "Bling",
-  "regions": [
-    "BR"
-  ],
-  "status": "planned",
-  "auth": {
-    "type": "oauth2",
-    "providerId": "bling"
-  },
-  "limits": {
-    "requestsPerMinute": 60,
-    "maxConcurrent": 4
-  },
-  "streams": []
+  "regions": ["BR"],
+  "status": "ready",
+  "baseUrl": "https://api.bling.com.br/Api/v3",
+  "auth": { "type": "oauth2", "providerId": "bling" },
+  "limits": { "requestsPerMinute": 120, "maxConcurrent": 2 },
+  "health": { "path": "/contas-contabeis" },
+  "streams": [
+    {
+      "name": "receivables",
+      "factType": "finance.receivable",
+      "path": "/contas/receber",
+      "query": { "tipoFiltroData": "V" },
+      "recordsPath": "data",
+      "pagination": { "style": "page", "pageParam": "pagina", "sizeParam": "limite", "size": 100, "startPage": 1 },
+      "window": { "fromParam": "dataInicial", "toParam": "dataFinal", "pastDays": 180, "futureDays": 180 },
+      "fields": {
+        "externalId": { "path": "id" },
+        "amount": { "path": "valor", "type": "decimal" },
+        "dueDate": { "path": "vencimento", "type": "date", "dateFormat": "iso" },
+        "issueDate": { "path": "dataEmissao", "type": "date", "dateFormat": "iso" },
+        "counterpartyRef": { "path": "contato.id" },
+        "status": {
+          "path": "situacao",
+          "map": { "1": "open", "3": "open", "2": "settled", "4": "cancelled", "5": "cancelled" }
+        }
+      }
+    },
+    {
+      "name": "payables",
+      "factType": "finance.payable",
+      "path": "/contas/pagar",
+      "recordsPath": "data",
+      "pagination": { "style": "page", "pageParam": "pagina", "sizeParam": "limite", "size": 100, "startPage": 1 },
+      "window": { "fromParam": "dataVencimentoInicial", "toParam": "dataVencimentoFinal", "pastDays": 180, "futureDays": 180 },
+      "fields": {
+        "externalId": { "path": "id" },
+        "amount": { "path": "valor", "type": "decimal" },
+        "dueDate": { "path": "vencimento", "type": "date", "dateFormat": "iso" },
+        "counterpartyRef": { "path": "contato.id" },
+        "status": {
+          "path": "situacao",
+          "map": { "1": "open", "3": "open", "2": "settled", "4": "cancelled", "5": "cancelled" }
+        }
+      }
+    }
+  ]
 }

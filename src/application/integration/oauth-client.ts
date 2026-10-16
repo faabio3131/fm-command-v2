@@ -28,16 +28,19 @@ export function buildAuthorizeUrl(
   client: OAuthClientCredentials,
   input: { redirectUri: string; state: string; codeChallenge?: string },
 ): string {
-  const url = new URL(provider.authorizeUrl);
-  url.searchParams.set("response_type", "code");
-  url.searchParams.set("client_id", client.clientId);
-  url.searchParams.set("redirect_uri", input.redirectUri);
-  url.searchParams.set("state", input.state);
-  if (provider.scopes.length) url.searchParams.set("scope", provider.scopes.join(" "));
+  const params = new URLSearchParams();
+  params.set("response_type", "code");
+  params.set("client_id", client.clientId);
+  params.set("redirect_uri", input.redirectUri);
+  params.set("state", input.state);
+  if (provider.scopes.length) params.set("scope", provider.scopes.join(" "));
   if (provider.usesPkce && input.codeChallenge) {
-    url.searchParams.set("code_challenge", input.codeChallenge);
-    url.searchParams.set("code_challenge_method", "S256");
+    params.set("code_challenge", input.codeChallenge);
+    params.set("code_challenge_method", "S256");
   }
+  if (provider.queryInFragment) return `${provider.authorizeUrl}?${params.toString()}`;
+  const url = new URL(provider.authorizeUrl);
+  for (const [k, v] of params) url.searchParams.set(k, v);
   return url.toString();
 }
 

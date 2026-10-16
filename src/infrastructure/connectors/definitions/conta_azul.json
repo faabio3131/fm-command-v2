@@ -2,17 +2,48 @@
   "id": "conta_azul",
   "version": 1,
   "label": "Conta Azul",
-  "regions": [
-    "BR"
-  ],
-  "status": "planned",
-  "auth": {
-    "type": "oauth2",
-    "providerId": "conta_azul"
-  },
-  "limits": {
-    "requestsPerMinute": 60,
-    "maxConcurrent": 4
-  },
-  "streams": []
+  "regions": ["BR"],
+  "status": "ready",
+  "baseUrl": "https://api-v2.contaazul.com",
+  "auth": { "type": "oauth2", "providerId": "conta_azul" },
+  "limits": { "requestsPerMinute": 300, "maxConcurrent": 4 },
+  "health": { "path": "/v1/financeiro/categorias" },
+  "streams": [
+    {
+      "name": "receivables",
+      "factType": "finance.receivable",
+      "path": "/v1/financeiro/contas-a-receber",
+      "recordsPath": "itens",
+      "pagination": { "style": "page", "pageParam": "pagina", "sizeParam": "tamanho_pagina", "size": 100, "startPage": 1, "totalCountPath": "itens_totais" },
+      "window": { "fromParam": "data_vencimento_de", "toParam": "data_vencimento_ate", "pastDays": 180, "futureDays": 180 },
+      "fields": {
+        "externalId": { "path": "id" },
+        "amount": { "path": "total", "type": "decimal" },
+        "dueDate": { "path": "data_vencimento", "type": "date", "dateFormat": "iso" },
+        "counterpartyRef": { "path": "cliente.id" },
+        "status": {
+          "path": "status_traduzido",
+          "map": { "EM_ABERTO": "open", "RECEBIDO_PARCIAL": "open", "ATRASADO": "overdue", "RECEBIDO": "settled", "PERDIDO": "cancelled", "RENEGOCIADO": "cancelled" }
+        }
+      }
+    },
+    {
+      "name": "payables",
+      "factType": "finance.payable",
+      "path": "/v1/financeiro/contas-a-pagar",
+      "recordsPath": "itens",
+      "pagination": { "style": "page", "pageParam": "pagina", "sizeParam": "tamanho_pagina", "size": 100, "startPage": 1, "totalCountPath": "itens_totais" },
+      "window": { "fromParam": "data_vencimento_de", "toParam": "data_vencimento_ate", "pastDays": 180, "futureDays": 180 },
+      "fields": {
+        "externalId": { "path": "id" },
+        "amount": { "path": "total", "type": "decimal" },
+        "dueDate": { "path": "data_vencimento", "type": "date", "dateFormat": "iso" },
+        "counterpartyRef": { "path": "fornecedor.id" },
+        "status": {
+          "path": "status_traduzido",
+          "map": { "EM_ABERTO": "open", "RECEBIDO_PARCIAL": "open", "ATRASADO": "overdue", "RECEBIDO": "settled", "PERDIDO": "cancelled", "RENEGOCIADO": "cancelled" }
+        }
+      }
+    }
+  ]
 }

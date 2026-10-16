@@ -21,6 +21,8 @@ export type PaginationDefinition =
       readonly size: number;
       readonly startPage?: number;
       readonly totalPagesPath?: string;
+      /** Caminho do total de REGISTROS (não de páginas) na resposta. */
+      readonly totalCountPath?: string;
     }
   | {
       readonly style: "offset";
@@ -37,6 +39,13 @@ export interface StreamDefinition {
   readonly query?: Readonly<Record<string, string>>;
   readonly pagination: PaginationDefinition;
   readonly recordsPath: string;
+  /** Intervalo de datas obrigatório na consulta (ex.: vencimento de/até), relativo a hoje. */
+  readonly window?: {
+    readonly fromParam: string;
+    readonly toParam: string;
+    readonly pastDays: number;
+    readonly futureDays: number;
+  };
   readonly incremental?: { readonly param: string; readonly format: "iso_date" | "iso_datetime" };
   readonly fields: {
     readonly externalId: FieldSource;
@@ -173,6 +182,7 @@ export function validateConnectorDefinition(raw: unknown): ConnectorDefinition {
     if (!isObject(pag)) return fail(`${w}.pagination`, "objeto esperado");
     let pagination: PaginationDefinition;
     const totalPagesPath = pag.totalPagesPath === undefined ? undefined : str(pag.totalPagesPath, `${w}.pagination.totalPagesPath`, /^[A-Za-z0-9_$.-]{1,128}$/);
+    const totalCountPath = pag.totalCountPath === undefined ? undefined : str(pag.totalCountPath, `${w}.pagination.totalCountPath`, /^[A-Za-z0-9_$.-]{1,128}$/);
     if (pag.style === "page") {
       pagination = {
         style: "page",
@@ -181,6 +191,7 @@ export function validateConnectorDefinition(raw: unknown): ConnectorDefinition {
         size: int(pag.size, `${w}.pagination.size`, 1, 1000),
         startPage: pag.startPage === undefined ? undefined : int(pag.startPage, `${w}.pagination.startPage`, 0, 1),
         totalPagesPath,
+        totalCountPath,
       };
     } else if (pag.style === "offset") {
       pagination = {
@@ -202,6 +213,18 @@ export function validateConnectorDefinition(raw: unknown): ConnectorDefinition {
         for (const m of val.matchAll(/\{([^}]*)\}/g)) if (!variables.has(m[1])) fail(`${w}.query.${k}`, `variável não declarada: ${m[1]}`);
         query[k] = val;
       }
+    }
+
+    let window: StreamDefinition["window"];
+    if (s.window !== undefined) {
+      const win = s.window;
+      if (!isObject(win)) return fail(`${w}.window`, "objeto esperado");
+      window = {
+        fromParam: str(win.fromParam, `${w}.window.fromParam`, PARAM),
+        toParam: str(win.toParam, `${w}.window.toParam`, PARAM),
+        pastDays: int(win.pastDays, `${w}.window.pastDays`, 0, 3650),
+        futureDays: int(win.futureDays, `${w}.window.futureDays`, 0, 3650),
+      };
     }
 
     const inc = s.incremental;
@@ -232,6 +255,7 @@ export function validateConnectorDefinition(raw: unknown): ConnectorDefinition {
       query,
       pagination,
       recordsPath: str(s.recordsPath, `${w}.recordsPath`, /^(\$|[A-Za-z0-9_$.-]{1,128})$/),
+      window,
       incremental,
       fields: {
         externalId: field(f.externalId, `${w}.fields.externalId`, true)!,

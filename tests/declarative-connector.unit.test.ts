@@ -35,7 +35,11 @@ describe("8E definição declarativa: validação", () => {
     expect(validateConnectorDefinition(syntheticDefinition).streams).toHaveLength(2);
     expect(declarativeDefinitions().length).toBeGreaterThanOrEqual(4);
     expect(connectorCatalog().find((e) => e.id === "omie")).toMatchObject({ status: "ready", kind: "code" });
-    for (const id of ["conta_azul", "bling", "xero", "quickbooks"]) {
+    // Conta Azul e Bling foram conferidos na documentação oficial (16/10/2026); os demais seguem sem API conferida.
+    for (const id of ["conta_azul", "bling"]) {
+      expect(connectorCatalog().find((e) => e.id === id)).toMatchObject({ status: "ready", authType: "oauth2" });
+    }
+    for (const id of ["xero", "quickbooks"]) {
       expect(connectorCatalog().find((e) => e.id === id)).toMatchObject({ status: "planned", authType: "oauth2" });
     }
   });

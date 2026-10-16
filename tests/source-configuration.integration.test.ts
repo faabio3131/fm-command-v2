@@ -50,11 +50,12 @@ const bad = async (promise: Promise<unknown>, field: string) => {
 };
 
 describe("8E configuração de fontes por empresa", () => {
-  it("catálogo: Omie pronto e os demais em preparação, para quem pode ler fontes", () => {
+  it("catálogo: Omie, Conta Azul e Bling prontos, os demais em preparação, para quem pode ler fontes", () => {
     const entries = service.catalog(ctx(A, "analyst"));
     expect(() => service.catalog(ctx(A, "viewer"))).toThrow(PermissionDeniedError);
     expect(entries.find((e) => e.id === "omie")?.status).toBe("ready");
-    expect(entries.filter((e) => e.status === "planned").length).toBeGreaterThanOrEqual(4);
+    for (const id of ["conta_azul", "bling"]) expect(entries.find((e) => e.id === id)?.status).toBe("ready");
+    expect(entries.filter((e) => e.status === "planned").map((e) => e.id).sort()).toEqual(["quickbooks", "xero"]);
   });
 
   it("cria fonte do Omie com configuração validada e unidade da própria empresa", async () => {
@@ -81,7 +82,7 @@ describe("8E configuração de fontes por empresa", () => {
   });
 
   it("conector em preparação ou inexistente não cria fonte; leitor não cria", async () => {
-    await expect(service.createFromCatalog(ctx(A), { connectorId: "bling", name: "x" })).rejects.toBeInstanceOf(ConnectorNotReadyError);
+    await expect(service.createFromCatalog(ctx(A), { connectorId: "xero", name: "x" })).rejects.toBeInstanceOf(ConnectorNotReadyError);
     await expect(service.createFromCatalog(ctx(A), { connectorId: "sap", name: "x" })).rejects.toBeInstanceOf(ConnectorUnknownError);
     await expect(service.createFromCatalog(ctx(A, "viewer"), { connectorId: "omie", name: "x" })).rejects.toBeInstanceOf(PermissionDeniedError);
     for (const id of ["__proto__", "constructor", "toString"]) {

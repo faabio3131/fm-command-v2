@@ -49,3 +49,27 @@ Conectores de ERP novos são **definições** (JSON validado na carga), não có
 Correções da revisão independente (16/10): variável não começa por ponto e `%` não entra em caminho; `POST /api/sources` não burla o catálogo com espaços; página repetida encerra a paginação e `startPage: 0` fecha certo; casas decimais por moeda (JPY 0, KWD 3), casas a mais viram ausente em vez de arredondar; limitador por credencial; PATCH não apaga variáveis obrigatórias.
 
 **Não provado / limites:** nenhuma definição de Conta Azul, Bling, Xero ou QuickBooks foi confirmada contra a documentação oficial (entradas `planned`, não conectam); nenhum teste contra API real; ids numéricos acima de 2^53 perdem precisão no `JSON.parse`; a vírgula única ("1,234") é lida como decimal; a tela não tem teste de navegador (só tipos, lint, build e testes de serviço/rotas).
+
+## Conta Azul e Bling: definições conferidas na documentação oficial (16/10/2026)
+
+As duas definições foram escritas a partir das páginas oficiais (developers.contaazul.com e developer.bling.com.br), lidas pelo computador do Diretor, e não de fontes de terceiros. Isso **corrigiu** endereços que estavam errados no ADR e no código (login e token da Conta Azul; token do Bling).
+
+| | Conta Azul | Bling |
+|---|---|---|
+| API | `https://api-v2.contaazul.com` | `https://api.bling.com.br/Api/v3` |
+| Autorização | `https://login.contaazul.com/#/oauth/authorize?...` (parâmetros depois do `#`) | `https://www.bling.com.br/Api/v3/oauth/authorize` |
+| Token | `https://api-v2.contaazul.com/oauth/token` (Basic) | `https://api.bling.com.br/Api/v3/oauth/token` (Basic) |
+| PKCE | não citado (desligado) | não citado (desligado) |
+| Limite oficial | 600/min e 10/s por conta | 3/s e 120 mil/dia por conta |
+| Limite usado | 300/min, 4 simultâneas | 120/min, 2 simultâneas |
+| Contas a receber / pagar | `/v1/financeiro/contas-a-receber` e `/contas-a-pagar`, `pagina`/`tamanho_pagina`, total em `itens_totais`, vencimento de/até obrigatório | `/contas/receber` e `/contas/pagar`, `pagina`/`limite`, sem total (página curta encerra), filtro de data de até 1 ano |
+| Janela lida | vencimento de −180 a +180 dias | vencimento de −180 a +180 dias |
+
+Motor: passou a ter `window` (intervalo de datas relativo ao dia do ciclo), `totalCountPath` (paginação pelo total de registros, com contador no cursor) e URL de autorização com parâmetros após o `#`.
+
+**Decisões e limites desta etapa:**
+- Status: Conta Azul usa `status_traduzido` (EM_ABERTO, ATRASADO, RECEBIDO, RECEBIDO_PARCIAL, PERDIDO, RENEGOCIADO); Bling usa o código numérico. No Bling, `6` (devolvido parcial) e `7` (confirmado) **não têm equivalente seguro e ficam indisponíveis** com o valor original guardado em `sourceStatus`. "Atrasado" no Bling é calculado pelo vencimento, não vem da API.
+- Janela de 360 dias: títulos vencidos há mais de 180 dias ou a vencer em mais de 180 dias não entram. É um parâmetro da definição, não uma verdade do ERP.
+- A especificação do Bling cita `bling.com.br` para o token; o guia (e o exemplo `curl`) usam `api.bling.com.br`. Usamos o guia; precisa ser confirmado com um aplicativo real.
+- **Nada disto rodou contra a API real.** Os testes usam simuladores no formato documentado. Falta: aplicativos OAuth registrados nos dois provedores e uma conta de teste de cada.
+- Conta Azul: o app de desenvolvimento usa a URL de redirecionamento `https://www.contaazul.com`; produção exige o domínio do V2 cadastrado.

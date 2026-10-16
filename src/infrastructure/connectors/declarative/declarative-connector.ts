@@ -41,12 +41,20 @@ interface Cursor {
   w?: string;
   /** impressão da primeira linha da página anterior (detecta API que ignora a página) */
   h?: string;
+  /** registros já lidos neste fluxo (paginação por total de registros) */
+  n?: number;
 }
 
 function validDay(value: unknown): value is string {
   if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
   const d = new Date(`${value}T00:00:00Z`);
   return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === value;
+}
+
+function addDays(day: string, n: number): string {
+  const d = new Date(`${day}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
 }
 
 function previousDay(day: string): string {
@@ -173,7 +181,7 @@ export class DeclarativeRestConnector implements Connector {
       !Number.isInteger(c.p) || (c.p as number) < 0 || (c.p as number) > MAX_PAGE ||
       (c.since !== undefined && !validDay(c.since)) || (c.w !== undefined && !validDay(c.w))
     ) throw new ConnectorConfigError("integration.connector_cursor_invalid");
-    return { s: c.s, p: c.p as number, since: c.since, w: c.w, h: typeof c.h === "string" && c.h.length <= 128 ? c.h : undefined };
+    return { s: c.s, p: c.p as number, since: c.since, w: c.w, h: typeof c.h === "string" && c.h.length <= 128 ? c.h : undefined, n: Number.isSafeInteger(c.n) && (c.n as number) >= 0 && (c.n as number) <= 100_000_000 ? c.n : undefined };
   }
 
   async pull(context: ConnectorContext, source: SourceDefinition, rawCursor?: string): Promise<ConnectorPullResult> {
@@ -196,6 +204,10 @@ export class DeclarativeRestConnector implements Connector {
       query[pg.offsetParam] = String((cursor.p - 1) * pg.size);
       query[pg.sizeParam] = String(pg.size);
     }
+    if (stream.window) {
+      query[stream.window.fromParam] = addDays(cycleDay, -stream.window.pastDays);
+      query[stream.window.toParam] = addDays(cycleDay, stream.window.futureDays);
+    }
     if (cursor.since && stream.incremental) {
       const day = previousDay(cursor.since); // um dia de folga cobre fuso; repetir registro é inofensivo
       query[stream.incremental.param] = stream.incremental.format === "iso_date" ? day : `${day}T00:00:00Z`;
@@ -217,13 +229,17 @@ export class DeclarativeRestConnector implements Connector {
     const firstPage = pg.style === "page" ? pg.startPage ?? 1 : 1;
     const fingerprint = list.length ? JSON.stringify(list[0]).slice(0, 128) : undefined;
     const repeated = fingerprint !== undefined && fingerprint === cursor.h;
+    const countRaw = pg.style === "page" && pg.totalCountPath ? getPath(body, pg.totalCountPath) : undefined;
     const hasMore = !repeated && (typeof totalRaw === "number" && Number.isInteger(totalRaw) && totalRaw >= 1
       ? cursor.p < totalRaw - 1 + firstPage
-      : list.length >= pg.size);
+      : typeof countRaw === "number" && Number.isInteger(countRaw) && countRaw >= 0
+        // Total de registros: conta o que já foi lido (a API pode limitar o tamanho pedido).
+        ? list.length > 0 && (cursor.n ?? 0) + list.length < countRaw
+        : list.length >= pg.size);
 
     let next: Cursor;
     if (hasMore && cursor.p < MAX_PAGE) {
-      next = { s: stream.name, p: cursor.p + 1, since: cursor.since, w: cycleDay, h: fingerprint };
+      next = { s: stream.name, p: cursor.p + 1, since: cursor.since, w: cycleDay, h: fingerprint, n: (cursor.n ?? 0) + list.length };
     } else if (index + 1 < this.def.streams.length) {
       const nx = this.def.streams[index + 1];
       next = { s: nx.name, p: nx.pagination.style === "page" ? nx.pagination.startPage ?? 1 : 1, since: cursor.since, w: cycleDay };

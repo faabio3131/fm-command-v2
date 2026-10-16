@@ -5,24 +5,29 @@ import {
 import type { OAuthClientCredentials } from "@/application/integration/oauth-client";
 
 /**
- * Descritores dos provedores OAuth. Os endereços abaixo vêm de documentação de
- * terceiros e NÃO foram conferidos com um aplicativo real (ver ADR-022); por
- * isso podem ser trocados por variável de ambiente sem mudar o código.
+ * Descritores dos provedores OAuth. Os endereços marcados como conferidos vêm da documentação oficial; os demais vêm de
+ * terceiros e NÃO foram conferidos (ver ADR-022). Todos podem ser trocados por variável de ambiente sem mudar o código.
  * Ids = `sourceType` da fonte.
  */
 const DEFAULTS: Readonly<Record<string, OAuthProviderConfig>> = {
+  // Conferido na documentação oficial (developers.contaazul.com, 16/10/2026): o login usa
+  // fragmento (`#/oauth/authorize`), o token sai do api-v2 com Basic, e PKCE não é citado.
   conta_azul: {
     id: "conta_azul",
-    authorizeUrl: "https://auth.contaazul.com/login",
-    tokenUrl: "https://auth.contaazul.com/oauth2/token",
+    authorizeUrl: "https://login.contaazul.com/#/oauth/authorize",
+    tokenUrl: "https://api-v2.contaazul.com/oauth/token",
     clientAuth: "basic",
-    usesPkce: true,
+    usesPkce: false,
+    queryInFragment: true,
     scopes: ["openid", "profile", "aws.cognito.signin.user.admin"],
   },
+  // Conferido na documentação oficial (developer.bling.com.br, 16/10/2026): login em www.bling.com.br,
+  // token em api.bling.com.br com Basic; redirect e escopos vêm do cadastro do aplicativo.
+  // (A especificação OpenAPI cita bling.com.br para o token; o guia usa api.bling.com.br — o guia manda.)
   bling: {
     id: "bling",
     authorizeUrl: "https://www.bling.com.br/Api/v3/oauth/authorize",
-    tokenUrl: "https://www.bling.com.br/Api/v3/oauth/token",
+    tokenUrl: "https://api.bling.com.br/Api/v3/oauth/token",
     clientAuth: "basic",
     usesPkce: false,
     scopes: [],
