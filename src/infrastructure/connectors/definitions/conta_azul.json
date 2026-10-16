@@ -15,7 +15,7 @@
       "path": "/v1/financeiro/contas-a-receber",
       "recordsPath": "itens",
       "pagination": { "style": "page", "pageParam": "pagina", "sizeParam": "tamanho_pagina", "size": 100, "startPage": 1, "totalCountPath": "itens_totais" },
-      "window": { "fromParam": "data_vencimento_de", "toParam": "data_vencimento_ate", "pastDays": 180, "futureDays": 180 },
+      "window": { "fromParam": "data_vencimento_de", "toParam": "data_vencimento_ate", "pastDays": 270, "futureDays": 90 },
       "fields": {
         "externalId": { "path": "id" },
         "amount": { "path": "total", "type": "decimal" },
@@ -23,7 +23,7 @@
         "counterpartyRef": { "path": "cliente.id" },
         "status": {
           "path": "status_traduzido",
-          "map": { "EM_ABERTO": "open", "RECEBIDO_PARCIAL": "open", "ATRASADO": "overdue", "RECEBIDO": "settled", "PERDIDO": "cancelled", "RENEGOCIADO": "cancelled" }
+          "map": { "EM_ABERTO": "open", "ATRASADO": "overdue", "RECEBIDO": "settled", "PERDIDO": "cancelled", "RENEGOCIADO": "cancelled" }
         }
       }
     },
@@ -33,7 +33,7 @@
       "path": "/v1/financeiro/contas-a-pagar",
       "recordsPath": "itens",
       "pagination": { "style": "page", "pageParam": "pagina", "sizeParam": "tamanho_pagina", "size": 100, "startPage": 1, "totalCountPath": "itens_totais" },
-      "window": { "fromParam": "data_vencimento_de", "toParam": "data_vencimento_ate", "pastDays": 180, "futureDays": 180 },
+      "window": { "fromParam": "data_vencimento_de", "toParam": "data_vencimento_ate", "pastDays": 270, "futureDays": 90 },
       "fields": {
         "externalId": { "path": "id" },
         "amount": { "path": "total", "type": "decimal" },
@@ -41,7 +41,7 @@
         "counterpartyRef": { "path": "fornecedor.id" },
         "status": {
           "path": "status_traduzido",
-          "map": { "EM_ABERTO": "open", "RECEBIDO_PARCIAL": "open", "ATRASADO": "overdue", "RECEBIDO": "settled", "PERDIDO": "cancelled", "RENEGOCIADO": "cancelled" }
+          "map": { "EM_ABERTO": "open", "ATRASADO": "overdue", "RECEBIDO": "settled", "PERDIDO": "cancelled", "RENEGOCIADO": "cancelled" }
         }
       }
     }

@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { systemClock, type Clock, type RateLimiter, RateLimitWaitExceededError } from "@/application/integration/rate-limiter";
 import type { OAuthClientCredentials } from "@/application/integration/oauth-client";
 import type { OAuthTokenService } from "@/application/integration/oauth-token-service";
@@ -227,7 +228,9 @@ export class DeclarativeRestConnector implements Connector {
 
     const totalRaw = pg.totalPagesPath ? getPath(body, pg.totalPagesPath) : undefined;
     const firstPage = pg.style === "page" ? pg.startPage ?? 1 : 1;
-    const fingerprint = list.length ? JSON.stringify(list[0]).slice(0, 128) : undefined;
+    const fingerprint = list.length
+      ? createHash("sha1").update(`${String(getPath(list[0], stream.fields.externalId.path))}|${JSON.stringify(list[0])}`).digest("hex").slice(0, 24)
+      : undefined;
     const repeated = fingerprint !== undefined && fingerprint === cursor.h;
     const countRaw = pg.style === "page" && pg.totalCountPath ? getPath(body, pg.totalCountPath) : undefined;
     const hasMore = !repeated && (typeof totalRaw === "number" && Number.isInteger(totalRaw) && totalRaw >= 1

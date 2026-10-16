@@ -5,7 +5,7 @@ import {
   RetryableConnectorError,
 } from "@/domain/integration/contracts";
 import type { ConnectorCredential } from "@/domain/integration/credentials";
-import type { OAuthProviderConfig } from "@/domain/integration/oauth";
+import { OAuthProviderNotConfiguredError, type OAuthProviderConfig } from "@/domain/integration/oauth";
 import type { JsonHttpTransport } from "@/infrastructure/connectors/http-json-transport";
 import { TransportError } from "@/infrastructure/connectors/http-json-transport";
 
@@ -37,6 +37,10 @@ export function buildAuthorizeUrl(
   if (provider.usesPkce && input.codeChallenge) {
     params.set("code_challenge", input.codeChallenge);
     params.set("code_challenge_method", "S256");
+  }
+  if (provider.queryInFragment) {
+    // Parâmetros vão depois do `#`: a URL base precisa ter o fragmento e nenhuma consulta própria.
+    if (!provider.authorizeUrl.includes("#") || provider.authorizeUrl.includes("?")) throw new OAuthProviderNotConfiguredError();
   }
   if (provider.queryInFragment) return `${provider.authorizeUrl}?${params.toString()}`;
   const url = new URL(provider.authorizeUrl);

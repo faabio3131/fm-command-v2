@@ -16,7 +16,7 @@
       "query": { "tipoFiltroData": "V" },
       "recordsPath": "data",
       "pagination": { "style": "page", "pageParam": "pagina", "sizeParam": "limite", "size": 100, "startPage": 1 },
-      "window": { "fromParam": "dataInicial", "toParam": "dataFinal", "pastDays": 180, "futureDays": 180 },
+      "window": { "fromParam": "dataInicial", "toParam": "dataFinal", "pastDays": 270, "futureDays": 90 },
       "fields": {
         "externalId": { "path": "id" },
         "amount": { "path": "valor", "type": "decimal" },
@@ -25,7 +25,7 @@
         "counterpartyRef": { "path": "contato.id" },
         "status": {
           "path": "situacao",
-          "map": { "1": "open", "3": "open", "2": "settled", "4": "cancelled", "5": "cancelled" }
+          "map": { "1": "open", "2": "settled", "4": "cancelled", "5": "cancelled" }
         }
       }
     },
@@ -35,7 +35,7 @@
       "path": "/contas/pagar",
       "recordsPath": "data",
       "pagination": { "style": "page", "pageParam": "pagina", "sizeParam": "limite", "size": 100, "startPage": 1 },
-      "window": { "fromParam": "dataVencimentoInicial", "toParam": "dataVencimentoFinal", "pastDays": 180, "futureDays": 180 },
+      "window": { "fromParam": "dataVencimentoInicial", "toParam": "dataVencimentoFinal", "pastDays": 270, "futureDays": 90 },
       "fields": {
         "externalId": { "path": "id" },
         "amount": { "path": "valor", "type": "decimal" },
@@ -43,7 +43,7 @@
         "counterpartyRef": { "path": "contato.id" },
         "status": {
           "path": "situacao",
-          "map": { "1": "open", "3": "open", "2": "settled", "4": "cancelled", "5": "cancelled" }
+          "map": { "1": "open", "2": "settled", "4": "cancelled", "5": "cancelled" }
         }
       }
     }

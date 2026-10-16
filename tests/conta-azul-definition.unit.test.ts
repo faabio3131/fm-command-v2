@@ -72,8 +72,8 @@ describe("8E Conta Azul: definição conferida na documentação oficial", () =>
     const req = rest.requests[0];
     expect(req.searchParams.get("pagina")).toBe("1");
     expect(req.searchParams.get("tamanho_pagina")).toBe("100");
-    expect(req.searchParams.get("data_vencimento_de")).toBe("2026-04-19");
-    expect(req.searchParams.get("data_vencimento_ate")).toBe("2027-04-14");
+    expect(req.searchParams.get("data_vencimento_de")).toBe("2026-01-19");
+    expect(req.searchParams.get("data_vencimento_ate")).toBe("2027-01-14");
     expect(rest.authorization[0]).toBe("Bearer tok-1");
     expect(first.facts[0]).toMatchObject({ factType: "finance.receivable", externalId: "receivables:p-0" });
     expect(first.facts[0].payload).toMatchObject({ amountMinor: 15050, dueDate: "2026-11-10", status: "open", counterpartyRef: "c-0", currency: "BRL" });
@@ -111,5 +111,62 @@ describe("8E Conta Azul: definição conferida na documentação oficial", () =>
     expect(url).toContain("state=est");
     expect(url).not.toContain("code_challenge");
     expect(oauthProvider("conta_azul").tokenUrl).toBe("https://api-v2.contaazul.com/oauth/token");
+  });
+});
+
+describe("8E Conta Azul/Bling: achados da revisão independente", () => {
+  it("parcialmente recebido NÃO vira 'aberto' com o valor total: status fica indisponível", async () => {
+    const rest = new ContaAzulSimulator();
+    rest.receivables = [item(1, { status_traduzido: "RECEBIDO_PARCIAL" })];
+    const { connector, source, context } = build(rest);
+    const { facts } = await connector.pull(context, source);
+    expect(facts[0].payload.status).toBeUndefined();
+    expect(facts[0].payload.unavailable).toContain("status");
+    expect(facts[0].payload.sourceStatus).toBe("RECEBIDO_PARCIAL");
+  });
+
+  it("páginas com o mesmo começo mas ids diferentes não são confundidas com página repetida", async () => {
+    const rest = new ContaAzulSimulator();
+    const same = { total: 10, data_vencimento: "2026-11-10", status_traduzido: "EM_ABERTO", descricao: "x".repeat(300) };
+    rest.receivables = Array.from({ length: 250 }, (_, i) => ({ ...same, id: `id-${i}` }));
+    const { connector, source, context } = build(rest);
+    let cursor: string | undefined;
+    let total = 0;
+    for (let i = 0; i < 3; i += 1) {
+      const r = await connector.pull(context, source, cursor);
+      total += r.facts.length;
+      cursor = r.nextCursor;
+    }
+    expect(total).toBe(250);
+  });
+
+  it("se a API limita o tamanho da página, a contagem acumulada ainda lê tudo", async () => {
+    class Capped extends ContaAzulSimulator {
+      override async get(url: string, options: { headers?: Readonly<Record<string, string>> }): Promise<JsonHttpResponse> {
+        const u = new URL(url);
+        u.searchParams.set("tamanho_pagina", "40"); // o servidor ignora o 100 pedido
+        return super.get(u.toString(), options);
+      }
+    }
+    const rest = new Capped();
+    rest.receivables = Array.from({ length: 100 }, (_, i) => item(i));
+    const { connector, source, context } = build(rest);
+    let cursor: string | undefined;
+    let total = 0;
+    for (let i = 0; i < 3; i += 1) {
+      const r = await connector.pull(context, source, cursor);
+      total += r.facts.length;
+      cursor = r.nextCursor;
+    }
+    expect(total).toBe(100);
+    expect(JSON.parse(cursor ?? "{}").s).toBe("payables");
+  });
+
+  it("URL de autorização em modo fragmento sem '#' ou já com '?' é recusada", () => {
+    const base = oauthProvider("conta_azul");
+    const call = (authorizeUrl: string) => buildAuthorizeUrl({ ...base, authorizeUrl }, { clientId: "i", clientSecret: "s" }, { redirectUri: "https://a.test/cb", state: "e" });
+    expect(() => call("https://login.contaazul.com/oauth/authorize")).toThrow();
+    expect(() => call("https://login.contaazul.com/#/oauth/authorize?x=1")).toThrow();
+    expect(call("https://login.contaazul.com/#/oauth/authorize")).toContain("#/oauth/authorize?");
   });
 });

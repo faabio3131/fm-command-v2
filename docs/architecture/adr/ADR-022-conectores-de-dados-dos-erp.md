@@ -63,13 +63,16 @@ As duas definições foram escritas a partir das páginas oficiais (developers.c
 | Limite oficial | 600/min e 10/s por conta | 3/s e 120 mil/dia por conta |
 | Limite usado | 300/min, 4 simultâneas | 120/min, 2 simultâneas |
 | Contas a receber / pagar | `/v1/financeiro/contas-a-receber` e `/contas-a-pagar`, `pagina`/`tamanho_pagina`, total em `itens_totais`, vencimento de/até obrigatório | `/contas/receber` e `/contas/pagar`, `pagina`/`limite`, sem total (página curta encerra), filtro de data de até 1 ano |
-| Janela lida | vencimento de −180 a +180 dias | vencimento de −180 a +180 dias |
+| Janela lida | vencimento de −270 a +90 dias | vencimento de −270 a +90 dias |
 
 Motor: passou a ter `window` (intervalo de datas relativo ao dia do ciclo), `totalCountPath` (paginação pelo total de registros, com contador no cursor) e URL de autorização com parâmetros após o `#`.
 
 **Decisões e limites desta etapa:**
 - Status: Conta Azul usa `status_traduzido` (EM_ABERTO, ATRASADO, RECEBIDO, RECEBIDO_PARCIAL, PERDIDO, RENEGOCIADO); Bling usa o código numérico. No Bling, `6` (devolvido parcial) e `7` (confirmado) **não têm equivalente seguro e ficam indisponíveis** com o valor original guardado em `sourceStatus`. "Atrasado" no Bling é calculado pelo vencimento, não vem da API.
-- Janela de 360 dias: títulos vencidos há mais de 180 dias ou a vencer em mais de 180 dias não entram. É um parâmetro da definição, não uma verdade do ERP.
+- Janela de 360 dias (−270/+90): título fora dela deixa de ser relido e **fica no banco com o último estado visto** (um título em aberto há mais de 270 dias, ou pago depois de sair da janela, aparece desatualizado). É um parâmetro da definição, não uma verdade do ERP; vale tratar com uma leitura de "baixados" ou janela maior quando houver conta real para medir.
+- Parciais (`RECEBIDO_PARCIAL` na Conta Azul, `3` no Bling) ficam com status **indisponível**, porque o conector lê o valor total e "aberto" com o total superestimaria o saldo. Conta Azul expõe `nao_pago`; usar o saldo exige um segundo campo de valor no motor (não feito).
+- Conta Azul, contas a pagar: o mapa de status foi copiado do de receber (a documentação lista os mesmos valores nas duas rotas). Se a API devolver outro texto para título pago (ex.: `PAGO`), o status fica indisponível até o valor real ser conferido com uma conta de teste.
+- No Bling os parâmetros de data diferem entre receber (`dataInicial/dataFinal` + `tipoFiltroData=V`) e pagar (`dataVencimentoInicial/Final`): é o que a especificação oficial diz. "Atrasado" não existe no Bling; quem consome deriva do vencimento.
 - A especificação do Bling cita `bling.com.br` para o token; o guia (e o exemplo `curl`) usam `api.bling.com.br`. Usamos o guia; precisa ser confirmado com um aplicativo real.
 - **Nada disto rodou contra a API real.** Os testes usam simuladores no formato documentado. Falta: aplicativos OAuth registrados nos dois provedores e uma conta de teste de cada.
 - Conta Azul: o app de desenvolvimento usa a URL de redirecionamento `https://www.contaazul.com`; produção exige o domínio do V2 cadastrado.

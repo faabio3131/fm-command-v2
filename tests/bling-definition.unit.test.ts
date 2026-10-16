@@ -59,7 +59,7 @@ describe("8E Bling: definição conferida na documentação oficial", () => {
     expect(entry?.limits.requestsPerMinute).toBeLessThanOrEqual(180);
     const def = declarativeDefinitions().find((d) => d.id === "bling");
     for (const s of def?.streams ?? []) {
-      expect((s.window?.pastDays ?? 0) + (s.window?.futureDays ?? 0)).toBeLessThanOrEqual(365);
+      expect((s.window?.pastDays ?? 0) + (s.window?.futureDays ?? 0)).toBeLessThanOrEqual(364);
     }
   });
 
@@ -74,8 +74,8 @@ describe("8E Bling: definição conferida na documentação oficial", () => {
     const req = rest.requests[0];
     expect(req.pathname).toBe("/Api/v3/contas/receber");
     expect(req.searchParams.get("tipoFiltroData")).toBe("V");
-    expect(req.searchParams.get("dataInicial")).toBe("2026-04-19");
-    expect(req.searchParams.get("dataFinal")).toBe("2027-04-14");
+    expect(req.searchParams.get("dataInicial")).toBe("2026-01-19");
+    expect(req.searchParams.get("dataFinal")).toBe("2027-01-14");
     expect(req.searchParams.get("limite")).toBe("100");
     expect(rest.authorization[0]).toBe("Bearer tok-b");
     expect(first.facts[0].payload).toMatchObject({ amountMinor: 150075, dueDate: "2026-11-10", issueDate: "2026-10-01", status: "open", counterpartyRef: "77" });
@@ -85,20 +85,21 @@ describe("8E Bling: definição conferida na documentação oficial", () => {
     expect(JSON.parse(second.nextCursor ?? "{}").s).toBe("payables");
 
     const pay = await connector.pull(context, source, second.nextCursor);
-    expect(rest.requests.at(-1)?.searchParams.get("dataVencimentoInicial")).toBe("2026-04-19");
+    expect(rest.requests.at(-1)?.searchParams.get("dataVencimentoInicial")).toBe("2026-01-19");
     expect(pay.facts[0]).toMatchObject({ factType: "finance.payable", externalId: "payables:5" });
     expect(pay.facts[0].payload).toMatchObject({ amountMinor: 9990, status: "settled" });
   });
 
-  it("situação sem equivalente seguro (devolvido parcial, confirmado) fica indisponível, nunca chutada", async () => {
+  it("situação sem equivalente seguro (parcial, devolvido parcial, confirmado) fica indisponível, nunca chutada", async () => {
     const rest = new BlingSimulator();
-    rest.receivables = [row(1, { situacao: 6 }), row(2, { situacao: 7 }), row(3, { situacao: 5 })];
+    rest.receivables = [row(1, { situacao: 6 }), row(2, { situacao: 7 }), row(3, { situacao: 5 }), row(4, { situacao: 3 })];
     const { connector, source, context } = build(rest);
     const { facts } = await connector.pull(context, source);
     expect(facts[0].payload.unavailable).toContain("status");
     expect(facts[0].payload.sourceStatus).toBe("6");
     expect(facts[1].payload.unavailable).toContain("status");
     expect(facts[2].payload.status).toBe("cancelled");
+    expect(facts[3].payload.unavailable).toContain("status");
   });
 
   it("a URL de autorização e o token seguem a documentação (sem PKCE, Basic)", () => {
