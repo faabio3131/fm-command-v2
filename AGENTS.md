@@ -1,6 +1,6 @@
 # AGENTS.md — como o trabalho de construção da V2 é executado
 
-Este arquivo vale para qualquer agente (ou pessoa) que trabalhe neste repositório. O plano de etapas está em `docs/CRONOGRAMA-V2.md`. **Leia primeiro `docs/V2-VISAO-E-DECISOES.md`: o que o V2 é (produto comercial, sem relação com produtos da FM), as decisões do Diretor e o estado atual.**
+Este arquivo vale para qualquer agente (ou pessoa) que trabalhe neste repositório. O plano de etapas está em `docs/CRONOGRAMA-V2.md`. **Leia primeiro `docs/V2-VISAO-E-DECISOES.md`: o que o V2 é (produto comercial, sem relação com produtos da FM), as decisões do Diretor e o estado atual. A arquitetura-alvo (seis camadas e regras que não se quebram) está em `docs/ARQUITETURA-ALVO-V2.md`.**
 
 ## Autorização permanente do Diretor Executivo (15/10/2026)
 

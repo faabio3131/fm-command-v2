@@ -10,7 +10,7 @@ Versão comercial e multi-setor do FM Command, da FM Tecnologia.
 - Esta V2 nasceu de uma cópia isolada da V1 no commit `18f1d1b2c9283fd7f775da97e3b7a74e3c767ada`. O README original está em `docs/V1-README.md`, e os documentos FMCC-* e FM_COMMAND_* foram mantidos como referência de arquitetura e governança.
 - Os workflows de GitHub da V1 **não foram copiados**: eles apontam para ambientes, segredos e validações de produção da V1. A V2 terá os seus, criados nas fases seguintes.
 
-**Antes de qualquer trabalho, leia `docs/V2-VISAO-E-DECISOES.md`** (o que o V2 é, decisões do Diretor, estado e pendências).
+**Antes de qualquer trabalho, leia `docs/V2-VISAO-E-DECISOES.md`** (o que o V2 é, decisões do Diretor, estado e pendências) e `docs/ARQUITETURA-ALVO-V2.md` (a fundação que não pode ser perdida).
 
 ## Direção da V2
 
