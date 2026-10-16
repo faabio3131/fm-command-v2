@@ -25,5 +25,6 @@ Status atualizado em 24/09/2026:
 | ADR-019 | Estrutura de matriz, filiais e regiões | PROPOSED |
 | ADR-020 | Mercado global: idiomas, moeda, fuso e região | PROPOSED |
 | ADR-021 | Assinatura do FM Command e meio de cobrança configurável | PROPOSED |
+| ADR-022 | Conectores de dados dos ERPs do cliente | PROPOSED |
 
 ADRs substituídos não devem ser apagados; devem ser marcados SUPERSEDED.

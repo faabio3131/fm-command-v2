@@ -52,3 +52,11 @@ export function alertAutomationEnv() {
   }
   return { schedulerSecret } as const;
 }
+
+export function credentialVaultEnv() {
+  const raw = process.env.FMCC_CREDENTIAL_KEY?.trim();
+  if (!raw) throw new Error("config.FMCC_CREDENTIAL_KEY_missing");
+  const key = Buffer.from(raw, "base64");
+  if (key.length !== 32) throw new Error("config.FMCC_CREDENTIAL_KEY_invalid");
+  return { key } as const;
+}
