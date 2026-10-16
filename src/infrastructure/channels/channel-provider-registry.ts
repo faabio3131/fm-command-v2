@@ -1,5 +1,7 @@
 import type { ChannelKind, ChannelProvider } from "@/domain/channels/contracts";
 import { SimulatedChannelProvider } from "./simulated-channel-provider";
+import { SmtpChannelProvider } from "./smtp-channel-provider";
+import { WhatsappCloudProvider } from "./whatsapp-cloud-provider";
 
 export interface ProviderCatalogEntry {
   readonly id: string;
@@ -37,6 +39,20 @@ export function defaultChannelRegistry(env: Record<string, string | undefined> =
       new SimulatedChannelProvider("simulated_email_keyed", "email", "api_key"),
       new SimulatedChannelProvider("simulated_whatsapp", "whatsapp"),
     ]) { providers.push(p); simulated.add(p.id); }
+  }
+  // Provedores reais: cada um só existe quando a própria configuração do ambiente o liga.
+  if (env.FMCC_SMTP_HOST) {
+    providers.push(new SmtpChannelProvider({
+      host: env.FMCC_SMTP_HOST,
+      port: Number(env.FMCC_SMTP_PORT ?? 587),
+      secure: env.FMCC_SMTP_SECURE === "1",
+      requireTls: env.FMCC_SMTP_REQUIRE_TLS !== "0",
+      user: env.FMCC_SMTP_USER || null,
+      timeoutMs: Number(env.FMCC_SMTP_TIMEOUT_MS ?? 15000),
+    }));
+  }
+  if (env.FMCC_WHATSAPP_CLOUD_API_BASE) {
+    providers.push(new WhatsappCloudProvider({ apiBase: env.FMCC_WHATSAPP_CLOUD_API_BASE, timeoutMs: Number(env.FMCC_WHATSAPP_TIMEOUT_MS ?? 15000) }));
   }
   return new ChannelProviderRegistry(providers, simulated);
 }
