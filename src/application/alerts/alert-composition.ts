@@ -1,3 +1,4 @@
+import { buildAlertNotifier } from "@/application/channels/channel-composition";
 import { AlertService } from "@/application/alerts/alert-service";
 import { createMetricService } from "@/application/metrics/metric-composition";
 import { PostgresAlertRepository } from "@/infrastructure/alerts/postgres-alert-repository";
@@ -8,5 +9,6 @@ export function buildAlertService(): AlertService {
     new PostgresAlertRepository(),
     createMetricService(),
     new PostgresProductRepository(),
+    buildAlertNotifier(),
   );
 }

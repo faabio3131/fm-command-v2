@@ -4,7 +4,7 @@ import { roleHasPermission } from "@/domain/security/permissions";
 export type NavLabelKey =
   | "nav.overview" | "nav.search" | "nav.notifications" | "nav.products" | "nav.finance"
   | "nav.commercial" | "nav.trials" | "nav.subscriptions" | "nav.customers" | "nav.units" | "nav.operations"
-  | "nav.incidents" | "nav.activity" | "nav.core" | "nav.sources" | "nav.settings";
+  | "nav.incidents" | "nav.activity" | "nav.core" | "nav.sources" | "nav.settings" | "nav.channels";
 
 export interface CommandNavigationItem {
   readonly href: string;
@@ -29,6 +29,7 @@ export const COMMAND_NAVIGATION: readonly CommandNavigationItem[] = [
   { href: "/dashboard/units", label: "Filiais", labelKey: "nav.units", icon: "▤", permission: "metric:read" },
   { href: "/dashboard/operations", label: "Operações", labelKey: "nav.operations", icon: "◉", permission: "metric:read" },
   { href: "/dashboard/alerts", label: "Incidentes", labelKey: "nav.incidents", icon: "△", permission: "alert:read" },
+  { href: "/dashboard/channels", label: "Canais", labelKey: "nav.channels", icon: "✉", permission: "channel:read" },
   { href: "/dashboard/activity", label: "Atividades", labelKey: "nav.activity", icon: "≡", permission: "audit:read" },
   { href: "/dashboard/intelligence", label: "Core", labelKey: "nav.core", icon: "⬡", permission: "metric:read" },
   { href: "/dashboard/sources", label: "Fontes e Integrações", labelKey: "nav.sources", icon: "⚙", permission: "source:read" },

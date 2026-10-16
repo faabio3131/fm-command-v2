@@ -7,5 +7,6 @@ export * from "./ai-schema";
 export * from "./subscription-schema";
 export * from "./platform-schema";
 export * from "./credential-schema";
+export * from "./channel-schema";
 
 export * from "./billing-schema";

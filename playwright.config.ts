@@ -21,6 +21,8 @@ export default defineConfig({
     url: `${e2eBaseUrl}/api/health`,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
+    // Provedor de canais simulado: o e2e prova a tela sem enviar nada a ninguém.
+    env: { FMCC_CHANNEL_SIMULATED: "1", FMCC_CHANNEL_ALLOW_SIMULATED: "1" },
   },
   projects: [
     {

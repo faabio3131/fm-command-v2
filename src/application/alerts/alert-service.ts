@@ -25,6 +25,11 @@ export class AlertRuleMustBeDisabledError extends Error { constructor() { super(
 export class AlertOccurrenceNotFoundError extends Error { constructor() { super("alert.occurrence_not_found"); } }
 export class AlertActionInvalidError extends Error { constructor() { super("alert.action_invalid"); } }
 
+/** Ponte opcional para avisar quem precisa saber de um alerta novo (canais). Falha aqui nunca derruba a avaliação. */
+export interface AlertNotifier {
+  onOccurrence(o: { id: string; tenantId: string; metricId: string; severity: string; observedValue: string; operator: string; threshold: string }): Promise<void>;
+}
+
 export class AlertService {
   private readonly products?: ProductRegistryService;
 
@@ -32,6 +37,7 @@ export class AlertService {
     private readonly repository: AlertRepository,
     private readonly metrics: MetricService,
     products?: ProductRepository,
+    private readonly notifier?: AlertNotifier,
   ) {
     this.products = products ? new ProductRegistryService(products) : undefined;
   }
@@ -167,6 +173,9 @@ export class AlertService {
       status: "active" as const,
     };
     const persisted = await this.repository.recordOccurrence(occurrence);
+    if (persisted.created && this.notifier) {
+      try { await this.notifier.onOccurrence(occurrence); } catch { /* o aviso por canal é complementar */ }
+    }
     return { rule, evaluation, ...persisted };
   }
 
