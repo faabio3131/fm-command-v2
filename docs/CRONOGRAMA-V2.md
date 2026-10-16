@@ -55,6 +55,7 @@ O Core Base (`FM-Core-Base-`, cópia isolada do fm-ai-platform no ponto 5a17b0c8
 
 ## Decisões já tomadas (16/10/2026)
 
+- **Primeiro ERP:** no Brasil, o Omie (Diretor, 16/10). Desenho completo em `docs/ARQUITETURA-ALVO-V2.md`.
 - **Rota dos dados:** o V2 lê os ERPs que o cliente já usa, não os substitui (Diretor, 16/10). Por isso os conectores (8E) vêm antes dos gráficos (9). Ver pesquisa de concorrência de 16/10/2026 (projeto Sites, claude/pesquisa-concorrencia-fm-command-v2.md).
 
 ## Decisões já tomadas (15/10/2026)
