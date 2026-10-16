@@ -108,12 +108,18 @@ export class ReportService {
     return csv;
   }
 
+  /** Linhas "Métrica: valor" no idioma da empresa; sem valor, "indisponível" (nunca zero). */
+  async numberLines(context: TenantContext, metricIds: readonly string[], locale: Locale, nameOf: (locale: Locale, metricId: string, fallback: string) => string): Promise<string[]> {
+    const tr = createTranslator(locale);
+    const rows = await this.snapshot(context, metricIds);
+    return rows.map((r) => tr.t("report.line", { metric: nameOf(locale, r.metricId, r.name), value: r.value === null ? tr.t("report.unavailable") : format(r.value, r.unit, r.currency, locale) }));
+  }
+
   /** Texto da mensagem: nome da métrica e valor no idioma da empresa; sem valor, "indisponível". */
   async buildText(context: TenantContext, report: ReportDefinition, locale: Locale, nameOf: (locale: Locale, metricId: string, fallback: string) => string): Promise<AlertMessageText> {
     const tr = createTranslator(locale);
-    const rows = await this.snapshot(context, report.metricIds);
+    const lines = await this.numberLines(context, report.metricIds, locale, nameOf);
     const date = new Intl.DateTimeFormat(locale, { dateStyle: "long" }).format(this.now());
-    const lines = rows.map((r) => tr.t("report.line", { metric: nameOf(locale, r.metricId, r.name), value: r.value === null ? tr.t("report.unavailable") : format(r.value, r.unit, r.currency, locale) }));
     return {
       subject: tr.t("report.subject", { name: report.name }),
       body: [tr.t("report.body.intro", { name: report.name, date }), "", ...lines, "", tr.t("report.body.footer")].join("\n"),

@@ -76,6 +76,10 @@ export async function dispatchDueChannelDeliveries(service: ChannelService = bui
         const { rebuildReportText } = await import("@/application/reports/report-composition");
         return rebuildReportText(d.tenantId, d.sourceId);
       }
+      if (d.sourceType === "agent_draft") {
+        const { rebuildAgentDraftText } = await import("@/application/agents/agent-composition");
+        return rebuildAgentDraftText(d.tenantId, d.sourceId);
+      }
       if (d.sourceType !== "alert_occurrence") return null;
       const o = await alerts.findOccurrence(d.tenantId, d.sourceId);
       return o ? alertText(locale, o) : null;

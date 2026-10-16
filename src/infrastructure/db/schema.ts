@@ -12,3 +12,4 @@ export * from "./channel-schema";
 export * from "./billing-schema";
 export * from "./report-schema";
 export * from "./sector-schema";
+export * from "./agent-schema";

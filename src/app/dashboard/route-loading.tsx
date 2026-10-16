@@ -6,7 +6,7 @@ export async function RouteLoading({
   screen,
   compact = false,
 }: {
-  screen: "activity" | "settings" | "subscriptions" | "trials" | "notifications" | "search" | "units" | "channels" | "reports" | "sectors";
+  screen: "activity" | "settings" | "subscriptions" | "trials" | "notifications" | "search" | "units" | "channels" | "reports" | "sectors" | "agents";
   compact?: boolean;
 }) {
   const { t } = createTranslator(await getRequestLocale());

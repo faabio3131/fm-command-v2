@@ -10,7 +10,7 @@ import { createLabels } from "@/presentation/labels";
 
 export const metricNameFor = (locale: Locale, metricId: string, fallback: string) => createLabels(locale).metricName(metricId, fallback);
 
-async function tenantProfile(tenantId: string): Promise<{ timeZone: string; locale: Locale }> {
+export async function tenantProfile(tenantId: string): Promise<{ timeZone: string; locale: Locale }> {
   try {
     const profile = await new PostgresProfileRepository().getOrgProfile(tenantId);
     return { timeZone: profile?.timezone ?? "UTC", locale: profile?.defaultLocale ?? DEFAULT_LOCALE };

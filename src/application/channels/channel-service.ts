@@ -157,6 +157,11 @@ export class ChannelService {
     return this.fanOut({ tenantId: notice.tenantId, sourceType: "report", sourceId: notice.reportId, dedupeKey: `report:${notice.reportId}:${notice.periodKey}`, strict: true }, text);
   }
 
+  /** Rascunho de agente já aprovado por uma pessoa: uma vez por rascunho; falha de enfileirar propaga (o rascunho não vira "enviado"). */
+  async notifyAgentDraft(notice: { tenantId: string; draftId: string }, text: AlertMessageText): Promise<{ queued: number; skipped: number }> {
+    return this.fanOut({ tenantId: notice.tenantId, sourceType: "agent_draft", sourceId: notice.draftId, dedupeKey: `agent_draft:${notice.draftId}`, strict: true }, text);
+  }
+
   private async fanOut(spec: { tenantId: string; sourceType: string; sourceId: string; dedupeKey: string; severity?: ChannelSeverity; strict?: boolean }, text: AlertMessageText): Promise<{ queued: number; skipped: number }> {
     let queued = 0;
     let skipped = 0;
