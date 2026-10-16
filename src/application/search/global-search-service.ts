@@ -1,3 +1,4 @@
+import type { UnitScopeResolver } from "@/application/metrics/metric-service";
 import type { ActivityRepository } from "@/domain/activity/contracts";
 import type { AlertRepository } from "@/domain/alerts/contracts";
 import {
@@ -17,6 +18,7 @@ import {
   requirePermission,
   type TenantContext,
 } from "@/domain/security/tenant-context";
+import { canAccessUnit } from "@/domain/organization/unit-hierarchy";
 import type { SourceRepository } from "@/domain/integration/contracts";
 import {
   commandNavigationForRole,
@@ -90,6 +92,7 @@ export class GlobalSearchService {
     private readonly alerts: Pick<AlertRepository, "listRules" | "listOccurrences">,
     private readonly activities: Pick<ActivityRepository, "recent">,
     private readonly rateLimiter: SearchRateLimiter,
+    private readonly unitScope: UnitScopeResolver,
     private readonly integrationFeatures: (
       context: TenantContext,
     ) => Promise<CommandNavigationFeatures> = async () => ({}),
@@ -169,6 +172,9 @@ export class GlobalSearchService {
       }
     }
 
+    // Alertas guardam valores no nivel da empresa: so aparecem para quem tem acesso a esse nivel (ADR-019).
+    const scope = await this.unitScope(context);
+    const companyLevel = canAccessUnit(scope, null);
     const [products, sources, alertRules, alertOccurrences, activities] =
       await Promise.all([
         roleHasPermission(context.role, "product:read")
@@ -177,14 +183,14 @@ export class GlobalSearchService {
         roleHasPermission(context.role, "source:read")
           ? this.sources.list(context.tenantId)
           : Promise.resolve([]),
-        roleHasPermission(context.role, "alert:read")
+        roleHasPermission(context.role, "alert:read") && companyLevel
           ? this.alerts.listRules(context.tenantId)
           : Promise.resolve([]),
-        roleHasPermission(context.role, "alert:read")
+        roleHasPermission(context.role, "alert:read") && companyLevel
           ? this.alerts.listOccurrences(context.tenantId, 100)
           : Promise.resolve([]),
         roleHasPermission(context.role, "audit:read")
-          ? this.activities.recent(context.tenantId, 100)
+          ? this.activities.recent(context.tenantId, 100, scope)
           : Promise.resolve([]),
       ]);
 

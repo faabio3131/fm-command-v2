@@ -6,6 +6,7 @@ import type {
   ActivityRecord,
   ActivityRepository,
 } from "@/domain/activity/contracts";
+import type { UnitScope } from "@/domain/organization/unit-hierarchy";
 import { db } from "@/infrastructure/db/client";
 import { auditEvents } from "@/infrastructure/db/foundation-schema";
 import {
@@ -233,7 +234,10 @@ export class PostgresActivityRepository implements ActivityRepository {
   async recent(
     tenantId: string,
     limit: number,
+    unitScope: UnitScope,
   ): Promise<readonly ActivityRecord[]> {
+    // Auditoria e dado no nivel da empresa: so quem enxerga tudo.
+    if (unitScope.kind !== "all") return [];
     const safeLimit = Math.min(Math.max(Math.trunc(limit), 1), 100);
     return db
       .select({
@@ -257,8 +261,9 @@ export class PostgresActivityRepository implements ActivityRepository {
     input: ActivityProjectionQuery,
   ): Promise<readonly ActivityProjectionRecord[]> {
     const safeTake = Math.min(Math.max(Math.trunc(input.take), 1), 2501);
+    const scope = input.unitScope;
 
-    const auditRows = await db
+    const auditRows = scope.kind !== "all" ? [] : await db
       .select({
         id: auditEvents.id,
         action: auditEvents.action,
@@ -290,7 +295,11 @@ export class PostgresActivityRepository implements ActivityRepository {
       .orderBy(desc(auditEvents.occurredAt), desc(auditEvents.id))
       .limit(safeTake);
 
-    const factRows = await db
+    // Fato sem unidade e dado da empresa (so "tudo"); fato com unidade so se a unidade estiver no escopo. Escopo vazio = nenhum fato.
+    const unitCondition = scope.kind === "all" ? undefined
+      : scope.unitIds.size === 0 ? sql<boolean>`false` : inArray(canonicalFacts.unitId, [...scope.unitIds]);
+
+    const factRows = scope.kind === "units" && scope.unitIds.size === 0 ? [] : await db
       .select({
         id: canonicalFacts.id,
         productId: canonicalFacts.productId,
@@ -314,6 +323,7 @@ export class PostgresActivityRepository implements ActivityRepository {
       .where(and(
         eq(canonicalFacts.tenantId, input.tenantId),
         factCategoryCondition(input.category),
+        unitCondition,
         input.productId
           ? eq(canonicalFacts.productId, input.productId)
           : undefined,

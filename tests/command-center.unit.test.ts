@@ -5,7 +5,7 @@ import { resolve } from "node:path";
 describe("F10 Executive Command Center contract", () => {
   it("uses governed MetricService and explicitly renders unavailable data", () => {
     const source = readFileSync(resolve(process.cwd(), "src/app/dashboard/page.tsx"), "utf8");
-    expect(source).toContain("new MetricService(new PostgresMetricStore())");
+    expect(source).toContain("createMetricService()");
     expect(source).toContain("Ausência de fonte é exibida como indisponível");
     expect(source).toContain("Fonte ainda não conectada");
     expect(source).not.toContain("Math.random");

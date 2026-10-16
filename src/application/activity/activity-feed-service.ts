@@ -4,6 +4,7 @@ import type {
   ActivityRepository,
 } from "@/domain/activity/contracts";
 import { ActivityQueryError } from "@/domain/activity/contracts";
+import type { UnitScopeResolver } from "@/application/metrics/metric-service";
 import {
   requirePermission,
   type TenantContext,
@@ -20,7 +21,7 @@ export interface ActivityFeedQuery {
 }
 
 export class ActivityFeedService {
-  constructor(private readonly activities: ActivityRepository) {}
+  constructor(private readonly activities: ActivityRepository, private readonly unitScope: UnitScopeResolver) {}
 
   async page(
     context: TenantContext,
@@ -53,6 +54,7 @@ export class ActivityFeedService {
       category: input.category,
       productId: input.productId,
       take,
+      unitScope: await this.unitScope(context),
     });
     const selected = rows.slice(offset, offset + pageSize);
 

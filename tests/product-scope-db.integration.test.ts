@@ -1,3 +1,4 @@
+import { unrestrictedScope } from "./helpers/unrestricted-scope";
 import { afterEach, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 import { MetricService } from "@/application/metrics/metric-service";
@@ -48,7 +49,7 @@ describe("F11 product scope PostgreSQL", () => {
       fact: { externalId: "invoice-b", factType: "billing.invoice", payload: { amount: "99", currency: "BRL" }, sourceTimestamp: new Date("2026-09-01T00:00:00Z") },
     });
 
-    const metrics = new MetricService(new PostgresMetricStore());
+    const metrics = new MetricService(new PostgresMetricStore(), unrestrictedScope);
     const valueA = await metrics.recompute(context, {
       productId: productA.id, metricId: "billing.gross_billed",
       periodStart: new Date("2026-09-01T00:00:00Z"), periodEnd: new Date("2026-09-30T23:59:59Z"),

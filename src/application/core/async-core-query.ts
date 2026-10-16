@@ -30,7 +30,7 @@ export function publicCoreError(state: string, lastError: string | null): string
   if (e.includes("core.cognitive_model_contract_invalid")) return "core.cognitive_model_contract_invalid";
   if (e.includes("core.cognitive_model_unavailable") || e.includes("ai.no_provider_available")) return "core.cognitive_model_unavailable";
   if (e.includes("core.argument_invalid")) return "core.argument_invalid";
-  if (e.includes("security.permission_denied")) return "security.permission_denied";
+  if (e.includes("security.permission_denied") || e.includes("security.unit_access_denied")) return "security.permission_denied";
   return "core.query_failed";
 }
 

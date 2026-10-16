@@ -1,3 +1,4 @@
+import { companyLevelDenied, NoCompanyAccess } from "@/app/dashboard/no-company-access";
 import Link from "next/link";
 import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
@@ -81,6 +82,8 @@ export default async function ProductPage({
     if (error instanceof TenantScopeRequiredError) redirect("/onboarding");
     throw error;
   }
+
+  if (await companyLevelDenied(context)) return <NoCompanyAccess />;
 
   const { productId } = await params;
   let cockpit;

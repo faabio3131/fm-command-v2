@@ -1,12 +1,12 @@
+import { companyLevelDenied, NoCompanyAccess } from "@/app/dashboard/no-company-access";
 import Link from "next/link";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { MetricService } from "@/application/metrics/metric-service";
+import { createMetricService } from "@/application/metrics/metric-composition";
 import { OperationalHealthService } from "@/application/operations/operational-health-service";
 import { OperationsIntelligenceService } from "@/application/operations/operations-intelligence-service";
 import { resolveTenantContext } from "@/application/security/resolve-tenant-context";
 import { AuthenticationRequiredError, TenantScopeRequiredError } from "@/domain/security/tenant-context";
-import { PostgresMetricStore } from "@/infrastructure/metrics/postgres-metric-store";
 import { PostgresOperationalHealthRepository } from "@/infrastructure/operations/postgres-health-repository";
 import { PostgresProductRepository } from "@/infrastructure/products/postgres-product-repository";
 
@@ -27,10 +27,12 @@ export default async function OperationsPage() {
     throw error;
   }
 
+  if (await companyLevelDenied(context)) return <NoCompanyAccess />;
+
   const products = new PostgresProductRepository();
   const [overview, health] = await Promise.all([
     new OperationsIntelligenceService(
-      new MetricService(new PostgresMetricStore()),
+      createMetricService(),
       products,
     ).overview(context),
     new OperationalHealthService(

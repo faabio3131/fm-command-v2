@@ -4,8 +4,7 @@ import { ProductIntelligenceService } from "@/application/products/product-intel
 import { ProductNotFoundError } from "@/application/products/product-registry-service";
 import { resolveTenantContext } from "@/application/security/resolve-tenant-context";
 import { AuthenticationRequiredError, PermissionDeniedError, TenantScopeRequiredError } from "@/domain/security/tenant-context";
-import { PostgresMetricStore } from "@/infrastructure/metrics/postgres-metric-store";
-import { MetricService } from "@/application/metrics/metric-service";
+import { createMetricService } from "@/application/metrics/metric-composition";
 import { PostgresProductRepository } from "@/infrastructure/products/postgres-product-repository";
 
 export async function GET(_request: Request, context: { params: Promise<{ productId: string }> }) {
@@ -14,7 +13,7 @@ export async function GET(_request: Request, context: { params: Promise<{ produc
     const { productId } = await context.params;
     const result = await new ProductIntelligenceService(
       new PostgresProductRepository(),
-      new MetricService(new PostgresMetricStore()),
+      createMetricService(),
     ).overview(tenant, productId);
     return NextResponse.json(result);
   } catch (error) {

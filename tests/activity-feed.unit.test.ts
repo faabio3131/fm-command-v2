@@ -78,7 +78,7 @@ describe("CME-04 Activity Feed", () => {
       take?: number;
     } = {};
     const productId = "11111111-1111-4111-8111-111111111111";
-    const feed = await new ActivityFeedService(repository(calls)).page(context, {
+    const feed = await new ActivityFeedService(repository(calls), async () => ({ kind: "all" as const })).page(context, {
       category: "finance",
       productId,
       page: 2,
@@ -109,7 +109,7 @@ describe("CME-04 Activity Feed", () => {
   });
 
   it("declara fronteira sem inventar evento nem expor payload/metadata bruto", async () => {
-    const feed = await new ActivityFeedService(repository({})).page(context);
+    const feed = await new ActivityFeedService(repository({}), async () => ({ kind: "all" as const })).page(context);
     expect(feed.dataBoundary).toContain("Audit Ledger");
     expect(feed.dataBoundary).toContain("canonical facts");
     expect(feed.dataBoundary).toContain("Payload e metadata brutos não são expostos");
@@ -120,7 +120,7 @@ describe("CME-04 Activity Feed", () => {
 
   it("rejeita paginação ou productId inválido antes de consultar repositório", async () => {
     const calls: { take?: number } = {};
-    const service = new ActivityFeedService(repository(calls));
+    const service = new ActivityFeedService(repository(calls), async () => ({ kind: "all" as const }));
 
     await expect(
       service.page(context, { page: 0 }),
@@ -132,7 +132,7 @@ describe("CME-04 Activity Feed", () => {
   });
 
   it("permite auditoria para analyst e bloqueia viewer/member", async () => {
-    const service = new ActivityFeedService(repository({}));
+    const service = new ActivityFeedService(repository({}), async () => ({ kind: "all" as const }));
 
     await expect(
       service.page({ ...context, role: "analyst" }),

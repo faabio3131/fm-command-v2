@@ -1,6 +1,6 @@
 import { computeMetric, type MetricFact } from "@/domain/metrics/metric-engine";
 import { EXECUTIVE_METRIC_TARGETS, getMetricDefinition } from "@/domain/metrics/registry";
-import { assertUnitAccess, type UnitScope } from "@/domain/organization/unit-hierarchy";
+import { assertUnitAccess, canAccessUnit, type UnitScope } from "@/domain/organization/unit-hierarchy";
 import { requirePermission, type TenantContext } from "@/domain/security/tenant-context";
 
 export type MetricFreshnessStatus = "fresh" | "delayed" | "stale" | "unknown" | "unavailable";
@@ -37,24 +37,21 @@ export interface MetricView {
   readonly provenanceRefs: readonly string[];
 }
 
-export class UnitScopeNotConfiguredError extends Error {
-  constructor() { super("metrics.unit_scope_not_configured"); }
-}
 
-/** Devolve o escopo de unidades de quem consulta. Sem resolvedor, não há restrição por unidade (V1). */
+/** Devolve o escopo de unidades de quem consulta. Obrigatório: não existe MetricService sem escopo (ADR-019). */
 export type UnitScopeResolver = (context: TenantContext) => Promise<UnitScope>;
 
 export class MetricService {
-  constructor(private readonly store: MetricStore, private readonly unitScope?: UnitScopeResolver) {}
+  constructor(private readonly store: MetricStore, private readonly unitScope: UnitScopeResolver) {}
 
   /** Toda leitura ou cálculo de uma unidade passa por aqui; `unitId` ausente é dado da empresa. */
   private async authorizeUnit(context: TenantContext, unitId: string | undefined): Promise<void> {
-    if (!this.unitScope) {
-      // Sem resolvedor não há como provar acesso: pedir uma unidade falha fechado (nunca pula a checagem).
-      if (unitId !== undefined) throw new UnitScopeNotConfiguredError();
-      return;
-    }
     assertUnitAccess(await this.unitScope(context), unitId ?? null);
+  }
+
+  /** Quem pode ler dado no nível da empresa (unidade nula). Usado por alertas, que ainda não têm unidade. */
+  async canReadCompanyLevel(context: TenantContext): Promise<boolean> {
+    return canAccessUnit(await this.unitScope(context), null);
   }
 
   async recompute(context: TenantContext, input: { metricId: string; productId?: string; unitId?: string; periodStart?: Date; periodEnd?: Date; asOf?: Date }): Promise<MetricView> {

@@ -1,12 +1,13 @@
+import { companyLevelDenied, NoCompanyAccess } from "@/app/dashboard/no-company-access";
 import Link from "next/link";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { CoreQueryForm } from "@/app/dashboard/core-query-form";
-import { MetricService, type MetricView } from "@/application/metrics/metric-service";
+import type { MetricView } from "@/application/metrics/metric-service";
+import { createMetricService } from "@/application/metrics/metric-composition";
 import { ProductRegistryService } from "@/application/products/product-registry-service";
 import { resolveTenantContext } from "@/application/security/resolve-tenant-context";
 import { AuthenticationRequiredError, TenantScopeRequiredError } from "@/domain/security/tenant-context";
-import { PostgresMetricStore } from "@/infrastructure/metrics/postgres-metric-store";
 import { PostgresProductRepository } from "@/infrastructure/products/postgres-product-repository";
 import { rotuloAtualidade, rotuloAutoridadeFonte, rotuloQualidade } from "@/presentation/pt-br";
 
@@ -39,6 +40,8 @@ export default async function TrialsPage({
     throw error;
   }
 
+  if (await companyLevelDenied(context)) return <NoCompanyAccess />;
+
   const productsRepository = new PostgresProductRepository();
   const productService = new ProductRegistryService(productsRepository);
   const products = await productService.list(context);
@@ -53,7 +56,7 @@ export default async function TrialsPage({
     }
   }
 
-  const overview = await new MetricService(new PostgresMetricStore()).overview(
+  const overview = await createMetricService().overview(
     context,
     selectedProduct?.id,
   );

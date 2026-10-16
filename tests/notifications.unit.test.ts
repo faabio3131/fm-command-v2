@@ -115,6 +115,7 @@ function service(options?: {
         ];
       },
     },
+    async () => ({ kind: "all" as const }),
   );
 }
 

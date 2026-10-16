@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { eq, inArray, sql } from "drizzle-orm";
-import { MetricService, UnitScopeNotConfiguredError } from "@/application/metrics/metric-service";
+import { MetricService } from "@/application/metrics/metric-service";
 import { UnitAccessDeniedError } from "@/domain/organization/unit-hierarchy";
 import { METRIC_REGISTRY } from "@/domain/metrics/registry";
 import type { TenantContext } from "@/domain/security/tenant-context";
@@ -114,15 +114,6 @@ describe("isolamento entre unidades da mesma empresa", () => {
     await repo.grant({ tenantId: B, userId: "intruso", unitId: brB, grantedBy: "dono-b" });
     const c = ctx(A, "intruso", "member");
     await expect(service().query(c, metricId, undefined, cwb)).rejects.toBeInstanceOf(UnitAccessDeniedError);
-  });
-  it("sem resolvedor de escopo o comportamento da V1 continua: leitura da empresa", async () => {
-    const legacy = new MetricService(store);
-    expect((await legacy.query(ctx(A, "qualquer", "viewer"), metricId))?.value).toBe("60");
-  });
-  it("pedir uma unidade sem resolvedor de escopo falha fechado, nao pula a checagem", async () => {
-    const legacy = new MetricService(store);
-    await expect(legacy.query(ctx(A, "qualquer", "viewer"), metricId, undefined, cwb)).rejects.toBeInstanceOf(UnitScopeNotConfiguredError);
-    await expect(legacy.overview(ctx(A, "qualquer", "viewer"), undefined, cwb)).rejects.toBeInstanceOf(UnitScopeNotConfiguredError);
   });
   it("revogar a concessao tira o acesso", async () => {
     await repo.revoke(A, "gerente-cwb", cwb);

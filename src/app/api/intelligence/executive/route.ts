@@ -2,11 +2,10 @@ import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import { recordAuditEvent } from "@/application/audit/record-audit-event";
 import { ExecutiveAnalysisArgumentError, ExecutiveAnalysisService } from "@/application/executive/executive-analysis-service";
-import { MetricService } from "@/application/metrics/metric-service";
+import { createMetricService } from "@/application/metrics/metric-composition";
 import { ProductNotFoundError } from "@/application/products/product-registry-service";
 import { resolveTenantContext } from "@/application/security/resolve-tenant-context";
 import { AuthenticationRequiredError, PermissionDeniedError, TenantScopeRequiredError } from "@/domain/security/tenant-context";
-import { PostgresMetricStore } from "@/infrastructure/metrics/postgres-metric-store";
 import { PostgresProductRepository } from "@/infrastructure/products/postgres-product-repository";
 
 export async function GET(request: Request) {
@@ -16,7 +15,7 @@ export async function GET(request: Request) {
     const productId = url.searchParams.get("productId") ?? undefined;
     const metricIds = url.searchParams.getAll("metricId");
     const service = new ExecutiveAnalysisService(
-      new MetricService(new PostgresMetricStore()),
+      createMetricService(),
       new PostgresProductRepository(),
     );
     const overview = await service.overview(context, {

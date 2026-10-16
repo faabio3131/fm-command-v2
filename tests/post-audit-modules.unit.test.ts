@@ -7,7 +7,7 @@ const source = (path: string) => readFileSync(resolve(process.cwd(), path), "utf
 describe("post-audit executive modules", () => {
   it("constrói Trials sobre MetricService sem inventar conversão", () => {
     const page = source("src/app/dashboard/trials/page.tsx");
-    expect(page).toContain("new MetricService(new PostgresMetricStore()).overview(");
+    expect(page).toContain("createMetricService().overview(");
     expect(page).toContain("selectedProduct?.id");
     expect(page).toContain("trial.starts.count");
     expect(page).toContain("trial.active.count");

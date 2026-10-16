@@ -1,3 +1,4 @@
+import type { UnitScopeResolver } from "@/application/metrics/metric-service";
 import type {
   ActivityProjectionRecord,
   ActivityRepository,
@@ -14,6 +15,7 @@ import {
   type NotificationKind,
   type NotificationStateRepository,
 } from "@/domain/notifications/contracts";
+import { canAccessUnit } from "@/domain/organization/unit-hierarchy";
 import { roleHasPermission } from "@/domain/security/permissions";
 import {
   requirePermission,
@@ -143,6 +145,7 @@ export class NotificationService {
     private readonly activities: Pick<ActivityRepository, "project">,
     private readonly alerts: Pick<AlertRepository, "listOccurrences">,
     private readonly state: NotificationStateRepository,
+    private readonly unitScope: UnitScopeResolver,
   ) {}
 
   async inbox(
@@ -154,12 +157,15 @@ export class NotificationService {
       throw new NotificationQueryError();
     }
 
+    const unitScope = await this.unitScope(context);
     const [activities, alerts, userActions] = await Promise.all([
       this.activities.project({
         tenantId: context.tenantId,
         take: 200,
+        unitScope,
       }),
-      roleHasPermission(context.role, "alert:read")
+      // Ocorrencias de alerta carregam valores da empresa inteira (ADR-019).
+      roleHasPermission(context.role, "alert:read") && canAccessUnit(unitScope, null)
         ? this.alerts.listOccurrences(context.tenantId, 100)
         : Promise.resolve([]),
       roleHasPermission(context.role, "action:prepare")

@@ -1,11 +1,11 @@
+import { companyLevelDenied, NoCompanyAccess } from "@/app/dashboard/no-company-access";
 import Link from "next/link";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { FinancialIntelligenceService } from "@/application/finance/financial-intelligence-service";
-import { MetricService } from "@/application/metrics/metric-service";
+import { createMetricService } from "@/application/metrics/metric-composition";
 import { resolveTenantContext } from "@/application/security/resolve-tenant-context";
 import { AuthenticationRequiredError, TenantScopeRequiredError } from "@/domain/security/tenant-context";
-import { PostgresMetricStore } from "@/infrastructure/metrics/postgres-metric-store";
 import { PostgresProductRepository } from "@/infrastructure/products/postgres-product-repository";
 
 function displayValue(value: string | null, unit: string, currency?: string) {
@@ -23,8 +23,10 @@ export default async function FinancePage() {
     throw error;
   }
 
+  if (await companyLevelDenied(context)) return <NoCompanyAccess />;
+
   const overview = await new FinancialIntelligenceService(
-    new MetricService(new PostgresMetricStore()),
+    createMetricService(),
     new PostgresProductRepository(),
   ).overview(context);
 

@@ -38,6 +38,8 @@ export class AlertService {
 
   async overview(context: TenantContext) {
     requirePermission(context, "alert:read");
+    // Alertas ainda nao tem unidade: seus valores sao dado da empresa (ADR-019). Sem acesso a esse nivel, nada aparece.
+    if (!(await this.metrics.canReadCompanyLevel(context))) return { rules: [], occurrences: [] };
     const [rules, occurrences] = await Promise.all([
       this.repository.listRules(context.tenantId),
       this.repository.listOccurrences(context.tenantId, 50),
