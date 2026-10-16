@@ -155,6 +155,13 @@
       "when": 1792157225215,
       "tag": "0021_oauth_state",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1792176481574,
+      "tag": "0022_live_pulse_index",
+      "breakpoints": true
     }
   ]
 }

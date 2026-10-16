@@ -1894,3 +1894,11 @@ form.card>label{margin-top:2px}
 .bar-chart-value{text-align:right;font-variant-numeric:tabular-nums}
 .bar-chart-row[data-available="false"] .bar-chart-value{color:var(--muted);font-weight:500}
 @media (max-width:640px){.bar-chart-row{grid-template-columns:1fr auto}.bar-chart-track{grid-column:1 / -1;order:3}}
+
+/* Etapa 10: indicador de atualização ao vivo */
+.live-status{display:inline-flex;align-items:center;gap:6px;font-size:.72rem;font-weight:650;color:var(--success);white-space:nowrap}
+.live-status[data-state="paused"]{color:var(--muted)}
+.live-status[data-state="reconnecting"]{color:var(--warning)}
+/* Telas até 1500 px: só o ponto colorido; o texto continua para leitor de tela e na dica ao passar o mouse. */
+@media (max-width:1500px){.live-status-text{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}}
+@media (max-width:640px){.live-status{display:none}}

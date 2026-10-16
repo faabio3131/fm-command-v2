@@ -1,0 +1,1 @@
+CREATE INDEX "fmcc_metric_tenant_time_idx" ON "fmcc_metric_value" USING btree ("tenant_id","computed_at");
