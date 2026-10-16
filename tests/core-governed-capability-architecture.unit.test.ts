@@ -2,24 +2,6 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 describe("FMCC governed cognitive capability architecture", () => {
-  it("mantém a capability Kordena somente leitura e sem acesso direto a banco", () => {
-    const capability = readFileSync(
-      "src/application/core/kordena-commercial-summary-capability.ts",
-      "utf8",
-    );
-
-    expect(capability).toContain('requirePermission(context, "commercial:read")');
-    expect(capability).toContain("KordenaCommercialControlService");
-    expect(capability).toContain("control.snapshot");
-    expect(capability).not.toContain("control.command");
-    expect(capability).not.toContain("commercial:write");
-    expect(capability).not.toContain("@/infrastructure/db");
-    expect(capability).not.toContain("drizzle-orm");
-    expect(capability).not.toContain(".insert(");
-    expect(capability).not.toContain(".update(");
-    expect(capability).not.toContain(".delete(");
-  });
-
   it("não oferece capability mutacional ao planner cognitivo", () => {
     const composition = readFileSync(
       "src/application/core/core-composition.ts",
@@ -30,7 +12,7 @@ describe("FMCC governed cognitive capability architecture", () => {
       "utf8",
     );
 
-    expect(composition).toContain("KordenaCommercialSummaryCapability");
+    expect(composition).toContain("OperationalHealthCapability");
     expect(composition).not.toContain("KordenaCommercialCommand");
     expect(gateway).toContain("readCapabilities");
     expect(gateway).not.toContain("commercial:write");

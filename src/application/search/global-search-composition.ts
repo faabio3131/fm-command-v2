@@ -1,4 +1,3 @@
-import { loadTenantIntegrationFeatures } from "@/application/integration/tenant-integration-features";
 import { createUnitScopeResolver } from "@/application/organization/unit-scope";
 import { GlobalSearchService } from "@/application/search/global-search-service";
 import { PostgresActivityRepository } from "@/infrastructure/activity/postgres-activity-repository";
@@ -16,6 +15,5 @@ export function buildGlobalSearchService(): GlobalSearchService {
     new PostgresActivityRepository(),
     new PostgresSearchRateLimiter(),
     createUnitScopeResolver(),
-    (context) => loadTenantIntegrationFeatures(context, sources),
   );
 }

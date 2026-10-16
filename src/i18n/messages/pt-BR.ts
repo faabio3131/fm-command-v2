@@ -22,7 +22,6 @@ export const ptBR = {
   "nav.notifications": "Notificações",
   "nav.products": "Produtos",
   "nav.finance": "Financeiro",
-  "nav.billing": "Billing",
   "nav.commercial": "Comercial",
   "nav.trials": "Trials",
   "nav.subscriptions": "Assinaturas",
@@ -31,7 +30,6 @@ export const ptBR = {
   "nav.incidents": "Incidentes",
   "nav.activity": "Atividades",
   "nav.core": "Core",
-  "nav.kordena": "Kordena",
   "nav.sources": "Fontes e Integrações",
   "nav.settings": "Configurações",
 

@@ -2,7 +2,6 @@ import Link from "next/link";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
-import { loadTenantIntegrationFeatures } from "@/application/integration/tenant-integration-features";
 import { resolveTenantContext } from "@/application/security/resolve-tenant-context";
 import { normalizeRole, roleHasPermission } from "@/domain/security/permissions";
 import { AuthenticationRequiredError, TenantScopeRequiredError } from "@/domain/security/tenant-context";
@@ -22,12 +21,10 @@ export default async function SettingsPage() {
   }
 
   const canReadSources = roleHasPermission(context.role, "source:read");
-  const canReadIntegrations = roleHasPermission(context.role, "integration:read");
   const canManageTenant = roleHasPermission(context.role, "tenant:manage");
   const canManageMembers = roleHasPermission(context.role, "member:manage");
-  const canReadCommercial = roleHasPermission(context.role, "commercial:read");
 
-  const [organizationRows, memberRows, integrationFeatures] = await Promise.all([
+  const [organizationRows, memberRows] = await Promise.all([
     db
       .select({
         id: organization.id,
@@ -50,9 +47,6 @@ export default async function SettingsPage() {
           .innerJoin(user, eq(member.userId, user.id))
           .where(eq(member.organizationId, context.tenantId))
       : Promise.resolve([]),
-    loadTenantIntegrationFeatures(context).catch(() => ({
-      kordenaCommercial: false,
-    })),
   ]);
 
   const activeOrganization = organizationRows[0];
@@ -113,18 +107,6 @@ export default async function SettingsPage() {
             <Link href="/dashboard/sources">
               <strong>Fontes e integrações</strong>
               <span>Conectividade, health e sincronização</span>
-            </Link>
-          ) : null}
-          {canReadIntegrations ? (
-            <Link href="/dashboard/settings/platform-integrations">
-              <strong>Infraestrutura & APIs</strong>
-              <span>OpenAI, Gemini e Maps gerenciados pela FM</span>
-            </Link>
-          ) : null}
-          {canReadCommercial && integrationFeatures.kordenaCommercial ? (
-            <Link href="/dashboard/commercial/kordena">
-              <strong>Kordena</strong>
-              <span>Plano de controle comercial governado</span>
             </Link>
           ) : null}
           <Link href="/dashboard/alerts">

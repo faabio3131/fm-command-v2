@@ -1,16 +1,13 @@
 import { CoreGateway } from "@/application/core/core-gateway";
-import { KordenaCommercialSummaryCapability } from "@/application/core/kordena-commercial-summary-capability";
 import { OperationalHealthCapability } from "@/application/core/operational-health-capability";
 import { FinancialIntelligenceService } from "@/application/finance/financial-intelligence-service";
 import { FmccVerticalCognitiveCore } from "@/application/core/fmcc-vertical-cognitive-core";
-import { KordenaCommercialControlService } from "@/application/integration/kordena-commercial-control-service";
 import { createMetricService } from "@/application/metrics/metric-composition";
 import { OperationalHealthService } from "@/application/operations/operational-health-service";
 import { cognitiveEnv } from "@/config/env";
 import { CognitiveModelUnavailableError, type CognitiveModel } from "@/domain/core/cognitive-model";
 import { AuditCoreContextReader } from "@/infrastructure/core/audit-core-context-reader";
 import { OpenAiCompatibleCognitiveModel } from "@/infrastructure/core/openai-compatible-cognitive-model";
-import { PostgresSourceRepository } from "@/infrastructure/integration/postgres-repositories";
 import { PostgresOperationalHealthRepository } from "@/infrastructure/operations/postgres-health-repository";
 import { PostgresProductRepository } from "@/infrastructure/products/postgres-product-repository";
 
@@ -28,18 +25,11 @@ export function buildCoreGateway(model?: CognitiveModel): CoreGateway {
 
   const metrics = createMetricService();
   const products = new PostgresProductRepository();
-  const sources = new PostgresSourceRepository();
-  const kordenaCommercial = new KordenaCommercialControlService(sources);
   const operationalHealth = new OperationalHealthService(
     new PostgresOperationalHealthRepository(),
     products,
   );
   const readCapabilities = [
-    new KordenaCommercialSummaryCapability(
-      sources,
-      products,
-      kordenaCommercial,
-    ),
     new OperationalHealthCapability(operationalHealth),
   ];
 

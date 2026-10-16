@@ -27,7 +27,6 @@ describe("post-audit executive modules", () => {
     const page = source("src/app/dashboard/settings/page.tsx");
     expect(page).toContain("roleHasPermission");
     expect(page).toContain("/dashboard/sources");
-    expect(page).toContain("/dashboard/commercial/kordena");
     expect(page).toContain("/dashboard/alerts");
   });
 });

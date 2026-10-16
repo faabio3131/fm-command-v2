@@ -1,4 +1,3 @@
-import { FMCC_IRON_PRODUCT_SLUG } from "@/domain/billing/iron-product-identity";
 import { randomUUID } from "node:crypto";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import type {
@@ -19,7 +18,6 @@ import {
   billingSubscriptions,
 } from "@/infrastructure/db/billing-schema";
 import { productDefinitions, sourceDefinitions } from "@/infrastructure/db/platform-schema";
-import { resolveIronPlanMapping } from "@/domain/billing/iron-versioned-plan-mapping";
 
 function asInterval(value: string): "monthly" | "yearly" {
   if (value === "monthly" || value === "yearly") return value;
@@ -267,27 +265,6 @@ export class PostgresProductBillingAuthorityRepository implements ProductBilling
         eq(billingProductPlans.status, "active"),
       )).limit(1);
       if (!plan) throw new Error("billing.plan_not_found");
-
-      if (product.slug === FMCC_IRON_PRODUCT_SLUG) {
-        // Fail closed BEFORE issuing an IRON invoice if no approved immutable
-        // commercial→entitlement version mapping exists for its plan.
-        const sources = await tx.select({
-          config: sourceDefinitions.config,
-          name: sourceDefinitions.name,
-          type: sourceDefinitions.sourceType,
-          domain: sourceDefinitions.authoritativeDomain,
-        }).from(sourceDefinitions).where(and(
-          eq(sourceDefinitions.tenantId, input.tenantId),
-          eq(sourceDefinitions.productId, input.productId),
-          eq(sourceDefinitions.sourceType, "iron-commercial-v1"),
-        ));
-        if (sources.length !== 1 || sources[0].name !== "IRON FIT CORE Commercial" ||
-            sources[0].domain !== "commercial") {
-          throw new Error("billing.iron_plan_mapping_source_missing");
-        }
-        resolveIronPlanMapping(sources[0].config, plan.planCode);
-      }
-
 
       const [route] = await tx.select({
         gatewayAccountId: billingProductRoutes.gatewayAccountId,

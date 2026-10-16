@@ -22,7 +22,6 @@ import { canAccessUnit } from "@/domain/organization/unit-hierarchy";
 import type { SourceRepository } from "@/domain/integration/contracts";
 import {
   commandNavigationForRole,
-  type CommandNavigationFeatures,
 } from "@/domain/navigation/command-navigation";
 
 type RankedResult = GlobalSearchResult & { readonly rank: number };
@@ -93,9 +92,6 @@ export class GlobalSearchService {
     private readonly activities: Pick<ActivityRepository, "recent">,
     private readonly rateLimiter: SearchRateLimiter,
     private readonly unitScope: UnitScopeResolver,
-    private readonly integrationFeatures: (
-      context: TenantContext,
-    ) => Promise<CommandNavigationFeatures> = async () => ({}),
   ) {}
 
   async search(
@@ -119,9 +115,6 @@ export class GlobalSearchService {
     const normalizedQuery = normalize(query);
     const safeLimit = Math.min(Math.max(Math.trunc(limit), 1), 50);
     const ranked: RankedResult[] = [];
-    const navigationFeatures = roleHasPermission(context.role, "integration:read")
-      ? await this.integrationFeatures(context)
-      : {};
 
     const push = (
       result: GlobalSearchResult,
@@ -131,7 +124,7 @@ export class GlobalSearchService {
       if (rank !== null) ranked.push({ ...result, rank });
     };
 
-    for (const item of commandNavigationForRole(context.role, navigationFeatures)) {
+    for (const item of commandNavigationForRole(context.role)) {
       push(
         {
           id: `navigation:${item.href}`,

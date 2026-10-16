@@ -23,7 +23,6 @@ export const enUS: Record<MessageKey, string> = {
   "nav.notifications": "Notifications",
   "nav.products": "Products",
   "nav.finance": "Finance",
-  "nav.billing": "Billing",
   "nav.commercial": "Sales",
   "nav.trials": "Trials",
   "nav.subscriptions": "Subscriptions",
@@ -32,7 +31,6 @@ export const enUS: Record<MessageKey, string> = {
   "nav.incidents": "Incidents",
   "nav.activity": "Activity",
   "nav.core": "Core",
-  "nav.kordena": "Kordena",
   "nav.sources": "Sources & Integrations",
   "nav.settings": "Settings",
 

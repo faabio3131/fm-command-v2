@@ -109,22 +109,6 @@ export default async function ProductPage({
           </p>
         </div>
         <div>
-          {roleHasPermission(context.role, "billing:read") ? (
-            <Link
-              className="button"
-              href={`/dashboard/products/${productId}/billing`}
-            >
-              Billing
-            </Link>
-          ) : null}
-          {roleHasPermission(context.role, "receivable:read") ? (
-            <Link
-              className="button"
-              href={`/dashboard/products/${productId}/receivables`}
-            >
-              Recebimentos
-            </Link>
-          ) : null}
           <Link className="button" href="/dashboard">
             Voltar
           </Link>

@@ -6,7 +6,7 @@ import { useEffect, type CSSProperties, type ReactNode } from "react";
 import type { NotificationItem } from "@/domain/notifications/contracts";
 import type { DashboardIdentity } from "@/domain/security/dashboard-identity";
 import type { FmccRole } from "@/domain/security/permissions";
-import { commandNavigationForRole, type CommandNavigationFeatures } from "@/presentation/command-navigation";
+import { commandNavigationForRole } from "@/presentation/command-navigation";
 import { LanguageSelector } from "@/i18n/react/language-selector";
 import { useTranslator } from "@/i18n/react/i18n-provider";
 import type { MessageKey } from "@/i18n/translate";
@@ -18,7 +18,6 @@ export function CommandShell({
   notifications,
   identity,
   environmentLabel,
-  integrationFeatures,
 }: {
   children: ReactNode;
   role: FmccRole;
@@ -28,12 +27,11 @@ export function CommandShell({
   } | null;
   identity: DashboardIdentity | null;
   environmentLabel: string;
-  integrationFeatures: CommandNavigationFeatures;
 }) {
   const { t, plural } = useTranslator();
   const pathname = usePathname();
   const router = useRouter();
-  const navigation = commandNavigationForRole(role, integrationFeatures);
+  const navigation = commandNavigationForRole(role);
 
   useEffect(() => {
     const onGlobalSearchShortcut = (event: KeyboardEvent) => {
