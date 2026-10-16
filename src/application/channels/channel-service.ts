@@ -146,26 +146,43 @@ export class ChannelService {
    * canal não pode derrubar a avaliação do alerta.
    */
   async notifyAlert(notice: AlertNotice, text: AlertMessageText): Promise<{ queued: number; skipped: number }> {
+    return this.fanOut({ tenantId: notice.tenantId, sourceType: "alert_occurrence", sourceId: notice.occurrenceId, dedupeKey: `alert:${notice.occurrenceId}`, severity: notice.severity }, text);
+  }
+
+  /**
+   * Relatório agendado (ou "enviar agora"): vai a todos os destinatários ativos dos canais ligados, sem filtro de gravidade.
+   * A identidade do envio é (relatório, período): rodar o mesmo período de novo não reenvia.
+   */
+  async notifyReport(notice: { tenantId: string; reportId: string; periodKey: string }, text: AlertMessageText): Promise<{ queued: number; skipped: number }> {
+    return this.fanOut({ tenantId: notice.tenantId, sourceType: "report", sourceId: notice.reportId, dedupeKey: `report:${notice.reportId}:${notice.periodKey}`, strict: true }, text);
+  }
+
+  private async fanOut(spec: { tenantId: string; sourceType: string; sourceId: string; dedupeKey: string; severity?: ChannelSeverity; strict?: boolean }, text: AlertMessageText): Promise<{ queued: number; skipped: number }> {
     let queued = 0;
     let skipped = 0;
+    const ids: string[] = [];
+    const texts = new Map<string, AlertMessageText>();
     try {
-      const ids: string[] = [];
-      const texts = new Map<string, AlertMessageText>();
       for (const kind of CHANNEL_KINDS) {
-        const config = await this.deps.repository.getConfig(notice.tenantId, kind);
-        if (!config || !config.enabled || !severityMeets(notice.severity, config.minSeverity)) { skipped += 1; continue; }
-        for (const recipient of await this.deps.repository.listRecipients(notice.tenantId, kind)) {
+        const config = await this.deps.repository.getConfig(spec.tenantId, kind);
+        if (!config || !config.enabled || (spec.severity && !severityMeets(spec.severity, config.minSeverity))) { skipped += 1; continue; }
+        for (const recipient of await this.deps.repository.listRecipients(spec.tenantId, kind)) {
           if (!recipient.enabled) continue;
           const { created, delivery } = await this.deps.repository.enqueue({
-            tenantId: notice.tenantId, kind, providerId: config.providerId, recipient: recipient.address,
-            dedupeKey: `alert:${notice.occurrenceId}`, subject: text.subject, contentHash: contentHash(text), sourceType: "alert_occurrence", sourceId: notice.occurrenceId, availableAt: this.now(),
+            tenantId: spec.tenantId, kind, providerId: config.providerId, recipient: recipient.address,
+            dedupeKey: spec.dedupeKey, subject: text.subject, contentHash: contentHash(text), sourceType: spec.sourceType, sourceId: spec.sourceId, availableAt: this.now(),
           });
           if (created) { queued += 1; ids.push(delivery.id); texts.set(delivery.id, text); }
         }
       }
+    } catch (error) {
+      // Alerta: silencioso (canal fora do ar não derruba a avaliação). Relatório: propaga, para o período não ser dado como enviado.
+      if (spec.strict) throw error;
+    }
+    try {
       if (ids.length > 0) await this.dispatch({ onlyIds: ids, texts });
     } catch {
-      // Silencioso de propósito: o recibo pendente (se já criado) será tentado na próxima rodada.
+      // Os recibos já existem; a próxima rodada de reenvio os tenta.
     }
     return { queued, skipped };
   }

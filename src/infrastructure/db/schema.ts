@@ -10,3 +10,4 @@ export * from "./credential-schema";
 export * from "./channel-schema";
 
 export * from "./billing-schema";
+export * from "./report-schema";

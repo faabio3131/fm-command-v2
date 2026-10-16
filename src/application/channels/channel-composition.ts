@@ -13,7 +13,7 @@ import { PostgresCredentialStore } from "@/infrastructure/integration/postgres-c
 import { DEFAULT_LOCALE, type Locale } from "@/i18n/locales";
 import { createTranslator, type MessageKey } from "@/i18n/translate";
 
-const audit: ChannelAudit = {
+export const channelAudit: ChannelAudit = {
   async record(input) {
     await db.insert(auditEvents).values({
       tenantId: input.tenantId, actorId: input.actorId, actorType: input.actorId.startsWith("system:") ? "system" : "user",
@@ -29,7 +29,7 @@ export function buildChannelService(): ChannelService {
     repository: new PostgresChannelRepository(),
     registry: defaultChannelRegistry(process.env),
     credentials: store as unknown as CredentialWriter,
-    audit,
+    audit: channelAudit,
   });
 }
 
@@ -72,6 +72,10 @@ export async function dispatchDueChannelDeliveries(service: ChannelService = bui
     rebuild: async (d: DeliveryReceipt) => {
       const locale = await tenantLocale(d.tenantId);
       if (d.sourceType === "test") return testText(d.tenantId);
+      if (d.sourceType === "report") {
+        const { rebuildReportText } = await import("@/application/reports/report-composition");
+        return rebuildReportText(d.tenantId, d.sourceId);
+      }
       if (d.sourceType !== "alert_occurrence") return null;
       const o = await alerts.findOccurrence(d.tenantId, d.sourceId);
       return o ? alertText(locale, o) : null;
