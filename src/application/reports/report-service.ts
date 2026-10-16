@@ -29,6 +29,8 @@ export interface ReportServiceDeps {
   readonly audit: ReportAudit;
   /** Fuso e idioma da empresa (perfil). */
   readonly tenantProfile: (tenantId: string) => Promise<{ timeZone: string; locale: Locale }>;
+  /** Atualiza os números da empresa antes de montar o relatório (uma vez por empresa por rodada). */
+  readonly refreshMetrics?: (tenantId: string, correlationId: string) => Promise<unknown>;
   readonly now?: () => Date;
 }
 
@@ -138,6 +140,7 @@ export class ReportService {
   async runDue(nameOf: (locale: Locale, metricId: string, fallback: string) => string, correlationId: string): Promise<{ checked: number; sent: number; failed: number }> {
     const now = this.now();
     const counts = { checked: 0, sent: 0, failed: 0 };
+    const refreshed = new Set<string>();
     for (const report of await this.deps.repository.listEnabled()) {
       counts.checked += 1;
       try {
@@ -146,6 +149,10 @@ export class ReportService {
         const due = dueOccurrence(schedule, now, timeZone, report.lastPeriodKey, report.createdAt);
         if (!due) continue;
         const context: TenantContext = { tenantId: report.tenantId, userId: "system:fmcc-report-scheduler", role: "admin", correlationId: `${correlationId}:${report.id}` };
+        if (this.deps.refreshMetrics && !refreshed.has(report.tenantId)) {
+          refreshed.add(report.tenantId);
+          await this.deps.refreshMetrics(report.tenantId, `${correlationId}:${report.tenantId}`).catch(() => undefined);
+        }
         const text = await this.buildText(context, report, locale, nameOf);
         await this.deps.channels.notifyReport({ tenantId: report.tenantId, reportId: report.id, periodKey: due.key }, text);
         if (await this.deps.repository.markRan(report.tenantId, report.id, due.key, now)) {

@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, inArray, isNull, lte } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, isNull, lte, sql } from "drizzle-orm";
 import type { MetricFreshnessStatus, MetricQualityStatus, MetricStore, MetricView } from "@/application/metrics/metric-service";
 import { db } from "@/infrastructure/db/client";
 import { canonicalFacts, metricValues } from "@/infrastructure/db/platform-schema";
@@ -24,6 +24,18 @@ function mapMetric(row: typeof metricValues.$inferSelect): MetricView {
 }
 
 export class PostgresMetricStore implements MetricStore {
+  /** Combinações (tipo de fato, produto, unidade) que a empresa já recebeu: só nelas há o que calcular. */
+  async distinctFactScopes(tenantId: string): Promise<readonly { factType: string; productId: string | null; unitId: string | null }[]> {
+    return db.selectDistinct({ factType: canonicalFacts.factType, productId: canonicalFacts.productId, unitId: canonicalFacts.unitId })
+      .from(canonicalFacts).where(eq(canonicalFacts.tenantId, tenantId));
+  }
+
+  /** Empresas que já têm algum fato (para a rodada agendada de recálculo). */
+  async tenantIdsWithFacts(): Promise<readonly string[]> {
+    const rows = await db.selectDistinct({ tenantId: canonicalFacts.tenantId }).from(canonicalFacts).where(sql`true`);
+    return rows.map((r) => r.tenantId);
+  }
+
   async factsForMetric(input: { tenantId: string; productId?: string; unitId?: string; factType: string; periodStart?: Date; periodEnd?: Date }) {
     const clauses = [
       eq(canonicalFacts.tenantId, input.tenantId),

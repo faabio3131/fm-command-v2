@@ -55,7 +55,11 @@ export class MetricService {
     return canAccessUnit(await this.unitScope(context), null);
   }
 
-  async recompute(context: TenantContext, input: { metricId: string; productId?: string; unitId?: string; periodStart?: Date; periodEnd?: Date; asOf?: Date }): Promise<MetricView> {
+  /**
+   * Calcula a métrica a partir dos fatos e grava. Com `skipIfUnchanged`, não grava de novo quando o último valor guardado já é
+   * igual (mesmo valor, unidade, moeda, qualidade e período): recálculo frequente não enche a tabela de linhas repetidas.
+   */
+  async recompute(context: TenantContext, input: { metricId: string; productId?: string; unitId?: string; periodStart?: Date; periodEnd?: Date; asOf?: Date; skipIfUnchanged?: boolean }): Promise<MetricView> {
     requirePermission(context, "metric:read");
     const definition = getMetricDefinition(input.metricId);
     if (!definition) throw new Error(`metrics.definition_not_found:${input.metricId}`);
@@ -74,6 +78,13 @@ export class MetricService {
       freshnessStatus: computed.status === "available" ? "unknown" : "unavailable",
       qualityStatus: computed.qualityStatus, sourceAuthority: definition.sourceAuthority, provenanceRefs: computed.provenanceRefs,
     };
+    if (input.skipIfUnchanged) {
+      const last = await this.store.latestValue(context.tenantId, definition.metricId, input.productId, input.unitId);
+      const same = (a?: Date, b?: Date) => (a?.getTime() ?? null) === (b?.getTime() ?? null);
+      if (last && last.value === value.value && last.unit === value.unit && (last.currency ?? null) === (value.currency ?? null)
+        && last.qualityStatus === value.qualityStatus && same(last.periodStart, value.periodStart)
+        && same(last.sourceTimestamp, value.sourceTimestamp)) return last;
+    }
     await this.store.saveValue({ tenantId: context.tenantId, ...value });
     return value;
   }

@@ -1,6 +1,8 @@
+import { MetricRecomputeService } from "@/application/metrics/metric-recompute-service";
 import { MetricService } from "@/application/metrics/metric-service";
 import { UnitComparisonService } from "@/application/metrics/unit-comparison-service";
 import { createUnitScopeResolver } from "@/application/organization/unit-scope";
+import { PostgresProfileRepository } from "@/infrastructure/i18n/postgres-profile-repository";
 import { PostgresUnitRepository } from "@/infrastructure/organization/postgres-unit-repository";
 import { PostgresMetricStore } from "@/infrastructure/metrics/postgres-metric-store";
 
@@ -21,4 +23,17 @@ export function createUnitComparisonService(): UnitComparisonService {
     (tenantId) => repository.listUnits(tenantId),
     scope,
   );
+}
+
+/** Recálculo de métricas a partir dos fatos (depois de cada sincronização e por agendamento). */
+export function createMetricRecomputeService(): MetricRecomputeService {
+  const store = new PostgresMetricStore();
+  return new MetricRecomputeService({
+    metrics: createMetricService(),
+    factScopes: (tenantId) => store.distinctFactScopes(tenantId),
+    tenantIds: () => store.tenantIdsWithFacts(),
+    timeZone: async (tenantId) => {
+      try { return (await new PostgresProfileRepository().getOrgProfile(tenantId))?.timezone ?? "UTC"; } catch { return "UTC"; }
+    },
+  });
 }

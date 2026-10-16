@@ -1,6 +1,7 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 import { AlertAutomationService } from "@/application/alerts/alert-automation-service";
+import { createMetricRecomputeService } from "@/application/metrics/metric-composition";
 import { alertAutomationEnv } from "@/config/env";
 
 function safeEqual(left: string, right: string): boolean {
@@ -36,7 +37,7 @@ export async function POST(request: Request) {
   const correlationId = request.headers.get("x-correlation-id")?.trim();
 
   try {
-    const result = await new AlertAutomationService().run({
+    const result = await new AlertAutomationService(undefined, undefined, (tenantId, correlation) => createMetricRecomputeService().recomputeTenant(tenantId, correlation)).run({
       runId,
       correlationId,
     });

@@ -20,6 +20,8 @@ export class AlertAutomationService {
   constructor(
     private readonly runs = new PostgresAlertAutomationRepository(),
     private readonly alerts: AlertService = buildAlertService(),
+    /** Atualiza os números da empresa antes de avaliar as regras (alerta sobre número velho não vale). Falha não impede a avaliação. */
+    private readonly refreshMetrics?: (tenantId: string, correlationId: string) => Promise<unknown>,
   ) {}
 
   async run(input: {
@@ -66,6 +68,7 @@ export class AlertAutomationService {
         };
 
         try {
+          if (this.refreshMetrics) await this.refreshMetrics(tenantId, context.correlationId).catch(() => { failures += 1; });
           const overview = await this.alerts.overview(context);
           const activeRules = overview.rules.filter(
             (rule) => rule.enabled && !rule.archived,

@@ -1,3 +1,4 @@
+import { createMetricRecomputeService } from "@/application/metrics/metric-composition";
 import { ConnectorRuntime } from "@/application/integration/connector-runtime";
 import { OAuthClient } from "@/application/integration/oauth-client";
 import { OAuthTokenService } from "@/application/integration/oauth-token-service";
@@ -37,5 +38,7 @@ export function buildConnectorRuntime() {
     new PostgresSyncRepository(),
     new PostgresCanonicalFactRepository(),
     [new OmieConnector(new OmieClient(transport, limiter), credentials), ...declarative],
+    undefined, undefined, undefined,
+    (tenantId, correlationId) => createMetricRecomputeService().recomputeTenant(tenantId, correlationId),
   );
 }

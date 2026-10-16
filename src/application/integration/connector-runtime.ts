@@ -115,6 +115,8 @@ export class ConnectorRuntime {
     private readonly timeoutMs = 8_000,
     private readonly maxAttempts = 3,
     private readonly retryDelayMs = 100,
+    /** Chamado depois de uma sincronização que trouxe fatos (ex.: recalcular as métricas). Falha aqui não falha a sincronização. */
+    private readonly onFactsIngested?: (tenantId: string, correlationId: string) => Promise<unknown>,
   ) {
     for (const connector of connectors) {
       this.connectors.set(connector.sourceType, connector);
@@ -250,6 +252,10 @@ export class ConnectorRuntime {
         tenantId: context.tenantId,
         cursorAfter: result.nextCursor,
       });
+      if (result.facts.length > 0 && this.onFactsIngested) {
+        try { await this.onFactsIngested(context.tenantId, context.correlationId); }
+        catch { logEvent("error", "connector_sync_recompute_failed", { tenantId: context.tenantId, executionId, correlationId: context.correlationId }); }
+      }
       logEvent("info", "connector_sync_completed", {
         tenantId: context.tenantId,
         sourceId: source.id,

@@ -33,14 +33,14 @@ export function validateSchedule(input: { frequency: unknown; hour: unknown; wee
 
 interface LocalParts { y: number; m: number; d: number; h: number; min: number }
 
-function localParts(instant: Date, timeZone: string): LocalParts {
+export function localParts(instant: Date, timeZone: string): LocalParts {
   const parts = new Intl.DateTimeFormat("en-CA", { timeZone, hourCycle: "h23", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }).formatToParts(instant);
   const get = (type: string) => Number(parts.find((p) => p.type === type)?.value);
   return { y: get("year"), m: get("month"), d: get("day"), h: get("hour"), min: get("minute") };
 }
 
 /** Instante UTC em que o relógio local do fuso marca y-m-d h:00. */
-function zonedToUtc(y: number, m: number, d: number, h: number, timeZone: string): Date {
+export function zonedToUtc(y: number, m: number, d: number, h: number, timeZone: string): Date {
   const wall = Date.UTC(y, m - 1, d, h);
   const offsetAt = (instant: number) => {
     const p = localParts(new Date(instant), timeZone);
