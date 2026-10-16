@@ -1,3 +1,4 @@
+import { parseDecimal as decimal, sumDecimals, type DecimalValue } from "@/domain/core/decimal";
 import type { MetricDefinition } from "./registry";
 
 export interface MetricFact {
@@ -15,36 +16,6 @@ export type MetricComputation =
 
 export class MultiCurrencyAggregationError extends Error {
   constructor() { super("metrics.fx_policy_required"); }
-}
-
-interface DecimalValue {
-  readonly units: bigint;
-  readonly scale: number;
-}
-
-function decimal(value: unknown): DecimalValue | null {
-  if (typeof value !== "string" && typeof value !== "number") return null;
-  if (typeof value === "number" && !Number.isFinite(value)) return null;
-  const raw = String(value).trim();
-  if (!/^-?\d+(?:\.\d+)?$/.test(raw)) return null;
-  const negative = raw.startsWith("-");
-  const unsigned = negative ? raw.slice(1) : raw;
-  const [whole, fraction = ""] = unsigned.split(".");
-  const units = BigInt(`${whole}${fraction}`) * (negative ? -1n : 1n);
-  return { units, scale: fraction.length };
-}
-
-function sumDecimals(values: readonly DecimalValue[]): string {
-  const scale = Math.max(0, ...values.map((value) => value.scale));
-  const total = values.reduce((sum, value) => sum + value.units * 10n ** BigInt(scale - value.scale), 0n);
-  if (scale === 0) return total.toString();
-
-  const negative = total < 0n;
-  const digits = (negative ? -total : total).toString().padStart(scale + 1, "0");
-  const whole = digits.slice(0, -scale);
-  const fraction = digits.slice(-scale).replace(/0+$/, "");
-  const normalized = fraction ? `${whole}.${fraction}` : whole;
-  return negative ? `-${normalized}` : normalized;
 }
 
 export function computeMetric(definition: MetricDefinition, facts: readonly MetricFact[]): MetricComputation {

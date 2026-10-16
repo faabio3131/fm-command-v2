@@ -1,4 +1,5 @@
 import { execFileSync } from "node:child_process";
+import { waitForAuthSlot } from "./helpers/auth-slot";
 import { expect, test, type Page } from "@playwright/test";
 import { enUS } from "../src/i18n/messages/en-US";
 import { ptBR } from "../src/i18n/messages/pt-BR";
@@ -23,6 +24,7 @@ const SCREENS: readonly { path: string; heading: keyof typeof enUS }[] = [
 ];
 
 async function signUpAndCreateOrganization(page: Page) {
+  await waitForAuthSlot();
   const suffix = `en-${Date.now()}`;
   await page.goto("/sign-in");
   await page.getByRole("button", { name: "Create an account" }).click();

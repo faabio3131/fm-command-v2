@@ -15,6 +15,7 @@ export interface MetricStore {
   }): Promise<void>;
   latestValue(tenantId: string, metricId: string, productId?: string, unitId?: string): Promise<MetricView | null>;
   recentValues(tenantId: string, metricId: string, productId: string, limit: number, unitId?: string): Promise<readonly MetricView[]>;
+  latestValuesByUnit(tenantId: string, metricId: string, unitIds: readonly string[], productId?: string): Promise<readonly MetricView[]>;
 }
 
 export interface MetricView {
@@ -82,6 +83,15 @@ export class MetricService {
     if (!getMetricDefinition(metricId)) throw new Error(`metrics.definition_not_found:${metricId}`);
     await this.authorizeUnit(context, unitId);
     return this.store.latestValue(context.tenantId, metricId, productId, unitId);
+  }
+
+  /** Último valor de cada unidade pedida. Cada unidade passa pelo escopo; pedir uma de fora nega a consulta inteira. */
+  async queryUnits(context: TenantContext, metricId: string, unitIds: readonly string[], productId?: string): Promise<readonly MetricView[]> {
+    requirePermission(context, "metric:read");
+    if (!getMetricDefinition(metricId)) throw new Error(`metrics.definition_not_found:${metricId}`);
+    const scope = await this.unitScope(context);
+    for (const unitId of unitIds) assertUnitAccess(scope, unitId);
+    return this.store.latestValuesByUnit(context.tenantId, metricId, unitIds, productId);
   }
 
   async history(context: TenantContext, metricId: string, productId: string, limit = 2, unitId?: string): Promise<readonly MetricView[]> {
