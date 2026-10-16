@@ -1,4 +1,5 @@
 import { ProviderBadRequestError } from "@/domain/core/ai-provider";
+import { isAiTaskType } from "@/domain/core/work-queue";
 import type { TaskHandler } from "./work-worker";
 import { PermanentTaskError } from "./work-worker";
 import type { ProviderRouter } from "./provider-router";
@@ -14,6 +15,7 @@ function str(v: unknown, max: number): string | null {
  */
 export function createAiTaskHandler(router: ProviderRouter): TaskHandler {
   return async (item, signal) => {
+    if (!isAiTaskType(item.taskType)) throw new PermanentTaskError("ai.task_type_not_ai");
     const system = str(item.payload.system, 20_000);
     const user = str(item.payload.user, 200_000);
     const maxTokens = Number(item.payload.maxTokens ?? 1024);

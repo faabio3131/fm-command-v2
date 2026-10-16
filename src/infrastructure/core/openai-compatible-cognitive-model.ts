@@ -36,16 +36,8 @@ function parseJsonObject(content: string): {
   throw new CognitiveModelContractError();
 }
 
-export class OpenAiCompatibleCognitiveModel implements CognitiveModel {
-  constructor(
-    private readonly baseUrl: string,
-    private readonly apiKey: string,
-    private readonly model: string,
-    private readonly timeoutMs = 30_000,
-  ) {
-    if (!/^https?:\/\//.test(baseUrl) || !apiKey.trim() || !model.trim()) throw new CognitiveModelUnavailableError();
-  }
-
+/** Prompts e validacao do planejador/sintetizador; quem herda decide COMO chamar o modelo (ADR-017). */
+export abstract class LlmCognitiveModel implements CognitiveModel {
   async plan(input: {
     question: string;
     metricCatalog: readonly { metricId: string; displayName: string; description: string }[];
@@ -73,7 +65,7 @@ export class OpenAiCompatibleCognitiveModel implements CognitiveModel {
         'Responda somente JSON no formato {"metricIds":["..."],"capabilityIds":["..."],"productSlugs":["..."]}.',
       ].join(" ") },
       { role: "user", content: JSON.stringify(input) },
-    ], 512);
+    ], 512, "plan");
 
     try {
       const parsed = parseJsonObject(content);
@@ -137,13 +129,32 @@ export class OpenAiCompatibleCognitiveModel implements CognitiveModel {
         "Contexto operacional é memória de continuidade, não fonte de verdade.",
       ].join(" ") },
       { role: "user", content: JSON.stringify(input) },
-    ], 1024);
+    ], 1024, "synthesize");
 
     if (!content.trim()) throw new CognitiveModelContractError();
     return content.trim();
   }
 
-  private async complete(
+  protected abstract complete(
+    messages: readonly { role: "system" | "user"; content: string }[],
+    maxTokens: number,
+    purpose: "plan" | "synthesize",
+  ): Promise<string>;
+}
+
+/** Modelo unico por variavel de ambiente (comportamento da V1; usado enquanto nao ha rotas configuradas). */
+export class OpenAiCompatibleCognitiveModel extends LlmCognitiveModel {
+  constructor(
+    private readonly baseUrl: string,
+    private readonly apiKey: string,
+    private readonly model: string,
+    private readonly timeoutMs = 30_000,
+  ) {
+    super();
+    if (!/^https?:\/\//.test(baseUrl) || !apiKey.trim() || !model.trim()) throw new CognitiveModelUnavailableError();
+  }
+
+  protected async complete(
     messages: readonly { role: "system" | "user"; content: string }[],
     maxTokens: number,
   ): Promise<string> {

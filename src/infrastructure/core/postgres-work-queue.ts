@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
 import type { Pool, PoolClient } from "pg";
 import type { ClaimOptions, EnqueueInput, FailOutcome, RetryPolicy, WorkItem, WorkQueue } from "@/domain/core/work-queue";
-import { DEFAULT_RETRY, retryDelayMs } from "@/domain/core/work-queue";
-import { TASK_TYPES, type TaskType } from "@/domain/core/task-envelope";
+import { DEFAULT_RETRY, retryDelayMs, WORK_TYPES, type WorkType } from "@/domain/core/work-queue";
+
 
 const MAX_CLAIM_SCAN = 25;
 
@@ -12,7 +12,7 @@ export class WorkQueueInputError extends Error {
 
 function validateEnqueue(i: EnqueueInput): void {
   if (!i.tenantId || i.tenantId.length > 128) throw new WorkQueueInputError("queue.tenant_invalid");
-  if (!TASK_TYPES.includes(i.taskType)) throw new WorkQueueInputError("queue.type_unknown");
+  if (!WORK_TYPES.includes(i.taskType)) throw new WorkQueueInputError("queue.type_unknown");
   const p = i.priority ?? 50;
   if (!Number.isInteger(p) || p < 0 || p > 100) throw new WorkQueueInputError("queue.priority_0_to_100");
   if (!i.idempotencyKey || i.idempotencyKey.length > 256) throw new WorkQueueInputError("queue.idempotency_key_invalid");
@@ -24,7 +24,7 @@ function validateEnqueue(i: EnqueueInput): void {
 interface Candidate { id: string; tenant_id: string; attempt: number; max_attempts: number }
 
 interface ClaimRow {
-  id: string; tenant_id: string; unit_id: string | null; task_type: TaskType; priority: number; locale: string;
+  id: string; tenant_id: string; unit_id: string | null; task_type: WorkType; priority: number; locale: string;
   payload: Record<string, unknown>; idempotency_key: string; attempt: number; max_attempts: number;
   deadline_at: Date; lease_token: string;
 }

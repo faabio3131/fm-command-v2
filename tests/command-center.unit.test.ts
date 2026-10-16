@@ -42,10 +42,10 @@ describe("F10 Executive Command Center contract", () => {
     expect(source).toContain("body: JSON.stringify({ question: scopedQuestion })");
   });
 
-  it("oferece ditado por microfone em português sem substituir a digitação", () => {
+  it("oferece ditado por microfone no idioma da tela (pt-BR por padrão) sem substituir a digitação", () => {
     const source = readFileSync(resolve(process.cwd(), "src/app/dashboard/core-query-form.tsx"), "utf8");
     expect(source).toContain("webkitSpeechRecognition");
-    expect(source).toContain('recognition.lang = "pt-BR"');
+    expect(source).toContain("recognition.lang = locale");
     expect(source).toContain('aria-label={listening ? "Parar reconhecimento de voz" : "Falar a pergunta"}');
     expect(source).toContain('voiceErrorMessage');
     expect(source).toContain('Reconhecimento de voz não disponível neste navegador.');

@@ -7,7 +7,7 @@ import { KordenaCommercialControlService } from "@/application/integration/korde
 import { MetricService } from "@/application/metrics/metric-service";
 import { OperationalHealthService } from "@/application/operations/operational-health-service";
 import { cognitiveEnv } from "@/config/env";
-import { CognitiveModelUnavailableError } from "@/domain/core/cognitive-model";
+import { CognitiveModelUnavailableError, type CognitiveModel } from "@/domain/core/cognitive-model";
 import { AuditCoreContextReader } from "@/infrastructure/core/audit-core-context-reader";
 import { OpenAiCompatibleCognitiveModel } from "@/infrastructure/core/openai-compatible-cognitive-model";
 import { PostgresSourceRepository } from "@/infrastructure/integration/postgres-repositories";
@@ -15,14 +15,17 @@ import { PostgresMetricStore } from "@/infrastructure/metrics/postgres-metric-st
 import { PostgresOperationalHealthRepository } from "@/infrastructure/operations/postgres-health-repository";
 import { PostgresProductRepository } from "@/infrastructure/products/postgres-product-repository";
 
-export function buildCoreGateway(): CoreGateway {
-  let config: ReturnType<typeof cognitiveEnv>;
-  try { config = cognitiveEnv(); }
-  catch { throw new CognitiveModelUnavailableError(); }
+/** `model` permite injetar o modelo (roteado pela politica do banco); sem ele usa o modelo unico por variavel de ambiente (V1). */
+export function buildCoreGateway(model?: CognitiveModel): CoreGateway {
+  let cognitive = model;
+  if (!cognitive) {
+    let config: ReturnType<typeof cognitiveEnv>;
+    try { config = cognitiveEnv(); }
+    catch { throw new CognitiveModelUnavailableError(); }
+    cognitive = new OpenAiCompatibleCognitiveModel(config.baseUrl, config.apiKey, config.modelId);
+  }
 
-  const verticalCore = new FmccVerticalCognitiveCore(
-    new OpenAiCompatibleCognitiveModel(config.baseUrl, config.apiKey, config.modelId),
-  );
+  const verticalCore = new FmccVerticalCognitiveCore(cognitive);
 
   const metrics = new MetricService(new PostgresMetricStore());
   const products = new PostgresProductRepository();

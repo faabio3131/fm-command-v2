@@ -20,6 +20,9 @@ Positivas: a operação continua mesmo com todos os provedores fora do ar. Negat
 ## Implementação da etapa 4 (15/10/2026)
 `FMCC_PROCESS_ROLE` = `all` | `operation` | `ai`. Em `operation`, `/api/core/query` é repassada ao processo de IA por uma ponte com limite de simultâneos (32), disjuntor (5 falhas, 15 s aberto, uma sonda em meia-abertura) e tempo máximo (35 s); só cookie, content-type, accept-language e x-correlation-id seguem; 4xx passam sem contar no disjuntor. Em `ai`, `src/proxy.ts` serve apenas `/api/core/*` e rotas de saúde. Prova em `docs/medicoes/ETAPA-4-ISOLAMENTO-IA.md`: operação sem falha com IA morta e com provedor travado. Limites: prova de disponibilidade e não de velocidade, 2 CPUs, provedor simulado, valores do limite não calibrados. A resposta continua síncrona nesta etapa; a assíncrona via fila vem na etapa 5 (ADR-018).
 
+## Atualização da etapa 6B (15/10/2026)
+O Diretor aprovou a resposta assíncrona. `POST /api/core/query` agora só enfileira (202) e o processo de operação o atende sem a ponte; o worker roda no processo de IA. A ponte da etapa 4 permanece apenas para `FMCC_CORE_QUERY_MODE=sync`. Detalhes e prova em `docs/medicoes/ETAPA-6B-CORE-ASSINCRONO.md`.
+
 ## Condições de revisão
 
 Revisar com os números da etapa de medição.

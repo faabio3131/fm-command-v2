@@ -16,7 +16,8 @@ const pct = (s: number[], p: number) => (s.length ? s[Math.min(s.length - 1, Mat
 const r1 = (n: number) => Math.round(n * 10) / 10;
 
 const PORT = { all: 3200, op: 3201, ai: 3202 } as const;
-const baseEnv: NodeJS.ProcessEnv = { ...process.env, NODE_ENV: "production", NEXT_TELEMETRY_DISABLED: "1" };
+// A prova da etapa 4 mede o caminho síncrono (a V2 passou a responder de forma assíncrona por padrão).
+const baseEnv: NodeJS.ProcessEnv = { ...process.env, NODE_ENV: "production", NEXT_TELEMETRY_DISABLED: "1", FMCC_CORE_QUERY_MODE: "sync" };
 
 interface Proc { child: ChildProcess; port: number; }
 function start(name: string, port: number, extra: Record<string, string>): Proc {
