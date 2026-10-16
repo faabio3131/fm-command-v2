@@ -34,9 +34,13 @@ export const saasPaymentRoutes = pgTable("fmcc_saas_payment_route", {
   currency: text("currency").notNull(),
   country: text("country"),
   providerId: text("provider_id").notNull(),
+  /** Menor numero = tentado primeiro. Varios provedores por moeda/pais: o seguinte assume quando o anterior esta desligado ou indisponivel. */
+  priority: integer("priority").notNull().default(0),
   enabled: boolean("enabled").notNull().default(true),
 }, (t) => [
-  uniqueIndex("fmcc_saas_payment_route_uq").on(t.currency, sql`coalesce(${t.country}, '*')`),
+  uniqueIndex("fmcc_saas_payment_route_uq").on(t.currency, sql`coalesce(${t.country}, '*')`, t.priority),
+  uniqueIndex("fmcc_saas_payment_route_provider_uq").on(t.currency, sql`coalesce(${t.country}, '*')`, t.providerId),
+  check("fmcc_saas_payment_route_priority_ck", sql`${t.priority} >= 0`),
   check("fmcc_saas_payment_route_currency_ck", sql`${t.currency} ~ '^[A-Z]{3}$'`),
   check("fmcc_saas_payment_route_country_ck", sql`${t.country} is null or ${t.country} ~ '^[A-Z]{2}$'`),
 ]);

@@ -1,5 +1,5 @@
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
-import { PaymentProviderError, WebhookRejectedError, type CreateSubscriptionInput, type CustomerInput, type PaymentEvent, type PaymentEventType, type PaymentProvider, type ProviderSubscription } from "@/domain/subscription/payment-provider";
+import { PaymentProviderError, WebhookRejectedError, type CreateSubscriptionInput, type CustomerInput, type PaymentEvent, type PaymentEventType, type PaymentProvider, type ProviderCapabilities, type ProviderSubscription } from "@/domain/subscription/payment-provider";
 
 export type SimFault = "none" | "transient" | "rejected" | "uncertain_after_create";
 
@@ -9,13 +9,16 @@ export type SimFault = "none" | "transient" | "rejected" | "uncertain_after_crea
  */
 export class SimulatedPaymentProvider implements PaymentProvider {
   readonly currencies: readonly string[];
+  readonly capabilities: ProviderCapabilities;
   fault: SimFault = "none";
   readonly subscriptions = new Map<string, { externalReference: string; cancelled: boolean; price: CreateSubscriptionInput["price"] }>();
   calls = { createCustomer: 0, createSubscription: 0, find: 0, cancel: 0 };
   private seq = 0;
 
-  constructor(readonly id: string, private readonly webhookSecret: string, currencies: readonly string[] = ["BRL", "USD", "EUR"]) {
+  constructor(readonly id: string, private readonly webhookSecret: string, currencies: readonly string[] = ["BRL", "USD", "EUR"],
+    capabilities: ProviderCapabilities = { billingMode: "provider_recurring", methods: ["boleto", "pix", "card", "transfer", "other"], refunds: true }) {
     this.currencies = currencies;
+    this.capabilities = capabilities;
   }
 
   async createCustomer(input: CustomerInput): Promise<{ customerRef: string }> {

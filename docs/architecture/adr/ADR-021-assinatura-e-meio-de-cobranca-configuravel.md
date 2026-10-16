@@ -67,3 +67,14 @@ A FM Tecnologia não fica presa a um provedor: escolhe o banco/PSP por moeda e p
 - A taxa é **estimativa**: o banco cobra de fato; a diferença aparece na conciliação.
 - Nenhum valor de nenhum banco existe no código. Cadastrar ou reajustar é inserir uma linha; ainda não há tela (junto com preços e rotas, é configuração da FM).
 - Os pontos "abertos" do Asaas (confirmar pagamento no provedor, estorno/chargeback, juros e multa) são do **adaptador de cada banco**: ao conectar outro banco, ele traz o seu adaptador seguindo o mesmo contrato `PaymentProvider`, sem mexer no núcleo.
+
+## Vários provedores por rota e capacidades por provedor (16/10/2026, etapa 8C)
+
+Decisão do Fábio: nenhum banco fixo, nem para o recebimento internacional da FM. Portanto:
+
+- **Rotas com prioridade e reserva.** `fmcc_saas_payment_route` aceita vários provedores para a mesma moeda/país, ordenados por `priority` (menor primeiro). Para uma **nova** assinatura vale o primeiro, na ordem (rota do país antes da genérica), que: esteja ligado, esteja configurado neste ambiente, cobre a moeda e cobre sozinho a cada ciclo. Provedor desligado, não configurado ou incompatível é pulado.
+- **Sem troca no meio da criação.** Depois de reservada, a assinatura fica com o provedor escolhido; repetir em outro após uma resposta incerta poderia cobrar em dobro. A reserva só vale na escolha de uma assinatura nova.
+- **Assinaturas existentes não mudam** quando a rota muda. Migrar clientes antigos para outro banco exige nova autorização de cobrança do cliente (cartão e débito não são portáveis entre bancos); a migração controlada empresa por empresa **não foi construída**.
+- **Capacidades no contrato** (`ProviderCapabilities`): modo de cobrança (`provider_recurring` = o provedor cobra sozinho a cada ciclo; `invoice_each_cycle` = o cliente paga cada ciclo, como boleto, PIX e métodos locais), formas de pagamento aceitas e se faz estorno. **O modo `invoice_each_cycle` está declarado, mas o fluxo ainda não existe**: nenhum provedor assim é escolhido até ele ser construído.
+- **Comparação de líquido** (`compareRoutes`): para moeda/país/forma/valor, lista os provedores utilizáveis do maior líquido ao menor, com as taxas configuradas; sem taxa vai para o fim, nunca zero. Só informa; a ordem real é a prioridade da tabela de rotas.
+- Mudança de comportamento: moeda não suportada por um provedor deixou de ser erro e passou a ser "pula para o próximo"; se nenhum serve, o erro é `subscription.no_payment_method`.

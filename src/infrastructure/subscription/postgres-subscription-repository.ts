@@ -51,12 +51,15 @@ export class PostgresSubscriptionRepository {
     }));
   }
 
-  /** Rota do pais vence a da moeda; so rotas ligadas. */
-  async routeFor(currency: string, country: string): Promise<string | null> {
+  /**
+   * Rotas ligadas para a moeda/pais, na ordem em que devem ser tentadas: as do pais antes das genericas, e dentro de cada grupo
+   * pela prioridade (menor primeiro). Devolve todas; quem escolhe descarta as que nao estao configuradas neste ambiente.
+   */
+  async routesFor(currency: string, country: string): Promise<Array<{ providerId: string; priority: number }>> {
     const r = await this.pool.query(
-      `SELECT provider_id FROM fmcc_saas_payment_route WHERE enabled AND currency=$1 AND (country=$2 OR country IS NULL)
-       ORDER BY (country IS NULL) ASC LIMIT 1`, [currency, country]);
-    return r.rows[0]?.provider_id ?? null;
+      `SELECT provider_id, priority FROM fmcc_saas_payment_route WHERE enabled AND currency=$1 AND (country=$2 OR country IS NULL)
+       ORDER BY (country IS NULL) ASC, priority ASC, provider_id ASC`, [currency, country]);
+    return r.rows.map((x) => ({ providerId: x.provider_id as string, priority: x.priority as number }));
   }
 
   /** Reserva a assinatura ANTES de falar com o provedor. Mesma chave = mesma linha (inserted=false). */
