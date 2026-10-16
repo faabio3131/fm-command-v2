@@ -1,252 +1,263 @@
 "use client";
 
 import { FormEvent, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { formatDateTime } from "@/i18n/format";
+import { useTranslator } from "@/i18n/react/i18n-provider";
+import type { MessageKey } from "@/i18n/translate";
 
-type ProductOption = {
+type AuthType = "api_key_pair" | "api_key" | "oauth2";
+
+type CatalogView = {
   id: string;
-  name: string;
-  slug: string;
+  label: string;
+  regions: string[];
+  status: "ready" | "planned";
+  authType: AuthType;
+  variables: string[];
 };
 
 type SourceView = {
   id: string;
-  productId?: string;
   name: string;
   sourceType: string;
-  authoritativeDomain: string;
   status: string;
-  syncMode: string;
-  freshnessSeconds?: number;
   hasSecretReference: boolean;
-  baseUrl?: string;
+  configurable: boolean;
+  label: string;
+  authType?: AuthType;
+  kind?: string;
+  unitMap: Record<string, string>;
+  unitRefField: string;
   lastAttemptAt?: string;
   lastAttemptStatus?: string;
   lastSuccessfulSyncAt?: string;
 };
 
 type Props = {
-  products: ProductOption[];
+  catalog: CatalogView[];
   sources: SourceView[];
+  units: { id: string; name: string }[];
   canWrite: boolean;
+  defaultCurrency: string;
+  timeZone: string;
 };
 
-const CONFIGURED_PRODUCTS = {
-  kordena: {
-    title: "Conectar Kordena",
-    name: "Kordena Commercial",
-    sourceType: "kordena-commercial-v1",
-    secretRef: "env:FMCC_KORDENA_CONTROL_PLANE_TOKEN",
-    urlLabel: "URL HTTPS do Kordena",
-    placeholder: "https://seu-kordena.exemplo.com",
-  },
-  iron: {
-    title: "Conectar IRON FIT CORE",
-    name: "IRON FIT CORE Commercial",
-    sourceType: "iron-commercial-v1",
-    secretRef: "env:FMCC_IRON_CONTROL_PLANE_TOKEN",
-    urlLabel: "URL HTTPS do backend IRON",
-    placeholder: "https://gym-saas-backend-t9ej.onrender.com",
-  },
-} as const;
-
-type SupportedProduct = keyof typeof CONFIGURED_PRODUCTS;
-
-type SourceState = {
-  health?: string;
-  sync?: string;
+const HEALTH: Record<string, MessageKey> = {
+  healthy: "sources.health.healthy",
+  degraded: "sources.health.degraded",
+  unavailable: "sources.health.unavailable",
+  configured: "sources.health.configured",
 };
-
-function rotuloSaude(status: string) {
-  if (status === "healthy") return "Saudável";
-  if (status === "degraded") return "Degradada";
-  if (status === "unavailable") return "Indisponível";
-  if (status === "configured") return "Configurada — ainda não testada";
-  return "Desconhecida";
-}
-
-function rotuloSync(status?: string) {
-  if (status === "completed") return "Concluída";
-  if (status === "running") return "Em andamento";
-  if (status === "failed") return "Falhou";
-  return "Nunca executada";
-}
-
-function dataHora(value?: string) {
-  if (!value) return "Nunca";
-  return new Intl.DateTimeFormat("pt-BR", {
-    dateStyle: "short",
-    timeStyle: "short",
-  }).format(new Date(value));
-}
-
-function mensagemErro(codigo?: string) {
-  const conhecido: Record<string, string> = {
-    "integration.source_definition_invalid": "A definição da fonte é inválida.",
-    "integration.product_scope_invalid": "O produto selecionado não é válido ou não está ativo.",
-    "integration.product_source_binding_invalid": "A integração não corresponde ao produto ou à credencial configurada.",
-    "integration.secret_reference_invalid": "A referência de segredo da fonte é inválida.",
-    "integration.sync_failed": "A sincronização falhou ou a configuração externa ainda não está pronta.",
-    "integration.health_failed": "Não foi possível consultar a saúde da integração.",
-    "security.permission_denied:source:write": "Seu papel não pode cadastrar fontes.",
-    "security.permission_denied:integration:write": "Seu papel não pode sincronizar fontes.",
-  };
-  return conhecido[codigo ?? ""] ?? "A operação não pôde ser concluída.";
-}
+const SYNC: Record<string, MessageKey> = {
+  completed: "sources.syncstatus.completed",
+  running: "sources.syncstatus.running",
+  failed: "sources.syncstatus.failed",
+};
+const AUTH_LABEL: Record<AuthType, MessageKey> = {
+  api_key_pair: "sources.catalog.auth.api_key_pair",
+  api_key: "sources.catalog.auth.api_key",
+  oauth2: "sources.catalog.auth.oauth2",
+};
 
 async function json(response: Response): Promise<Record<string, unknown>> {
   try {
-    return await response.json() as Record<string, unknown>;
+    return (await response.json()) as Record<string, unknown>;
   } catch {
     return {};
   }
 }
 
-export function SourceControlPanel({ products, sources, canWrite }: Props) {
+export function SourceControlPanel({ catalog, sources, units, canWrite, defaultCurrency, timeZone }: Props) {
   const router = useRouter();
-  const [selectedProductId, setSelectedProductId] = useState("");
-  const selectedProduct = products.find((product) => product.id === selectedProductId);
-  const selection = selectedProduct && selectedProduct.slug in CONFIGURED_PRODUCTS
-    ? CONFIGURED_PRODUCTS[selectedProduct.slug as SupportedProduct]
-    : null;
-  const alreadyRegistered = sources.some((source) =>
-    source.productId === selectedProductId && source.sourceType === selection?.sourceType
-  );
+  const oauth = useSearchParams().get("oauth");
+  const { t, locale } = useTranslator();
+  const [creating, setCreating] = useState<CatalogView | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  const [states, setStates] = useState<Record<string, SourceState>>({});
+  const [notes, setNotes] = useState<Record<string, string>>({});
+  const [rows, setRows] = useState<Record<string, { code: string; unitId: string }[]>>({});
 
-  async function register(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const formElement = event.currentTarget;
-    const form = new FormData(formElement);
-    const productId = String(form.get("productId") ?? "").trim();
-    const baseUrl = String(form.get("baseUrl") ?? "").trim();
-    const freshnessSeconds = Number(form.get("freshnessSeconds") ?? "300");
+  const when = (value?: string) => (value ? formatDateTime(value, locale, timeZone) : t("sources.list.never"));
 
-    const product = products.find((item) => item.id === productId);
-    const config = product && product.slug in CONFIGURED_PRODUCTS
-      ? CONFIGURED_PRODUCTS[product.slug as SupportedProduct]
-      : null;
-    if (!config || !baseUrl || sources.some((item) =>
-      item.productId === productId && item.sourceType === config.sourceType
-    )) {
-      setMessage("Selecione uma integração suportada e ainda não cadastrada.");
-      return;
+  function errorText(body: Record<string, unknown>): string {
+    const code = typeof body.error === "string" ? body.error : "";
+    if (code === "integration.source_config_invalid") {
+      return t("sources.error.config", { field: typeof body.field === "string" ? body.field : "?" });
     }
-    setBusy("register");
+    if (code === "integration.connector_not_ready") return t("sources.error.notReady");
+    if (code === "integration.oauth_provider_not_configured") return t("sources.error.providerNotConfigured");
+    if (code.startsWith("security.permission_denied")) return t("sources.error.permission");
+    if (code === "integration.sync_failed") return t("sources.error.syncFailed");
+    return t("sources.error.generic");
+  }
+
+  function note(id: string, text: string) {
+    setNotes((current) => ({ ...current, [id]: text }));
+  }
+
+  async function create(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!creating) return;
+    const form = new FormData(event.currentTarget);
+    const variables: Record<string, string> = {};
+    for (const name of creating.variables) variables[name] = String(form.get(`var:${name}`) ?? "").trim();
+    const currency = String(form.get("currency") ?? "").trim().toUpperCase();
+    setBusy("create");
     setMessage(null);
     try {
-      const response = await fetch("/api/sources", {
+      const response = await fetch("/api/sources/from-catalog", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          productId,
-          name: config.name,
-          sourceType: config.sourceType,
-          authoritativeDomain: "commercial",
-          syncMode: "pull",
-          secretRef: config.secretRef,
-          mappingVersion: config.sourceType,
-          freshnessSeconds,
-          config: { baseUrl },
+          connectorId: creating.id,
+          name: String(form.get("name") ?? "").trim(),
+          freshnessSeconds: Number(form.get("freshnessSeconds") ?? "300"),
+          config: { ...(currency ? { currency } : {}), variables },
         }),
       });
       const body = await json(response);
       if (!response.ok) {
-        setMessage(mensagemErro(typeof body.error === "string" ? body.error : undefined));
+        setMessage(errorText(body));
         return;
       }
-      formElement.reset();
-      setSelectedProductId("");
-      setMessage(`Fonte ${product?.name ?? "comercial"} cadastrada. Teste a conexão antes de sincronizar.`);
+      setCreating(null);
+      setMessage(t("sources.form.created"));
       router.refresh();
     } catch {
-      setMessage("Não foi possível cadastrar a fonte.");
+      setMessage(t("sources.error.generic"));
     } finally {
       setBusy(null);
     }
   }
 
-  async function health(sourceId: string) {
-    setBusy(`health:${sourceId}`);
-    setMessage(null);
+  async function saveAccess(event: FormEvent<HTMLFormElement>, source: SourceView) {
+    event.preventDefault();
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
+    const payload =
+      source.authType === "api_key"
+        ? { kind: "api_key", apiKey: String(form.get("apiKey") ?? "") }
+        : { kind: "api_key_pair", appKey: String(form.get("appKey") ?? ""), appSecret: String(form.get("appSecret") ?? "") };
+    setBusy(`access:${source.id}`);
     try {
-      const response = await fetch(`/api/sources/${sourceId}/health`, {
-        cache: "no-store",
+      const response = await fetch(`/api/sources/${source.id}/credentials`, {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(payload),
       });
       const body = await json(response);
       if (!response.ok) {
-        const error = typeof body.error === "string" ? body.error : undefined;
-        setStates((current) => ({
-          ...current,
-          [sourceId]: { ...current[sourceId], health: mensagemErro(error) },
-        }));
+        note(source.id, errorText(body));
         return;
       }
-      const status = typeof body.status === "string" ? body.status : "unknown";
-      setStates((current) => ({
-        ...current,
-        [sourceId]: {
-          ...current[sourceId],
-          health: `Saúde: ${rotuloSaude(status)}`,
-        },
-      }));
+      formElement.reset();
+      note(source.id, t("sources.access.saved"));
       router.refresh();
     } catch {
-      setStates((current) => ({
-        ...current,
-        [sourceId]: {
-          ...current[sourceId],
-          health: "Saúde: não foi possível consultar.",
-        },
-      }));
+      note(source.id, t("sources.error.generic"));
     } finally {
       setBusy(null);
     }
   }
 
-  async function sync(sourceId: string) {
-    setBusy(`sync:${sourceId}`);
-    setMessage(null);
+  async function authorize(source: SourceView) {
+    setBusy(`oauth:${source.id}`);
     try {
-      const response = await fetch(`/api/sources/${sourceId}/sync`, {
+      const response = await fetch(`/api/sources/${source.id}/oauth/start`, { method: "POST" });
+      const body = await json(response);
+      if (!response.ok || typeof body.authorizeUrl !== "string") {
+        note(source.id, errorText(body));
+        return;
+      }
+      window.location.assign(body.authorizeUrl);
+    } catch {
+      note(source.id, t("sources.error.generic"));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function health(source: SourceView) {
+    setBusy(`health:${source.id}`);
+    try {
+      const response = await fetch(`/api/sources/${source.id}/health`, { cache: "no-store" });
+      const body = await json(response);
+      if (!response.ok) {
+        note(source.id, errorText(body));
+        return;
+      }
+      const status = typeof body.status === "string" ? body.status : "unknown";
+      note(source.id, t("sources.result.health", { status: t(HEALTH[status] ?? "sources.health.unknown") }));
+      router.refresh();
+    } catch {
+      note(source.id, t("sources.error.generic"));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function sync(source: SourceView) {
+    setBusy(`sync:${source.id}`);
+    try {
+      const response = await fetch(`/api/sources/${source.id}/sync`, {
         method: "POST",
-        headers: {
-          "content-type": "application/json",
-          "idempotency-key": crypto.randomUUID(),
-        },
+        headers: { "content-type": "application/json", "idempotency-key": crypto.randomUUID() },
         body: JSON.stringify({}),
       });
       const body = await json(response);
       if (!response.ok) {
-        const error = typeof body.error === "string" ? body.error : undefined;
-        setStates((current) => ({
-          ...current,
-          [sourceId]: { ...current[sourceId], sync: mensagemErro(error) },
-        }));
+        note(source.id, errorText(body));
         return;
       }
-      const status = typeof body.status === "string" ? body.status : "completed";
+      const status = body.status;
       const ingested = typeof body.ingested === "number" ? body.ingested : 0;
-      const label = status === "duplicate"
-        ? "Sincronização já processada para esta chave."
-        : status === "in_progress"
-          ? "Sincronização já está em andamento."
-          : `Sincronização concluída: ${ingested} fato(s) canônico(s) ingerido(s).`;
-      setStates((current) => ({
-        ...current,
-        [sourceId]: { ...current[sourceId], sync: label },
-      }));
+      note(
+        source.id,
+        status === "duplicate"
+          ? t("sources.result.syncDuplicate")
+          : status === "in_progress"
+            ? t("sources.result.syncRunning")
+            : t("sources.result.syncDone", { count: ingested }),
+      );
       router.refresh();
     } catch {
-      setStates((current) => ({
-        ...current,
-        [sourceId]: {
-          ...current[sourceId],
-          sync: "A sincronização não pôde ser concluída.",
-        },
-      }));
+      note(source.id, t("sources.error.generic"));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  function currentRows(source: SourceView) {
+    return (
+      rows[source.id] ??
+      Object.entries(source.unitMap).map(([code, unitId]) => ({ code, unitId }))
+    );
+  }
+
+  async function saveUnits(event: FormEvent<HTMLFormElement>, source: SourceView) {
+    event.preventDefault();
+    const field = String(new FormData(event.currentTarget).get("unitRefField") ?? "").trim();
+    const unitMap: Record<string, string> = {};
+    for (const row of currentRows(source)) {
+      if (row.code.trim() && row.unitId) unitMap[row.code.trim()] = row.unitId;
+    }
+    setBusy(`units:${source.id}`);
+    try {
+      const response = await fetch(`/api/sources/${source.id}/config`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ unitMap, ...(source.kind === "code" || !field ? {} : { unitRefField: field }) }),
+      });
+      const body = await json(response);
+      if (!response.ok) {
+        note(source.id, errorText(body));
+        return;
+      }
+      note(source.id, t("sources.units.saved"));
+      router.refresh();
+    } catch {
+      note(source.id, t("sources.error.generic"));
     } finally {
       setBusy(null);
     }
@@ -254,124 +265,200 @@ export function SourceControlPanel({ products, sources, canWrite }: Props) {
 
   return (
     <>
-      {canWrite ? (
-        <section className="executive-section" aria-labelledby="source-register-title">
-          <div className="section-heading">
-            <div>
-              <span className="eyebrow">Cadastro governado</span>
-              <h2 id="source-register-title">{selection?.title ?? "Conectar produto"}</h2>
-            </div>
-            <p>
-              O navegador grava somente URL e referência do segredo. O valor real
-              do segredo permanece exclusivamente no runtime do servidor.
-            </p>
-          </div>
-
-          {products.length === 0 ? (
-            <div className="empty-state">
-              <strong>Nenhum produto ativo disponível.</strong>
-              <p>Cadastre primeiro um produto no dashboard.</p>
-            </div>
-          ) : (
-            <form className="product-create-form" onSubmit={register}>
-              <label>
-                Produto
-                <select name="productId" required value={selectedProductId} onChange={(event) => setSelectedProductId(event.target.value)}>
-                  <option value="" disabled>Selecione o produto</option>
-                  {products.filter((product) => product.slug in CONFIGURED_PRODUCTS).map((product) => (
-                    <option key={product.id} value={product.id}>
-                      {product.name} ({product.slug})
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                {selection?.urlLabel ?? "URL HTTPS do produto"}
-                <input
-                  name="baseUrl"
-                  type="url"
-                  required
-                  pattern="https://.*"
-                  placeholder={selection?.placeholder ?? "Selecione um produto suportado"}
-                  autoComplete="off"
-                  disabled={!selection || alreadyRegistered}
-                />
-              </label>
-              <label>
-                Atualidade esperada (segundos)
-                <input
-                  name="freshnessSeconds"
-                  type="number"
-                  min={30}
-                  max={86400}
-                  defaultValue={300}
-                  required
-                />
-              </label>
-              {alreadyRegistered ? <p role="status">Esta fonte já está registrada. Use a seção de saúde e sincronização abaixo.</p> : null}
-              <button className="button" type="submit" disabled={busy === "register" || !selection || alreadyRegistered}>
-                {busy === "register" ? "Cadastrando…" : "Cadastrar fonte"}
-              </button>
-            </form>
-          )}
-          {message ? <p role="status">{message}</p> : null}
-        </section>
+      {oauth ? (
+        <p role="status">{oauth === "connected" ? t("sources.oauth.connected") : t("sources.oauth.error")}</p>
       ) : null}
+
+      <section className="executive-section" aria-labelledby="catalog-title">
+        <div className="section-heading">
+          <div>
+            <span className="eyebrow">{t("sources.catalog.eyebrow")}</span>
+            <h2 id="catalog-title">{t("sources.catalog.title")}</h2>
+          </div>
+          <p>{t("sources.catalog.intro")}</p>
+        </div>
+        <div className="product-grid">
+          {catalog.map((entry) => (
+            <article className="product-card" key={entry.id}>
+              <strong>{entry.label}</strong>
+              <small>{t(entry.status === "ready" ? "sources.catalog.ready" : "sources.catalog.planned")}</small>
+              <small>{t("sources.catalog.regions", { regions: entry.regions.join(", ") })}</small>
+              <small>{t(AUTH_LABEL[entry.authType])}</small>
+              {canWrite && entry.status === "ready" ? (
+                <button className="button" type="button" onClick={() => { setCreating(entry); setMessage(null); }}>
+                  {t("sources.catalog.connect")}
+                </button>
+              ) : null}
+            </article>
+          ))}
+        </div>
+
+        {creating ? (
+          <form className="product-create-form" onSubmit={create}>
+            <h3>{t("sources.form.title", { name: creating.label })}</h3>
+            <label>
+              {t("sources.form.name")}
+              <input name="name" required maxLength={120} defaultValue={creating.label} autoComplete="off" />
+            </label>
+            <label>
+              {t("sources.form.currency")}
+              <input name="currency" maxLength={3} pattern="[A-Za-z]{3}" defaultValue={defaultCurrency} autoComplete="off" />
+            </label>
+            <label>
+              {t("sources.form.freshness")}
+              <input name="freshnessSeconds" type="number" min={30} max={86400} defaultValue={300} required />
+            </label>
+            {creating.variables.map((name) => (
+              <label key={name}>
+                {t("sources.form.variable", { name })}
+                <input name={`var:${name}`} required maxLength={64} autoComplete="off" />
+              </label>
+            ))}
+            <div>
+              <button className="button" type="submit" disabled={busy === "create"}>
+                {busy === "create" ? t("sources.form.submitting") : t("sources.form.submit")}
+              </button>
+              <button className="button" type="button" onClick={() => setCreating(null)}>
+                {t("sources.form.cancel")}
+              </button>
+            </div>
+          </form>
+        ) : null}
+        {message ? <p role="status">{message}</p> : null}
+      </section>
 
       <section className="executive-section" aria-labelledby="source-list-title">
         <div className="section-heading">
           <div>
-            <span className="eyebrow">Fontes registradas</span>
-            <h2 id="source-list-title">Saúde e sincronização</h2>
+            <span className="eyebrow">{t("sources.list.eyebrow")}</span>
+            <h2 id="source-list-title">{t("sources.list.title")}</h2>
           </div>
-          <p>
-            Uma fonte cadastrada não é considerada conectada até que saúde,
-            autenticação e ingestão real sejam comprovadas.
-          </p>
+          <p>{t("sources.list.intro")}</p>
         </div>
 
         {sources.length === 0 ? (
           <div className="empty-state">
-            <strong>Nenhuma fonte configurada.</strong>
-            <p>O FMCC permanecerá exibindo dados ausentes como indisponíveis.</p>
+            <strong>{t("sources.list.empty.title")}</strong>
+            <p>{t("sources.list.empty.text")}</p>
           </div>
         ) : (
           <div className="product-grid">
             {sources.map((source) => (
               <article className="product-card" key={source.id}>
-                <span className="eyebrow">{source.authoritativeDomain}</span>
                 <strong>{source.name}</strong>
-                <small>Tipo técnico: {source.sourceType}</small>
-                <small>Modo: {source.syncMode === "pull" ? "Consulta periódica" : source.syncMode}</small>
-                <small>Referência de segredo: {source.hasSecretReference ? "Configurada por referência" : "Ausente"}</small>
-                <small>Saúde persistida: {rotuloSaude(source.status)}</small>
-                <small>Último sync bem-sucedido: {dataHora(source.lastSuccessfulSyncAt)}</small>
+                <small>{t("sources.list.type", { type: source.label })}</small>
+                <small>{t(source.hasSecretReference ? "sources.list.access.present" : "sources.list.access.absent")}</small>
+                <small>{t("sources.list.health", { status: t(HEALTH[source.status] ?? "sources.health.unknown") })}</small>
+                <small>{t("sources.list.lastSync", { when: when(source.lastSuccessfulSyncAt) })}</small>
                 <small>
-                  Última tentativa: {dataHora(source.lastAttemptAt)} · {rotuloSync(source.lastAttemptStatus)}
+                  {t("sources.list.lastAttempt", {
+                    when: when(source.lastAttemptAt),
+                    status: t(SYNC[source.lastAttemptStatus ?? ""] ?? "sources.syncstatus.never"),
+                  })}
                 </small>
-                {source.baseUrl ? <small>Origem: {source.baseUrl}</small> : null}
+
                 <div>
-                  <button
-                    className="button"
-                    type="button"
-                    disabled={busy === `health:${source.id}`}
-                    onClick={() => void health(source.id)}
-                  >
-                    {busy === `health:${source.id}` ? "Testando…" : "Testar conexão"}
+                  <button className="button" type="button" disabled={busy === `health:${source.id}`} onClick={() => void health(source)}>
+                    {busy === `health:${source.id}` ? t("sources.action.testing") : t("sources.action.test")}
                   </button>
                   {canWrite ? (
-                    <button
-                      className="button"
-                      type="button"
-                      disabled={busy === `sync:${source.id}`}
-                      onClick={() => void sync(source.id)}
-                    >
-                      {busy === `sync:${source.id}` ? "Sincronizando…" : "Sincronizar agora"}
+                    <button className="button" type="button" disabled={busy === `sync:${source.id}`} onClick={() => void sync(source)}>
+                      {busy === `sync:${source.id}` ? t("sources.action.syncing") : t("sources.action.sync")}
                     </button>
                   ) : null}
                 </div>
-                {states[source.id]?.health ? <small role="status">{states[source.id]?.health}</small> : null}
-                {states[source.id]?.sync ? <small role="status">{states[source.id]?.sync}</small> : null}
+
+                {canWrite && source.configurable ? (
+                  <>
+                    {source.authType === "oauth2" ? (
+                      <button className="button" type="button" disabled={busy === `oauth:${source.id}`} onClick={() => void authorize(source)}>
+                        {busy === `oauth:${source.id}` ? t("sources.access.authorizing") : t("sources.access.authorize")}
+                      </button>
+                    ) : (
+                      <form onSubmit={(e) => void saveAccess(e, source)}>
+                        <h4>{t("sources.access.title")}</h4>
+                        {source.authType === "api_key" ? (
+                          <label>
+                            {t("sources.access.apiKey")}
+                            <input name="apiKey" type="password" required maxLength={1000} autoComplete="off" />
+                          </label>
+                        ) : (
+                          <>
+                            <label>
+                              {t("sources.access.appKey")}
+                              <input name="appKey" type="password" required maxLength={200} autoComplete="off" />
+                            </label>
+                            <label>
+                              {t("sources.access.appSecret")}
+                              <input name="appSecret" type="password" required maxLength={500} autoComplete="off" />
+                            </label>
+                          </>
+                        )}
+                        <small>{t("sources.access.hint")}</small>
+                        <button className="button" type="submit" disabled={busy === `access:${source.id}`}>
+                          {busy === `access:${source.id}` ? t("sources.access.saving") : t("sources.access.save")}
+                        </button>
+                      </form>
+                    )}
+
+                    <form onSubmit={(e) => void saveUnits(e, source)}>
+                      <h4>{t("sources.units.title")}</h4>
+                      <small>{t("sources.units.intro")}</small>
+                      {units.length === 0 ? <small>{t("sources.units.none")}</small> : null}
+                      {source.kind === "code" ? null : (
+                        <label>
+                          {t("sources.units.field")}
+                          <input name="unitRefField" defaultValue={source.unitRefField} maxLength={64} autoComplete="off" />
+                        </label>
+                      )}
+                      {currentRows(source).map((row, index) => (
+                        <div key={index}>
+                          <input
+                            aria-label={t("sources.units.code")}
+                            placeholder={t("sources.units.code")}
+                            value={row.code}
+                            maxLength={64}
+                            onChange={(e) =>
+                              setRows((c) => ({ ...c, [source.id]: currentRows(source).map((r, i) => (i === index ? { ...r, code: e.target.value } : r)) }))
+                            }
+                          />
+                          <select
+                            aria-label={t("sources.units.unit")}
+                            value={row.unitId}
+                            onChange={(e) =>
+                              setRows((c) => ({ ...c, [source.id]: currentRows(source).map((r, i) => (i === index ? { ...r, unitId: e.target.value } : r)) }))
+                            }
+                          >
+                            <option value="">{t("sources.units.choose")}</option>
+                            {units.map((u) => (
+                              <option key={u.id} value={u.id}>{u.name}</option>
+                            ))}
+                          </select>
+                          <button
+                            className="button"
+                            type="button"
+                            onClick={() => setRows((c) => ({ ...c, [source.id]: currentRows(source).filter((_, i) => i !== index) }))}
+                          >
+                            {t("sources.units.remove")}
+                          </button>
+                        </div>
+                      ))}
+                      <div>
+                        <button
+                          className="button"
+                          type="button"
+                          onClick={() => setRows((c) => ({ ...c, [source.id]: [...currentRows(source), { code: "", unitId: "" }] }))}
+                        >
+                          {t("sources.units.add")}
+                        </button>
+                        <button className="button" type="submit" disabled={busy === `units:${source.id}`}>
+                          {busy === `units:${source.id}` ? t("sources.units.saving") : t("sources.units.save")}
+                        </button>
+                      </div>
+                    </form>
+                  </>
+                ) : null}
+                {notes[source.id] ? <small role="status">{notes[source.id]}</small> : null}
               </article>
             ))}
           </div>

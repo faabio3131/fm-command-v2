@@ -1,19 +1,23 @@
 import Link from "next/link";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { getRequestLocale } from "@/application/i18n/request-locale";
 import { SourceRegistryService } from "@/application/integration/source-registry-service";
-import { ProductRegistryService } from "@/application/products/product-registry-service";
 import { resolveTenantContext } from "@/application/security/resolve-tenant-context";
 import { roleHasPermission } from "@/domain/security/permissions";
 import {
   AuthenticationRequiredError,
   TenantScopeRequiredError,
 } from "@/domain/security/tenant-context";
+import { connectorCatalog, catalogEntry } from "@/infrastructure/connectors/catalog";
+import { PostgresProfileRepository } from "@/infrastructure/i18n/postgres-profile-repository";
 import {
   PostgresSourceRepository,
   PostgresSyncRepository,
 } from "@/infrastructure/integration/postgres-repositories";
+import { PostgresUnitRepository } from "@/infrastructure/organization/postgres-unit-repository";
 import { PostgresProductRepository } from "@/infrastructure/products/postgres-product-repository";
+import { createTranslator } from "@/i18n/translate";
 import { SourceControlPanel } from "./source-control-panel";
 
 export default async function SourcesPage() {
@@ -21,120 +25,82 @@ export default async function SourcesPage() {
   try {
     context = await resolveTenantContext(await headers());
   } catch (error) {
-    if (error instanceof AuthenticationRequiredError) {
-      redirect("/sign-in");
-    }
-    if (error instanceof TenantScopeRequiredError) {
-      redirect("/onboarding");
-    }
+    if (error instanceof AuthenticationRequiredError) redirect("/sign-in");
+    if (error instanceof TenantScopeRequiredError) redirect("/onboarding");
     throw error;
   }
+  if (!roleHasPermission(context.role, "source:read")) redirect("/dashboard");
 
-  if (!roleHasPermission(context.role, "source:read")) {
-    redirect("/dashboard");
-  }
-
-  const sourceRepository = new PostgresSourceRepository();
+  const { t } = createTranslator(await getRequestLocale());
   const sourceService = new SourceRegistryService(
-    sourceRepository,
-    new PostgresProductRepository(),
-  );
-  const productService = new ProductRegistryService(
+    new PostgresSourceRepository(),
     new PostgresProductRepository(),
   );
   const syncRepository = new PostgresSyncRepository();
-
-  const [sources, products] = await Promise.all([
+  const [sources, units, profile] = await Promise.all([
     sourceService.list(context),
-    productService.list(context),
+    new PostgresUnitRepository().listUnits(context.tenantId),
+    new PostgresProfileRepository().getOrgProfile(context.tenantId),
   ]);
 
-  const operationalStates = new Map(
-    await Promise.all(
-      sources.map(async (source) => [
-        source.id,
-        await syncRepository.operationalState(
-          context.tenantId,
-          source.id,
-        ),
-      ] as const),
-    ),
+  const views = await Promise.all(
+    sources.map(async (source) => {
+      const operational = await syncRepository.operationalState(context.tenantId, source.id);
+      const entry = catalogEntry(source.sourceType);
+      const cfg = source.config as Record<string, unknown>;
+      const unitMap =
+        cfg.unitMap && typeof cfg.unitMap === "object" && !Array.isArray(cfg.unitMap)
+          ? Object.fromEntries(Object.entries(cfg.unitMap).filter(([, v]) => typeof v === "string")) as Record<string, string>
+          : {};
+      return {
+        id: source.id,
+        name: source.name,
+        sourceType: source.sourceType,
+        status: source.status,
+        hasSecretReference: Boolean(source.secretRef),
+        configurable: Boolean(entry),
+        label: entry?.label ?? source.sourceType,
+        authType: entry?.authType,
+        kind: entry?.kind,
+        unitMap,
+        unitRefField: typeof cfg.unitRefField === "string" ? cfg.unitRefField : "",
+        lastAttemptAt: operational.lastAttemptAt?.toISOString(),
+        lastAttemptStatus: operational.lastAttemptStatus,
+        lastSuccessfulSyncAt: operational.lastSuccessfulAt?.toISOString(),
+      };
+    }),
   );
-
-  const safeSources = sources.map((source) => {
-    const operational = operationalStates.get(source.id);
-    return {
-      id: source.id,
-      productId: source.productId,
-      name: source.name,
-      sourceType: source.sourceType,
-      authoritativeDomain: source.authoritativeDomain,
-      status: source.status,
-      syncMode: source.syncMode,
-      freshnessSeconds: source.freshnessSeconds,
-      hasSecretReference: Boolean(source.secretRef),
-      baseUrl:
-        typeof source.config.baseUrl === "string"
-          ? source.config.baseUrl
-          : undefined,
-      lastAttemptAt: operational?.lastAttemptAt?.toISOString(),
-      lastAttemptStatus: operational?.lastAttemptStatus,
-      lastSuccessfulSyncAt:
-        operational?.lastSuccessfulAt?.toISOString(),
-    };
-  });
-
-  const activeProducts = products
-    .filter((product) => product.status === "active")
-    .map(({ id, name, slug }) => ({
-      id,
-      name,
-      slug,
-    }));
 
   return (
     <main className="dashboard-shell">
       <header className="dashboard-header">
         <div>
-          <span className="eyebrow">Malha de Integrações</span>
-          <h1>Fontes e Integrações</h1>
-          <p>
-            Cadastro, teste de saúde e sincronização de fontes
-            governadas. Nenhuma fonte é considerada conectada apenas
-            por estar cadastrada.
-          </p>
+          <span className="eyebrow">{t("sources.eyebrow")}</span>
+          <h1>{t("sources.title")}</h1>
+          <p>{t("sources.intro")}</p>
         </div>
-        <Link className="button" href="/dashboard">
-          Voltar
-        </Link>
+        <Link className="button" href="/dashboard">{t("sources.back")}</Link>
       </header>
 
-      <section
-        className="foundation-grid"
-        aria-label="Princípios das integrações"
-      >
-        <article>
-          <strong>Segredos</strong>
-          <span>Somente por referência no servidor</span>
-        </article>
-        <article>
-          <strong>Isolamento</strong>
-          <span>Organização validada antes de acessar a fonte</span>
-        </article>
-        <article>
-          <strong>Ingestão</strong>
-          <span>Fatos canônicos com idempotência</span>
-        </article>
-        <article>
-          <strong>Ausência</strong>
-          <span>Nunca convertida em zero</span>
-        </article>
+      <section className="foundation-grid">
+        {(["secrets", "isolation", "ingestion", "absence"] as const).map((k) => (
+          <article key={k}>
+            <strong>{t(`sources.principle.${k}.title`)}</strong>
+            <span>{t(`sources.principle.${k}.text`)}</span>
+          </article>
+        ))}
       </section>
 
       <SourceControlPanel
-        products={activeProducts}
-        sources={safeSources}
+        catalog={connectorCatalog().map((e) => ({
+          id: e.id, label: e.label, regions: [...e.regions], status: e.status,
+          authType: e.authType, variables: [...e.variables],
+        }))}
+        sources={views}
+        units={units.map((u) => ({ id: u.id, name: u.name }))}
         canWrite={roleHasPermission(context.role, "source:write")}
+        defaultCurrency={profile?.currency ?? ""}
+        timeZone={profile?.timezone ?? "UTC"}
       />
     </main>
   );
