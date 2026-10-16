@@ -33,7 +33,13 @@ export interface PaymentEvent {
   readonly type: PaymentEventType;
   readonly subscriptionRef: string;
   readonly paymentRef: string | null;
+  /**
+   * Valor da MENSALIDADE sem imposto (o preco gravado na assinatura e sempre sem imposto; o comprador paga o imposto por cima).
+   * E este valor que e conferido com o preco. O adaptador de cada provedor separa o que e mensalidade do que e imposto.
+   */
   readonly amount: Money | null;
+  /** Imposto sobre a venda cobrado do comprador neste pagamento, na mesma moeda. null = o provedor nao informou (nunca presumir zero). */
+  readonly taxMinor?: number | null;
   readonly occurredAt: Date;
 }
 
