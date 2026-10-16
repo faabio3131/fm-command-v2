@@ -1,6 +1,7 @@
 import type { Pool } from "pg";
 import type { PaymentEvent } from "@/domain/subscription/payment-provider";
 import type { BillingInterval, PlanPrice } from "@/domain/subscription/plan";
+import type { FeeSchedule, PaymentMethod } from "@/domain/subscription/fee-schedule";
 import { applyPaymentEvent, type SubscriptionSnapshot, type SubscriptionState, type TransitionOutcome } from "@/domain/subscription/subscription-state";
 
 export interface SubscriptionRow {
@@ -198,5 +199,15 @@ export class PostgresSubscriptionRepository {
       if (r.kind === "applied") applied++;
     }
     return applied;
+  }
+
+  /** Tabela de taxas vigente em `at` para o meio e a forma de pagamento (a de vigencia mais recente que ja comecou). null = nao configurada. */
+  async feeScheduleAt(providerId: string, method: PaymentMethod, currency: string, at: Date): Promise<FeeSchedule | null> {
+    const r = await this.pool.query(
+      `SELECT provider_id, method, currency, fixed_minor, percent_bps, min_minor, max_minor, effective_from FROM fmcc_saas_fee_schedule
+       WHERE active AND provider_id=$1 AND method=$2 AND currency=$3 AND effective_from <= $4 ORDER BY effective_from DESC LIMIT 1`,
+      [providerId, method, currency, at]);
+    const x = r.rows[0];
+    return x ? { providerId: x.provider_id, method: x.method, currency: x.currency, fixedMinor: x.fixed_minor, percentBps: x.percent_bps, minMinor: x.min_minor, maxMinor: x.max_minor, effectiveFrom: x.effective_from } : null;
   }
 }

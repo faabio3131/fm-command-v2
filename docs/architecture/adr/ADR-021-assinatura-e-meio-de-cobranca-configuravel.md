@@ -56,3 +56,14 @@ Abertos (registrados, não corrigidos agora):
 - Estorno corta todo o período pago; chargeback não é tratado; juros/multa/desconto do Asaas podem gerar `amount_mismatch` (validar no sandbox).
 - Cliente duplicado no Asaas em retentativa incerta; erosão do dia de vencimento em meses curtos; cancelamento de assinatura já apagada no Asaas; livro cresce com eventos de outra cobrança; endurecimentos de constraint na migração; sem link de pagamento (checkoutUrl nulo).
 - O Asaas continua sem teste contra a API real.
+
+## Taxas de cada banco, configuráveis (16/10/2026, decisão do Fábio)
+
+A FM Tecnologia não fica presa a um provedor: escolhe o banco/PSP por moeda e país (`fmcc_saas_payment_route`) e **a tabela de taxas de cada um também é configuração**, não código. Cada banco cobra o seu valor fixo e o seu percentual para boleto, PIX, cartão etc., e isso muda com o tempo.
+
+- Tabela `fmcc_saas_fee_schedule`: provedor + forma de pagamento (`boleto`, `pix`, `card`, `transfer`, `other`) + moeda + valor fixo + percentual (em centésimos de ponto percentual: 199 = 1,99%) + mínimo + máximo + **vigência** (a mais recente que já começou vale; reajuste futuro fica cadastrado sem valer ainda).
+- `SubscriptionService.feeFor(provedor, forma, valor, moeda, quando)` estima a taxa e o líquido, em inteiros, arredondando meio para cima. A taxa nunca passa do valor cobrado.
+- **Sem tabela configurada a resposta é "indisponível" (`null`), nunca taxa zero presumida.** Outra moeda não converte.
+- A taxa é **estimativa**: o banco cobra de fato; a diferença aparece na conciliação.
+- Nenhum valor de nenhum banco existe no código. Cadastrar ou reajustar é inserir uma linha; ainda não há tela (junto com preços e rotas, é configuração da FM).
+- Os pontos "abertos" do Asaas (confirmar pagamento no provedor, estorno/chargeback, juros e multa) são do **adaptador de cada banco**: ao conectar outro banco, ele traz o seu adaptador seguindo o mesmo contrato `PaymentProvider`, sem mexer no núcleo.
