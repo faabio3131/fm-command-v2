@@ -4,14 +4,13 @@ import { redirect } from "next/navigation";
 import { buildActivityFeedService } from "@/application/activity/activity-feed-composition";
 import { buildAlertService } from "@/application/alerts/alert-composition";
 import { loadTenantIntegrationFeatures } from "@/application/integration/tenant-integration-features";
-import { MetricService } from "@/application/metrics/metric-service";
+import { createMetricService } from "@/application/metrics/metric-composition";
 import { OperationalHealthService } from "@/application/operations/operational-health-service";
 import { ProductRegistryService } from "@/application/products/product-registry-service";
 import { loadDashboardIdentity } from "@/application/security/dashboard-identity";
 import { resolveTenantContext } from "@/application/security/resolve-tenant-context";
 import { roleHasPermission } from "@/domain/security/permissions";
 import { AuthenticationRequiredError, TenantScopeRequiredError } from "@/domain/security/tenant-context";
-import { PostgresMetricStore } from "@/infrastructure/metrics/postgres-metric-store";
 import { PostgresOperationalHealthRepository } from "@/infrastructure/operations/postgres-health-repository";
 import { PostgresProductRepository } from "@/infrastructure/products/postgres-product-repository";
 import { rotuloAtualidade, rotuloAutoridadeFonte, rotuloMetrica, rotuloQualidade, rotuloSeveridadeAlerta, rotuloStatusDefinicao, rotuloStatusProduto } from "@/presentation/pt-br";
@@ -54,7 +53,7 @@ export default async function DashboardPage() {
     throw error;
   }
 
-  const metricService = new MetricService(new PostgresMetricStore());
+  const metricService = createMetricService();
   const productsRepository = new PostgresProductRepository();
   const canReadActivity = roleHasPermission(context.role, "audit:read");
   const [metrics, products, alertOverview, operationalHealth, activityFeed, identity, integrationFeatures] = await Promise.all([

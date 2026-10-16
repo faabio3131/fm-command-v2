@@ -1,3 +1,4 @@
+import { createUnitScopeResolver } from "@/application/organization/unit-scope";
 import { NotificationService } from "@/application/notifications/notification-service";
 import { PostgresActivityRepository } from "@/infrastructure/activity/postgres-activity-repository";
 import { PostgresAlertRepository } from "@/infrastructure/alerts/postgres-alert-repository";
@@ -8,5 +9,6 @@ export function buildNotificationService(): NotificationService {
     new PostgresActivityRepository(),
     new PostgresAlertRepository(),
     new PostgresNotificationStateRepository(),
+    createUnitScopeResolver(),
   );
 }

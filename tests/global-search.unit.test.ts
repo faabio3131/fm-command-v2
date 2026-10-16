@@ -159,6 +159,7 @@ function buildService(options?: {
         expect(input.userId).toBe("owner-a");
       },
     },
+    async () => ({ kind: "all" as const }),
     async () => ({
       kordenaCommercial: options?.kordenaCommercial ?? true,
     }),

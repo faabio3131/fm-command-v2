@@ -145,6 +145,7 @@ describe("CME-04 Activity Feed PostgreSQL projection", () => {
       productId: productA.id,
       category: "finance",
       take: 10,
+      unitScope: { kind: "all" },
     });
 
     expect(financeA.map((item) => item.eventType)).toEqual([
@@ -175,6 +176,7 @@ describe("CME-04 Activity Feed PostgreSQL projection", () => {
       productId: productA.id,
       category: "operations",
       take: 10,
+      unitScope: { kind: "all" },
     });
     expect(operationsA.map((item) => item.eventType)).toEqual(["alert.raised"]);
 
@@ -182,6 +184,7 @@ describe("CME-04 Activity Feed PostgreSQL projection", () => {
       tenantId: TENANTS[1],
       category: "finance",
       take: 10,
+      unitScope: { kind: "all" },
     });
     expect(otherTenant).toHaveLength(1);
     expect(otherTenant[0]).toMatchObject({

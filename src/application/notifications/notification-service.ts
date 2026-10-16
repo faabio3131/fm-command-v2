@@ -1,3 +1,4 @@
+import type { UnitScopeResolver } from "@/application/metrics/metric-service";
 import type {
   ActivityProjectionRecord,
   ActivityRepository,
@@ -143,6 +144,7 @@ export class NotificationService {
     private readonly activities: Pick<ActivityRepository, "project">,
     private readonly alerts: Pick<AlertRepository, "listOccurrences">,
     private readonly state: NotificationStateRepository,
+    private readonly unitScope: UnitScopeResolver,
   ) {}
 
   async inbox(
@@ -155,10 +157,11 @@ export class NotificationService {
     }
 
     const [activities, alerts, userActions] = await Promise.all([
-      this.activities.project({
+      this.unitScope(context).then((unitScope) => this.activities.project({
         tenantId: context.tenantId,
         take: 200,
-      }),
+        unitScope,
+      })),
       roleHasPermission(context.role, "alert:read")
         ? this.alerts.listOccurrences(context.tenantId, 100)
         : Promise.resolve([]),

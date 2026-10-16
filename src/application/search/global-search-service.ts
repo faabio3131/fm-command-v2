@@ -1,3 +1,4 @@
+import type { UnitScopeResolver } from "@/application/metrics/metric-service";
 import type { ActivityRepository } from "@/domain/activity/contracts";
 import type { AlertRepository } from "@/domain/alerts/contracts";
 import {
@@ -90,6 +91,7 @@ export class GlobalSearchService {
     private readonly alerts: Pick<AlertRepository, "listRules" | "listOccurrences">,
     private readonly activities: Pick<ActivityRepository, "recent">,
     private readonly rateLimiter: SearchRateLimiter,
+    private readonly unitScope: UnitScopeResolver,
     private readonly integrationFeatures: (
       context: TenantContext,
     ) => Promise<CommandNavigationFeatures> = async () => ({}),
@@ -184,7 +186,7 @@ export class GlobalSearchService {
           ? this.alerts.listOccurrences(context.tenantId, 100)
           : Promise.resolve([]),
         roleHasPermission(context.role, "audit:read")
-          ? this.activities.recent(context.tenantId, 100)
+          ? this.unitScope(context).then((scope) => this.activities.recent(context.tenantId, 100, scope))
           : Promise.resolve([]),
       ]);
 

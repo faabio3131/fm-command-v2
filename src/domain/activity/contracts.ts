@@ -1,3 +1,5 @@
+import type { UnitScope } from "@/domain/organization/unit-hierarchy";
+
 export type ActivityCategory =
   | "finance"
   | "commercial"
@@ -48,6 +50,11 @@ export interface ActivityProjectionRecord {
 
 export interface ActivityProjectionQuery {
   readonly tenantId: string;
+  /**
+   * Escopo de unidades de quem consulta (ADR-019). Obrigatorio de proposito: sem ele nao ha como compilar uma consulta.
+   * Fatos so aparecem se a unidade deles estiver no escopo; eventos de auditoria (nivel da empresa) so para quem enxerga tudo.
+   */
+  readonly unitScope: UnitScope;
   readonly category?: ActivityCategory;
   readonly productId?: string;
   readonly take: number;
@@ -57,6 +64,7 @@ export interface ActivityRepository {
   recent(
     tenantId: string,
     limit: number,
+    unitScope: UnitScope,
   ): Promise<readonly ActivityRecord[]>;
   project(
     input: ActivityProjectionQuery,

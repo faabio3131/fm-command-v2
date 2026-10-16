@@ -1,11 +1,10 @@
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
-import { MetricService } from "@/application/metrics/metric-service";
+import { createMetricService } from "@/application/metrics/metric-composition";
 import { ProductIntelligenceService } from "@/application/products/product-intelligence-service";
 import { ProductNotFoundError } from "@/application/products/product-registry-service";
 import { resolveTenantContext } from "@/application/security/resolve-tenant-context";
 import { AuthenticationRequiredError, PermissionDeniedError, TenantScopeRequiredError } from "@/domain/security/tenant-context";
-import { PostgresMetricStore } from "@/infrastructure/metrics/postgres-metric-store";
 import { PostgresProductRepository } from "@/infrastructure/products/postgres-product-repository";
 
 export async function GET(request: Request) {
@@ -18,7 +17,7 @@ export async function GET(request: Request) {
 
     const result = await new ProductIntelligenceService(
       new PostgresProductRepository(),
-      new MetricService(new PostgresMetricStore()),
+      createMetricService(),
     ).compare(context, metricId, productIds);
     return NextResponse.json(result);
   } catch (error) {

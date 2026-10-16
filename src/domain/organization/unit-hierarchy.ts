@@ -1,6 +1,7 @@
 import { isCurrencyCode } from "@/domain/core/money";
 import { fail, ok, type Validation } from "@/domain/core/result";
 import type { FmccRole } from "@/domain/security/permissions";
+import { PermissionDeniedError } from "@/domain/security/tenant-context";
 
 /**
  * Hierarquia de unidades dentro de uma empresa cliente (ADR-019):
@@ -29,8 +30,9 @@ export interface UnitGrant {
 
 export const MAX_UNIT_DEPTH = 8;
 
-export class UnitAccessDeniedError extends Error {
-  constructor() { super("security.unit_access_denied"); }
+/** E uma negacao de permissao: toda rota que ja responde 403 para PermissionDeniedError responde o mesmo aqui. */
+export class UnitAccessDeniedError extends PermissionDeniedError {
+  constructor() { super("metric:read"); this.message = "security.unit_access_denied"; }
 }
 
 function validTimezone(tz: string): boolean {
