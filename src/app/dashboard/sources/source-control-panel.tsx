@@ -247,7 +247,7 @@ export function SourceControlPanel({ catalog, sources, units, canWrite, defaultC
       const response = await fetch(`/api/sources/${source.id}/config`, {
         method: "PATCH",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ unitMap, ...(source.kind === "code" || !field ? {} : { unitRefField: field }) }),
+        body: JSON.stringify({ config: { unitMap, ...(source.kind !== "code" || !field ? {} : { unitRefField: field }) } }),
       });
       const body = await json(response);
       if (!response.ok) {
@@ -405,7 +405,7 @@ export function SourceControlPanel({ catalog, sources, units, canWrite, defaultC
                       <h4>{t("sources.units.title")}</h4>
                       <small>{t("sources.units.intro")}</small>
                       {units.length === 0 ? <small>{t("sources.units.none")}</small> : null}
-                      {source.kind === "code" ? null : (
+                      {source.kind !== "code" ? null : (
                         <label>
                           {t("sources.units.field")}
                           <input name="unitRefField" defaultValue={source.unitRefField} maxLength={64} autoComplete="off" />
