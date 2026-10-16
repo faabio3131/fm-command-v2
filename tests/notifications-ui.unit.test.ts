@@ -1,9 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { readUiSource } from "./helpers/ui-source";
 
 function source(path: string): string {
-  return readFileSync(resolve(process.cwd(), path), "utf8");
+  return readUiSource(path);
 }
 
 describe("CME-06 Notifications UI/API contract", () => {

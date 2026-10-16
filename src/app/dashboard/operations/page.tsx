@@ -5,17 +5,13 @@ import { redirect } from "next/navigation";
 import { createMetricService } from "@/application/metrics/metric-composition";
 import { OperationalHealthService } from "@/application/operations/operational-health-service";
 import { OperationsIntelligenceService } from "@/application/operations/operations-intelligence-service";
+import { getRequestLocale } from "@/application/i18n/request-locale";
 import { resolveTenantContext } from "@/application/security/resolve-tenant-context";
 import { AuthenticationRequiredError, TenantScopeRequiredError } from "@/domain/security/tenant-context";
 import { PostgresOperationalHealthRepository } from "@/infrastructure/operations/postgres-health-repository";
+import { createTranslator } from "@/i18n/translate";
+import { createLabels } from "@/presentation/labels";
 import { PostgresProductRepository } from "@/infrastructure/products/postgres-product-repository";
-
-function statusLabel(status: "operational" | "degraded" | "unavailable" | "unknown") {
-  if (status === "operational") return "Operacional";
-  if (status === "degraded") return "Degradado";
-  if (status === "unavailable") return "Indisponível";
-  return "Desconhecido";
-}
 
 export default async function OperationsPage() {
   let context;
@@ -41,51 +37,52 @@ export default async function OperationsPage() {
     ).overview(context),
   ]);
 
+  const locale = await getRequestLocale();
+  const { t } = createTranslator(locale);
+  const labels = createLabels(locale);
+  const statusLabel = (status: "operational" | "degraded" | "unavailable" | "unknown") => t(`home.health.${status}`);
   const hasMonitoredServices = health.services.length > 0;
 
   return (
     <main className="dashboard-shell dashboard-shell-compact">
       <header className="dashboard-header">
         <div>
-          <span className="eyebrow">F14 · Operações, SRE e Incidentes</span>
-          <h1>Saúde operacional governada</h1>
-          <p>
-            Health pontual não é uptime. Disponibilidade só aparece quando houver
-            série temporal governada.
-          </p>
+          <span className="eyebrow">{t("ops.eyebrow")}</span>
+          <h1>{t("ops.title")}</h1>
+          <p>{t("ops.lead")}</p>
         </div>
-        <Link href="/dashboard">Voltar</Link>
+        <Link href="/dashboard">{t("common.back")}</Link>
       </header>
 
-      <section className="metric-grid" aria-label="Resumo da saúde operacional">
+      <section className="metric-grid" aria-label={t("ops.summaryAria")}>
         <article className="metric-card">
-          <span className="metric-label">Serviços monitorados</span>
-          <strong>{hasMonitoredServices ? health.services.length : "Indisponível"}</strong>
-          <small>{hasMonitoredServices ? "Autoridades de saúde registradas" : "Nenhuma autoridade de saúde registrada"}</small>
+          <span className="metric-label">{t("ops.monitored")}</span>
+          <strong>{hasMonitoredServices ? health.services.length : t("common.unavailable")}</strong>
+          <small>{hasMonitoredServices ? t("ops.monitoredNote") : t("ops.monitoredNone")}</small>
         </article>
         <article className="metric-card">
-          <span className="metric-label">Operacionais</span>
-          <strong>{hasMonitoredServices ? health.counts.operational : "Indisponível"}</strong>
-          <small>Observações atuais e não stale</small>
+          <span className="metric-label">{t("ops.operational")}</span>
+          <strong>{hasMonitoredServices ? health.counts.operational : t("common.unavailable")}</strong>
+          <small>{t("ops.operationalNote")}</small>
         </article>
         <article className="metric-card">
-          <span className="metric-label">Degradados</span>
-          <strong>{hasMonitoredServices ? health.counts.degraded : "Indisponível"}</strong>
-          <small>Estado reportado por fonte governada</small>
+          <span className="metric-label">{t("ops.degraded")}</span>
+          <strong>{hasMonitoredServices ? health.counts.degraded : t("common.unavailable")}</strong>
+          <small>{t("ops.degradedNote")}</small>
         </article>
         <article className="metric-card">
-          <span className="metric-label">Indisponíveis / desconhecidos</span>
+          <span className="metric-label">{t("ops.unavailable")}</span>
           <strong>
             {hasMonitoredServices
               ? health.counts.unavailable + health.counts.unknown
-              : "Indisponível"}
+              : t("common.unavailable")}
           </strong>
-          <small>Stale é tratado como desconhecido, nunca como saudável</small>
+          <small>{t("ops.unavailableNote")}</small>
         </article>
       </section>
 
       <section className="panel" aria-labelledby="service-health-title">
-        <h2 id="service-health-title">Status dos Serviços</h2>
+        <h2 id="service-health-title">{t("ops.services")}</h2>
         <p>{health.availability.reason}</p>
         {health.services.length ? (
           <div className="foundation-grid">
@@ -95,19 +92,16 @@ export default async function OperationsPage() {
                 <span>{service.environment} · {statusLabel(effectiveStatus)}</span>
                 <small>
                   {observation
-                    ? `Fonte: ${observation.sourceAuthority} · ${observation.freshnessStatus} · ${observation.observedAt.toISOString()}`
-                    : "Sem observação governada"}
+                    ? t("ops.observation", { source: observation.sourceAuthority, freshness: observation.freshnessStatus, at: observation.observedAt.toISOString() })
+                    : t("ops.noObservation")}
                 </small>
               </article>
             ))}
           </div>
         ) : (
           <div className="empty-state">
-            <strong>Nenhum serviço monitorado.</strong>
-            <p>
-              Registre uma autoridade de saúde antes de reportar disponibilidade.
-              O FM Command não converte ausência de observação em estado saudável.
-            </p>
+            <strong>{t("ops.noneTitle")}</strong>
+            <p>{t("ops.noneText")}</p>
           </div>
         )}
       </section>
@@ -115,35 +109,31 @@ export default async function OperationsPage() {
       <section className="metric-grid">
         {overview.metrics.map(({ target, status, value }) => (
           <article className="metric-card" key={target.metricId}>
-            <span className="metric-label">{target.displayName}</span>
+            <span className="metric-label">{labels.metricName(target.metricId, target.displayName)}</span>
             <strong>
               {status === "pending_semantics"
-                ? "Semântica pendente"
-                : value?.value ?? "Indisponível"}
+                ? t("common.pendingSemantics")
+                : value?.value ?? t("common.unavailable")}
             </strong>
             <small>
               {value
-                ? `Fonte: ${value.sourceAuthority}`
+                ? t("common.sourceLine", { source: value.sourceAuthority })
                 : status === "pending_semantics"
-                  ? "Regra ainda não aprovada"
-                  : "Telemetria ainda não conectada"}
+                  ? t("common.ruleNotApprovedShort")
+                  : t("ops.telemetry")}
             </small>
           </article>
         ))}
       </section>
 
       <section className="panel">
-        <h2>Runtime</h2>
-        <p>
-          <code>{overview.runtime.healthEndpoint}</code> e{" "}
-          <code>{overview.runtime.readinessEndpoint}</code> são contratos pontuais
-          de saúde e prontidão.
-        </p>
+        <h2>{t("ops.runtime")}</h2>
+        <p>{t("ops.runtimeText", { health: overview.runtime.healthEndpoint, ready: overview.runtime.readinessEndpoint })}</p>
         <p>{overview.availability.reason}</p>
       </section>
 
       <section className="panel">
-        <h2>Sinais operacionais</h2>
+        <h2>{t("ops.signals")}</h2>
         <p>{overview.alerts.reason}</p>
       </section>
     </main>

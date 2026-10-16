@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { readUiSource } from "./helpers/ui-source";
+import { ptBR } from "../src/i18n/messages/pt-BR";
 
 function source(path: string) {
-  return readFileSync(resolve(process.cwd(), path), "utf8");
+  return readUiSource(path);
 }
 
 describe("CME-04 Activity Feed UI/API contract", () => {
@@ -58,15 +58,17 @@ describe("CME-04 Activity Feed UI/API contract", () => {
     const loading = source("src/app/dashboard/activity/loading.tsx");
     const error = source("src/app/dashboard/activity/error.tsx");
 
-    for (const label of [
-      "Todos",
-      "Financeiro",
-      "Comercial",
-      "Operações",
-      "Sistema",
-      "Segurança",
-    ]) {
-      expect(page).toContain(label);
+    // Os rótulos dos filtros vivem no catálogo (ADR-020); a tela referencia as chaves.
+    for (const [key, label] of [
+      ["activity.filter.all", "Todos"],
+      ["activity.filter.finance", "Financeiro"],
+      ["activity.filter.commercial", "Comercial"],
+      ["activity.filter.operations", "Operações"],
+      ["activity.filter.system", "Sistema"],
+      ["activity.filter.security", "Segurança"],
+    ] as const) {
+      expect(page).toContain(`"${key}"`);
+      expect(ptBR[key]).toBe(label);
     }
     expect(page).toContain("pageHref");
     expect(page).toContain("Página anterior");
@@ -74,9 +76,8 @@ describe("CME-04 Activity Feed UI/API contract", () => {
     expect(page).toContain("Nenhuma atividade governada encontrada");
     expect(page).toContain("Proveniência");
     expect(page).toContain("sourceAuthority");
-    expect(page).toContain(
-      "não os converte em\n            fatos comerciais adicionais",
-    );
+    expect(page).toContain("activity.timelineNote");
+    expect(ptBR["activity.timelineNote"]).toContain("não os converte em fatos comerciais adicionais");
     expect(loading).toContain('aria-busy="true"');
     expect(error).toContain('role="alert"');
   });

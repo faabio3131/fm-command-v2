@@ -3,28 +3,21 @@ import Link from "next/link";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { CoreQueryForm } from "@/app/dashboard/core-query-form";
-import type { MetricView } from "@/application/metrics/metric-service";
+import { temporalLabel } from "@/app/dashboard/metric-text";
 import { createMetricService } from "@/application/metrics/metric-composition";
 import { ProductRegistryService } from "@/application/products/product-registry-service";
+import { getRequestLocale } from "@/application/i18n/request-locale";
 import { resolveTenantContext } from "@/application/security/resolve-tenant-context";
 import { AuthenticationRequiredError, TenantScopeRequiredError } from "@/domain/security/tenant-context";
+import { createTranslator } from "@/i18n/translate";
+import { createLabels } from "@/presentation/labels";
 import { PostgresProductRepository } from "@/infrastructure/products/postgres-product-repository";
-import { rotuloAtualidade, rotuloAutoridadeFonte, rotuloQualidade } from "@/presentation/pt-br";
 
 const TRIAL_METRICS = new Set([
   "trial.starts.count",
   "trial.active.count",
   "trial.conversion.rate",
 ]);
-
-function temporalLabel(value?: MetricView | null): string {
-  if (!value) return "Período indisponível";
-  if (value.asOf) return `As of: ${value.asOf.toISOString()}`;
-  if (value.periodStart || value.periodEnd) {
-    return `Período: ${value.periodStart?.toISOString() ?? "?"} → ${value.periodEnd?.toISOString() ?? "?"}`;
-  }
-  return "Período não informado pela fonte";
-}
 
 export default async function TrialsPage({
   searchParams,
@@ -42,6 +35,9 @@ export default async function TrialsPage({
 
   if (await companyLevelDenied(context)) return <NoCompanyAccess />;
 
+  const locale = await getRequestLocale();
+  const { t } = createTranslator(locale);
+  const labels = createLabels(locale);
   const productsRepository = new PostgresProductRepository();
   const productService = new ProductRegistryService(productsRepository);
   const products = await productService.list(context);
@@ -73,112 +69,98 @@ export default async function TrialsPage({
     <main className="dashboard-shell dashboard-shell-compact">
       <header className="dashboard-header">
         <div>
-          <span className="eyebrow">Trials</span>
-          <h1>Testes gratuitos</h1>
-          <p>
-            Início, estoque ativo e conversão são exibidos somente com semântica,
-            fonte e escopo governados.
-          </p>
+          <span className="eyebrow">{t("trials.eyebrow")}</span>
+          <h1>{t("trials.title")}</h1>
+          <p>{t("trials.lead")}</p>
         </div>
-        <Link href="/dashboard/growth">Abrir Comercial</Link>
+        <Link href="/dashboard/growth">{t("trials.openGrowth")}</Link>
       </header>
 
       <section className="panel" aria-labelledby="trials-scope-title">
         <div className="section-heading">
           <div>
-            <span className="eyebrow">Escopo governado</span>
-            <h2 id="trials-scope-title">Produto e período</h2>
+            <span className="eyebrow">{t("metric.scopeEyebrow")}</span>
+            <h2 id="trials-scope-title">{t("metric.scopeTitle")}</h2>
           </div>
-          <p>
-            Produto é validado no servidor. Ausência de fonte, coorte ou origem
-            permanece indisponível.
-          </p>
+          <p>{t("trials.scopeNote")}</p>
         </div>
         <form action="/dashboard/trials" method="get" className="command-quick-actions">
-          <label htmlFor="trials-product">Produto</label>
+          <label htmlFor="trials-product">{t("metric.product")}</label>
           <select id="trials-product" name="productId" defaultValue={selectedProduct?.id ?? ""}>
-            <option value="">Todos os produtos autorizados</option>
+            <option value="">{t("metric.allProducts")}</option>
             {products.map((product) => (
               <option value={product.id} key={product.id}>
                 {product.name}
               </option>
             ))}
           </select>
-          <button className="button" type="submit">Aplicar escopo</button>
+          <button className="button" type="submit">{t("metric.apply")}</button>
         </form>
         <div className="foundation-grid">
           <article>
-            <strong>Produto</strong>
-            <span>{selectedProduct?.name ?? "Consolidado autorizado"}</span>
+            <strong>{t("metric.product")}</strong>
+            <span>{selectedProduct?.name ?? t("metric.consolidated")}</span>
           </article>
           <article>
-            <strong>Período</strong>
-            <span>{temporalLabel(started)}</span>
+            <strong>{t("metric.period")}</strong>
+            <span>{temporalLabel(t, started)}</span>
           </article>
           <article>
-            <strong>Origem</strong>
+            <strong>{t("trials.origin")}</strong>
             <span>
               {authority
-                ? rotuloAutoridadeFonte(authority)
-                : "Indisponível — fonte ainda não conectada"}
+                ? labels.sourceAuthority(authority)
+                : t("metric.unavailableNotConnected")}
             </span>
           </article>
           <article>
-            <strong>Coorte</strong>
-            <span>
-              Indisponível até aprovação da coorte de conversão canônica
-            </span>
+            <strong>{t("trials.cohort")}</strong>
+            <span>{t("trials.cohortNote")}</span>
           </article>
         </div>
       </section>
 
-      <section className="metric-grid" aria-label="Métricas de Trials">
+      <section className="metric-grid" aria-label={t("trials.metricsAria")}>
         {metrics.map(({ target, definition, value }) => (
           <article className="metric-card" key={target.metricId}>
-            <span className="metric-label">{target.displayName}</span>
+            <span className="metric-label">{labels.metricName(target.metricId, target.displayName)}</span>
             <strong>
               {target.definitionStatus === "pending_semantics"
-                ? "Semântica pendente"
-                : value?.value ?? "Indisponível"}
+                ? t("common.pendingSemantics")
+                : value?.value ?? t("common.unavailable")}
             </strong>
             <div className="metric-meta">
               <span>
                 {value
-                  ? `Qualidade: ${rotuloQualidade(value.qualityStatus)}`
+                  ? t("home.metric.quality", { value: labels.quality(value.qualityStatus) })
                   : definition
-                    ? "Qualidade: indisponível"
-                    : "Regra de negócio ainda não aprovada"}
+                    ? t("metric.qualityUnavailable")
+                    : t("cockpit.ruleNotApproved")}
               </span>
               <span>
                 {value
-                  ? `Atualidade: ${rotuloAtualidade(value.freshnessStatus)}`
-                  : "Atualidade: indisponível"}
+                  ? t("home.metric.freshness", { value: labels.freshness(value.freshnessStatus) })
+                  : t("metric.freshnessUnavailable")}
               </span>
-              <span>{temporalLabel(value)}</span>
+              <span>{temporalLabel(t, value)}</span>
             </div>
             <small className="metric-provenance">
               {value
-                ? `Fonte: ${rotuloAutoridadeFonte(value.sourceAuthority)} · Proveniência: ${value.provenanceRefs.join(" · ") || "não informada"}`
-                : "Sem valor governado; nenhuma evidência é presumida."}
+                ? t("metric.provenanceLine", { source: labels.sourceAuthority(value.sourceAuthority), provenance: value.provenanceRefs.join(" · ") || t("metric.provenanceNone") })
+                : t("metric.noGovernedValue")}
             </small>
           </article>
         ))}
         <article className="metric-card">
-          <span className="metric-label">Trials encerrados</span>
-          <strong>Indisponível</strong>
-          <small>
-            O FM Command ainda não possui métrica canônica de encerramento de trial.
-            Este estado não é convertido em zero.
-          </small>
+          <span className="metric-label">{t("trials.endedTitle")}</span>
+          <strong>{t("common.unavailable")}</strong>
+          <small>{t("trials.endedNote")}</small>
         </article>
       </section>
 
       <section className="panel">
-        <h2>Governança de conversão</h2>
-        <p>
-          A taxa trial → assinatura permanece indisponível até existir coorte,
-          janela e denominador canônicos aprovados.
-        </p>
+        <h2>{t("trials.conversionTitle")}</h2>
+        <p>{t("trials.conversionText")}</p>
       </section>
 
       <CoreQueryForm
@@ -188,9 +170,8 @@ export default async function TrialsPage({
             : undefined
         }
         domainContext={{
-          label: selectedProduct ? `Trials · ${selectedProduct.name}` : "Trials",
-          promptPrefix:
-            "Responda no contexto governado do módulo Trials do FM Command. Preserve as autoridades do Metric Registry e trate dados ausentes como indisponíveis.",
+          label: selectedProduct ? t("trials.coreLabelScoped", { name: selectedProduct.name }) : t("trials.coreLabel"),
+          promptPrefix: t("trials.corePrompt"),
         }}
       />
     </main>

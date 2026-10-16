@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { getRequestLocale } from "@/application/i18n/request-locale";
 import { buildGlobalSearchService } from "@/application/search/global-search-composition";
 import { resolveTenantContext } from "@/application/security/resolve-tenant-context";
 import {
@@ -13,20 +14,10 @@ import {
   AuthenticationRequiredError,
   TenantScopeRequiredError,
 } from "@/domain/security/tenant-context";
+import { createTranslator, type MessageKey } from "@/i18n/translate";
 import { GlobalSearchForm } from "./global-search-form";
 
-const RESULT_GROUPS: readonly {
-  kind: GlobalSearchResultKind;
-  label: string;
-}[] = [
-  { kind: "navigation", label: "Módulos e configurações" },
-  { kind: "metric", label: "Métricas" },
-  { kind: "product", label: "Produtos" },
-  { kind: "source", label: "Fontes" },
-  { kind: "alert_rule", label: "Regras de alerta" },
-  { kind: "alert_occurrence", label: "Alertas e incidentes" },
-  { kind: "activity", label: "Atividades" },
-];
+const RESULT_GROUPS: readonly GlobalSearchResultKind[] = ["navigation", "metric", "product", "source", "alert_rule", "alert_occurrence", "activity"];
 
 export default async function SearchPage({
   searchParams,
@@ -46,20 +37,20 @@ export default async function SearchPage({
     redirect("/dashboard");
   }
 
+  const { t } = createTranslator(await getRequestLocale());
   const query = (await searchParams).q?.trim() ?? "";
   let overview: GlobalSearchOverview | null = null;
   let validationMessage = "";
 
   if (query) {
     if (query.length < 2 || query.length > 80) {
-      validationMessage = "Digite entre 2 e 80 caracteres para buscar.";
+      validationMessage = t("search.err.length");
     } else {
       try {
         overview = await buildGlobalSearchService().search(context, query, 50);
       } catch (error) {
         if (error instanceof GlobalSearchRateLimitError) {
-          validationMessage =
-            `Limite de buscas atingido. Tente novamente em até ${error.retryAfterSeconds} segundos.`;
+          validationMessage = t("search.err.rate", { seconds: error.retryAfterSeconds });
         } else {
           throw error;
         }
@@ -71,69 +62,62 @@ export default async function SearchPage({
     <main className="dashboard-shell">
       <header className="dashboard-header">
         <div>
-          <span className="eyebrow">R9 · Busca global governada</span>
-          <h1>Busca no FM Command</h1>
-          <p>
-            Localize módulos, métricas, produtos, fontes, alertas e atividades
-            dentro das permissões da organização ativa.
-          </p>
+          <span className="eyebrow">{t("search.eyebrow")}</span>
+          <h1>{t("search.title")}</h1>
+          <p>{t("search.lead")}</p>
         </div>
         <Link className="button" href="/dashboard">
-          Voltar à Visão Geral
+          {t("search.back")}
         </Link>
       </header>
 
       <section className="panel">
         <GlobalSearchForm query={query} />
-        <p>
-          A busca é determinística, tenant-scoped e permission-aware. Ela não
-          pesquisa segredos, config de integração, metadata bruto, identidade
-          de atores nem PII operacional.
-        </p>
+        <p>{t("search.note")}</p>
       </section>
 
       {validationMessage ? (
         <section className="panel" role="alert">
-          <strong>Busca temporariamente indisponível</strong>
+          <strong>{t("search.unavailable")}</strong>
           <p>{validationMessage}</p>
         </section>
       ) : null}
 
       {overview ? (
         <>
-          <section className="metric-grid" aria-label="Cobertura da busca">
+          <section className="metric-grid" aria-label={t("search.coverageAria")}>
             <article className="metric-card">
-              <span className="metric-label">Resultados</span>
+              <span className="metric-label">{t("search.results")}</span>
               <strong>{overview.counts.returned}</strong>
-              <small>{overview.counts.totalMatches} correspondências encontradas.</small>
+              <small>{t("search.matches", { count: overview.counts.totalMatches })}</small>
             </article>
             <article className="metric-card">
-              <span className="metric-label">Produtos / Fontes</span>
+              <span className="metric-label">{t("search.productsSources")}</span>
               <strong>
                 {overview.counts.products} / {overview.counts.sources}
               </strong>
-              <small>Somente recursos autorizados do tenant ativo.</small>
+              <small>{t("search.productsSourcesNote")}</small>
             </article>
             <article className="metric-card">
-              <span className="metric-label">Métricas</span>
+              <span className="metric-label">{t("search.metrics")}</span>
               <strong>{overview.counts.metrics}</strong>
-              <small>Registry e targets executivos governados.</small>
+              <small>{t("search.metricsNote")}</small>
             </article>
             <article className="metric-card">
-              <span className="metric-label">Alertas / Atividades</span>
+              <span className="metric-label">{t("search.alertsActivity")}</span>
               <strong>
                 {overview.counts.alertRules + overview.counts.alertOccurrences} /{" "}
                 {overview.counts.activities}
               </strong>
-              <small>Somente dados permitidos pelas permissões atuais.</small>
+              <small>{t("search.alertsActivityNote")}</small>
             </article>
           </section>
 
           <section className="executive-section">
             <div className="section-heading">
               <div>
-                <span className="eyebrow">Consulta</span>
-                <h2>Resultados para “{overview.query}”</h2>
+                <span className="eyebrow">{t("search.query")}</span>
+                <h2>{t("search.resultsFor", { query: overview.query })}</h2>
               </div>
               <p>{overview.coverageNote}</p>
             </div>
@@ -141,12 +125,12 @@ export default async function SearchPage({
             {overview.items.length ? (
               RESULT_GROUPS.map((group) => {
                 const items = overview.items.filter(
-                  (item) => item.kind === group.kind,
+                  (item) => item.kind === group,
                 );
                 if (!items.length) return null;
                 return (
-                  <section className="panel" key={group.kind}>
-                    <h3>{group.label}</h3>
+                  <section className="panel" key={group}>
+                    <h3>{t(`search.group.${group}` as MessageKey)}</h3>
                     <div className="product-grid">
                       {items.map((item) => (
                         <Link
@@ -156,9 +140,7 @@ export default async function SearchPage({
                         >
                           <strong>{item.label}</strong>
                           <small>{item.description}</small>
-                          <small>
-                            Autoridade: <code>{item.authority}</code>
-                          </small>
+                          <small>{t("search.authority", { value: item.authority })}</small>
                         </Link>
                       ))}
                     </div>
@@ -167,11 +149,8 @@ export default async function SearchPage({
               })
             ) : (
               <article className="product-card">
-                <strong>Nenhum resultado governado encontrado.</strong>
-                <small>
-                  A ausência de correspondência não amplia o escopo nem consulta
-                  fontes às quais o papel não tem acesso.
-                </small>
+                <strong>{t("search.noneTitle")}</strong>
+                <small>{t("search.noneText")}</small>
               </article>
             )}
           </section>

@@ -5,34 +5,30 @@ import {
   AlertRuleNotFoundError,
 } from "@/application/alerts/alert-service";
 import { buildAlertService } from "@/application/alerts/alert-composition";
+import { getRequestLocale } from "@/application/i18n/request-locale";
+import { getCompanyTimeZone } from "@/application/i18n/request-timezone";
 import { resolveTenantContext } from "@/application/security/resolve-tenant-context";
 import {
   AuthenticationRequiredError,
   TenantScopeRequiredError,
 } from "@/domain/security/tenant-context";
+import { formatDateTime } from "@/i18n/format";
+import { createTranslator, type MessageKey } from "@/i18n/translate";
 import { rotuloMetrica, rotuloOperadorAlerta, rotuloSeveridadeAlerta } from "@/presentation/pt-br";
 import { ArchivedRuleActions } from "./archived-rule-actions";
 
-function formatDate(value: Date) {
-  return new Intl.DateTimeFormat("pt-BR", {
-    dateStyle: "short",
-    timeStyle: "medium",
-    timeZone: "America/Sao_Paulo",
-  }).format(value);
-}
+const LIFECYCLE_KEY: Record<"created" | "disabled" | "archived", MessageKey> = {
+  created: "rule.life.created",
+  disabled: "rule.life.disabled",
+  archived: "rule.life.archived",
+};
 
-function lifecycleLabel(action: "created" | "disabled" | "archived") {
-  if (action === "created") return "Criada";
-  if (action === "disabled") return "Desativada";
-  return "Arquivada";
-}
-
-function comparisonLabel(status: "triggered" | "clear" | "unavailable" | "incompatible") {
-  if (status === "triggered") return "A condição seria atingida com o valor atual";
-  if (status === "clear") return "A condição não seria atingida com o valor atual";
-  if (status === "incompatible") return "Valor atual incompatível com o limite";
-  return "Comparação indisponível por ausência/atualidade da evidência";
-}
+const COMPARISON_KEY: Record<"triggered" | "clear" | "unavailable" | "incompatible", MessageKey> = {
+  triggered: "rule.cmp.triggered",
+  clear: "rule.cmp.clear",
+  incompatible: "rule.cmp.incompatible",
+  unavailable: "rule.cmp.unavailable",
+};
 
 export default async function ArchivedRulePage({ params }: { params: Promise<{ ruleId: string }> }) {
   let context;
@@ -54,51 +50,55 @@ export default async function ArchivedRulePage({ params }: { params: Promise<{ r
   }
 
   const { rule, lifecycle, occurrences, currentMetric, comparison } = detail;
-  const state = rule.archived ? "Arquivada" : rule.enabled ? "Ativa" : "Desativada";
+  const locale = await getRequestLocale();
+  const { t } = createTranslator(locale);
+  const timeZone = await getCompanyTimeZone(context.tenantId);
+  const formatDate = (value: Date) => formatDateTime(value, locale, timeZone);
+  const state = t(rule.archived ? "rule.life.archived" : rule.enabled ? "rule.state.active" : "rule.life.disabled");
+  const limitText = `${rotuloOperadorAlerta(rule.operator)} ${rule.threshold}`;
 
   return (
     <main className="dashboard-shell">
       <header className="dashboard-header">
         <div>
-          <span className="eyebrow">Arquivo governado de regra</span>
+          <span className="eyebrow">{t("rule.eyebrow")}</span>
           <h1>{rotuloMetrica(rule.metricId)}</h1>
           <p>
-            Registro preservado em modo somente leitura. Arquivar não apaga histórico
-            e esta tela não gera ocorrências. Identificador técnico: <code>{rule.metricId}</code>.
+            {t("rule.lead", { id: rule.metricId })}
           </p>
         </div>
-        <Link className="button" href="/dashboard/alerts">Voltar para alertas</Link>
+        <Link className="button" href="/dashboard/alerts">{t("rule.backToAlerts")}</Link>
       </header>
 
       <section className="executive-section">
         <div className="section-heading">
           <div>
-            <span className="eyebrow">Definição preservada</span>
-            <h2>Regra</h2>
+            <span className="eyebrow">{t("rule.def.eyebrow")}</span>
+            <h2>{t("rule.def.title")}</h2>
           </div>
-          <p>O registro original permanece imutável para auditoria e comparação.</p>
+          <p>{t("rule.def.note")}</p>
         </div>
 
         <div className="metric-grid">
           <article className="metric-card">
-            <span className="metric-label">Estado</span>
+            <span className="metric-label">{t("rule.card.state")}</span>
             <strong>{state}</strong>
-            <small className="metric-provenance">ID: {rule.id}</small>
+            <small className="metric-provenance">{t("rule.card.id", { id: rule.id })}</small>
           </article>
           <article className="metric-card">
-            <span className="metric-label">Métrica</span>
+            <span className="metric-label">{t("rule.card.metric")}</span>
             <strong>{rotuloMetrica(rule.metricId)}</strong>
-            <small className="metric-provenance">Escopo: {rule.productId ?? "Global"} · identificador técnico: {rule.metricId}</small>
+            <small className="metric-provenance">{t("rule.card.scope", { scope: rule.productId ?? t("rule.card.global"), id: rule.metricId })}</small>
           </article>
           <article className="metric-card">
-            <span className="metric-label">Condição</span>
-            <strong>{rotuloOperadorAlerta(rule.operator)} {rule.threshold}</strong>
-            <small className="metric-provenance">Severidade: {rotuloSeveridadeAlerta(rule.severity)}</small>
+            <span className="metric-label">{t("rule.card.condition")}</span>
+            <strong>{limitText}</strong>
+            <small className="metric-provenance">{t("rule.card.severity", { value: rotuloSeveridadeAlerta(rule.severity) })}</small>
           </article>
           <article className="metric-card">
-            <span className="metric-label">Criada em</span>
+            <span className="metric-label">{t("rule.card.createdAt")}</span>
             <strong>{formatDate(rule.createdAt)}</strong>
-            <small className="metric-provenance">Ator: {rule.createdBy}</small>
+            <small className="metric-provenance">{t("rule.card.actor", { value: rule.createdBy })}</small>
           </article>
         </div>
       </section>
@@ -106,23 +106,22 @@ export default async function ArchivedRulePage({ params }: { params: Promise<{ r
       <section className="panel">
         <div className="section-heading">
           <div>
-            <span className="eyebrow">Comparação atual</span>
-            <h2>Somente leitura</h2>
+            <span className="eyebrow">{t("rule.cmp.eyebrow")}</span>
+            <h2>{t("rule.cmp.title")}</h2>
           </div>
-          <p>Nenhum alerta é criado por esta comparação do arquivo.</p>
+          <p>{t("rule.cmp.note")}</p>
         </div>
         <div className="comparison-panel">
           <div>
-            <strong>{comparisonLabel(comparison.status)}</strong>
+            <strong>{t(COMPARISON_KEY[comparison.status])}</strong>
             <p>
-              Valor governado atual: {currentMetric?.value ?? "Indisponível"} ·
-              limite arquivado: {rotuloOperadorAlerta(rule.operator)} {rule.threshold}
+              {t("rule.cmp.value", { value: currentMetric?.value ?? t("rule.cmp.unavailableValue"), limit: limitText })}
             </p>
           </div>
           <small className="metric-provenance">
             {currentMetric
-              ? `Fonte: ${currentMetric.sourceAuthority} · referências: ${currentMetric.provenanceRefs.length}`
-              : "Sem proveniência factual atual disponível"}
+              ? t("rule.cmp.source", { source: currentMetric.sourceAuthority, count: currentMetric.provenanceRefs.length })
+              : t("rule.cmp.noProvenance")}
           </small>
         </div>
       </section>
@@ -130,31 +129,31 @@ export default async function ArchivedRulePage({ params }: { params: Promise<{ r
       <section className="panel">
         <div className="section-heading">
           <div>
-            <span className="eyebrow">Linha do tempo</span>
-            <h2>Auditoria da regra</h2>
+            <span className="eyebrow">{t("rule.tl.eyebrow")}</span>
+            <h2>{t("rule.tl.title")}</h2>
           </div>
-          <p>Eventos persistidos no Registro de Auditoria para esta regra.</p>
+          <p>{t("rule.tl.note")}</p>
         </div>
         <div className="archive-timeline">
           {lifecycle.length ? lifecycle.map((event, index) => (
             <article className="alert-item" key={`${event.action}-${event.occurredAt.toISOString()}-${index}`}>
               <div>
-                <strong>{lifecycleLabel(event.action)}</strong>
-                <span>{formatDate(event.occurredAt)} · ator {event.actorId}</span>
+                <strong>{t(LIFECYCLE_KEY[event.action])}</strong>
+                <span>{t("rule.tl.entry", { date: formatDate(event.occurredAt), actor: event.actorId })}</span>
               </div>
               <code>{event.correlationId}</code>
             </article>
-          )) : <div className="empty-state">Nenhum evento do ciclo de vida encontrado.</div>}
+          )) : <div className="empty-state">{t("rule.tl.empty")}</div>}
         </div>
       </section>
 
       <section className="panel">
         <div className="section-heading">
           <div>
-            <span className="eyebrow">Histórico operacional</span>
-            <h2>Ocorrências vinculadas</h2>
+            <span className="eyebrow">{t("rule.occ.eyebrow")}</span>
+            <h2>{t("rule.occ.title")}</h2>
           </div>
-          <p>Somente ocorrências realmente persistidas para esta regra são exibidas.</p>
+          <p>{t("rule.occ.note")}</p>
         </div>
         <div className="alert-list">
           {occurrences.length ? occurrences.map((occurrence) => (
@@ -162,16 +161,19 @@ export default async function ArchivedRulePage({ params }: { params: Promise<{ r
               <div>
                 <strong>{rotuloMetrica(occurrence.metricId)} · {rotuloSeveridadeAlerta(occurrence.severity)}</strong>
                 <span>
-                  Valor observado {occurrence.observedValue} · limite {rotuloOperadorAlerta(occurrence.operator)} {occurrence.threshold}
-                  · {occurrence.status === "acknowledged" ? "Reconhecida" : "Ativa"}
+                  {t("rule.occ.detail", {
+                    value: occurrence.observedValue,
+                    limit: `${rotuloOperadorAlerta(occurrence.operator)} ${occurrence.threshold}`,
+                    status: occurrence.status === "acknowledged" ? t("rule.occ.acknowledged") : t("rule.state.active"),
+                  })}
                 </span>
               </div>
-              <small>{formatDate(occurrence.occurredAt)} · evidências {occurrence.evidenceRefs.length}</small>
+              <small>{t("rule.occ.when", { date: formatDate(occurrence.occurredAt), count: occurrence.evidenceRefs.length })}</small>
             </article>
           )) : (
             <div className="empty-state">
-              <strong>Nenhuma ocorrência histórica.</strong>
-              <p>A regra pode ter sido arquivada sem nunca ter produzido um alerta real.</p>
+              <strong>{t("rule.occ.emptyTitle")}</strong>
+              <p>{t("rule.occ.emptyText")}</p>
             </div>
           )}
         </div>
@@ -180,12 +182,11 @@ export default async function ArchivedRulePage({ params }: { params: Promise<{ r
       <section className="panel">
         <div className="section-heading">
           <div>
-            <span className="eyebrow">Reutilização governada</span>
-            <h2>Usar como modelo</h2>
+            <span className="eyebrow">{t("rule.reuse.eyebrow")}</span>
+            <h2>{t("rule.reuse.title")}</h2>
           </div>
           <p>
-            O arquivo permanece imutável. Se esta configuração voltar a ser necessária,
-            uma nova regra é criada e auditada separadamente.
+            {t("rule.reuse.note")}
           </p>
         </div>
         <ArchivedRuleActions

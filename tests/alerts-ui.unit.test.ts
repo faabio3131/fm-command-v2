@@ -1,13 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { readUiSource } from "./helpers/ui-source";
 
 describe("F17 alerts UI", () => {
   it("expõe empty state, idempotência e preview sem ação crítica direta", () => {
-    const page = readFileSync(resolve(process.cwd(), "src/app/dashboard/alerts/page.tsx"), "utf8");
-    const control = readFileSync(resolve(process.cwd(), "src/app/dashboard/alerts/alert-control-panel.tsx"), "utf8");
-    const archivePage = readFileSync(resolve(process.cwd(), "src/app/dashboard/alerts/rules/[ruleId]/page.tsx"), "utf8");
-    const archiveActions = readFileSync(resolve(process.cwd(), "src/app/dashboard/alerts/rules/[ruleId]/archived-rule-actions.tsx"), "utf8");
+    const page = readUiSource("src/app/dashboard/alerts/page.tsx");
+    const control = readUiSource("src/app/dashboard/alerts/alert-control-panel.tsx");
+    const archivePage = readUiSource("src/app/dashboard/alerts/rules/[ruleId]/page.tsx");
+    const archiveActions = readUiSource("src/app/dashboard/alerts/rules/[ruleId]/archived-rule-actions.tsx");
     expect(page).toContain("Valor desconhecido nunca vira zero");
     expect(page).toContain("limite configurado");
     expect(page).toContain("reconhecimento e intenção ficam rastreáveis");
@@ -28,9 +27,9 @@ describe("F17 alerts UI", () => {
     expect(control).toContain("Já existe uma regra ativa equivalente.");
     expect(control).toContain("Avaliação concluída: métrica indisponível; nenhum alerta criado.");
     expect(control).toContain("limite não atingido; nenhum alerta criado.");
-    expect(control).toContain("rotuloMetrica(rule.metricId)");
-    expect(control).toContain("rotuloOperadorAlerta(rule.operator)");
-    expect(control).toContain("rotuloSeveridadeAlerta(rule.severity)");
+    expect(control).toContain("labels.metric(rule.metricId)");
+    expect(control).toContain("labels.alertOperator(rule.operator)");
+    expect(control).toContain("labels.alertSeverity(rule.severity)");
     expect(control).toContain("Identificador técnico:");
     expect(control).not.toContain("<label>Threshold");
     expect(page).not.toContain("Unknown nunca vira zero");

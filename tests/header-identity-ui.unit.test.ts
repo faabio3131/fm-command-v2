@@ -60,7 +60,7 @@ describe("CME-07 header identity UI contract", () => {
 
   it("não exibe role técnica em Configurações", () => {
     const settings = source("src/app/dashboard/settings/page.tsx");
-    expect(settings).toContain("rotuloPapelFmcc(context.role)");
+    expect(settings).toContain("labels.role(context.role)");
     expect(settings).not.toContain("<strong>{context.role}</strong>");
   });
 });

@@ -3,6 +3,8 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { buildActivityFeedService } from "@/application/activity/activity-feed-composition";
 import { buildAlertService } from "@/application/alerts/alert-composition";
+import { getRequestLocale } from "@/application/i18n/request-locale";
+import { getCompanyTimeZone } from "@/application/i18n/request-timezone";
 import { createMetricService } from "@/application/metrics/metric-composition";
 import { OperationalHealthService } from "@/application/operations/operational-health-service";
 import { ProductRegistryService } from "@/application/products/product-registry-service";
@@ -12,35 +14,31 @@ import { roleHasPermission } from "@/domain/security/permissions";
 import { AuthenticationRequiredError, PermissionDeniedError, TenantScopeRequiredError } from "@/domain/security/tenant-context";
 import { PostgresOperationalHealthRepository } from "@/infrastructure/operations/postgres-health-repository";
 import { PostgresProductRepository } from "@/infrastructure/products/postgres-product-repository";
-import { rotuloAtualidade, rotuloAutoridadeFonte, rotuloMetrica, rotuloQualidade, rotuloSeveridadeAlerta, rotuloStatusDefinicao, rotuloStatusProduto } from "@/presentation/pt-br";
+import { formatDateTime } from "@/i18n/format";
+import type { Locale } from "@/i18n/locales";
+import { createTranslator } from "@/i18n/translate";
+import { createLabels } from "@/presentation/labels";
 import { CoreQueryForm } from "./core-query-form";
 import { ProductComparisonForm } from "./product-comparison-form";
 import { ProductCreateForm } from "./product-create-form";
 
-function formatTemporalContext(value: { periodStart?: Date; periodEnd?: Date; asOf?: Date }) {
-  if (value.asOf) return `Referência temporal: ${value.asOf.toISOString()}`;
-  if (value.periodStart || value.periodEnd) return `Período: ${value.periodStart?.toISOString() ?? "?"} → ${value.periodEnd?.toISOString() ?? "?"}`;
-  return "Período: não informado pela fonte";
+type Translate = ReturnType<typeof createTranslator>["t"];
+
+function formatTemporalContext(t: Translate, value: { periodStart?: Date; periodEnd?: Date; asOf?: Date }) {
+  if (value.asOf) return t("home.temporal.asOf", { value: value.asOf.toISOString() });
+  if (value.periodStart || value.periodEnd) return t("home.temporal.period", { start: value.periodStart?.toISOString() ?? "?", end: value.periodEnd?.toISOString() ?? "?" });
+  return t("home.temporal.none");
 }
-function formatMetric(value: string | null, unit: string, currency?: string) {
-  if (value === null) return "Indisponível";
+function formatMetric(t: Translate, locale: Locale, value: string | null, unit: string, currency?: string) {
+  if (value === null) return t("common.unavailable");
   if (unit === "currency" && currency) {
     const numeric = Number(value);
     if (Number.isFinite(numeric)) {
-      try { return new Intl.NumberFormat("pt-BR", { style: "currency", currency }).format(numeric); }
+      try { return new Intl.NumberFormat(locale, { style: "currency", currency }).format(numeric); }
       catch { return `${value} ${currency}`; }
     }
   }
   return value;
-}
-
-function healthStatusLabel(
-  status: "operational" | "degraded" | "unavailable" | "unknown",
-) {
-  if (status === "operational") return "Operacional";
-  if (status === "degraded") return "Degradado";
-  if (status === "unavailable") return "Indisponível";
-  return "Desconhecido";
 }
 
 export default async function DashboardPage() {
@@ -52,6 +50,11 @@ export default async function DashboardPage() {
     throw error;
   }
 
+  const locale = await getRequestLocale();
+  const { t } = createTranslator(locale);
+  const labels = createLabels(locale);
+  const timeZone = await getCompanyTimeZone(context.tenantId);
+  const healthLabel = (status: "operational" | "degraded" | "unavailable" | "unknown") => t(`home.health.${status}`);
   const metricService = createMetricService();
   const productsRepository = new PostgresProductRepository();
   const canReadActivity = roleHasPermission(context.role, "audit:read");
@@ -80,49 +83,49 @@ export default async function DashboardPage() {
     <main className="dashboard-shell dashboard-home-compact">
       <header className="dashboard-header">
         <div>
-          <span className="eyebrow">Central Executiva de Comando · Prévia</span>
+          <span className="eyebrow">{t("home.eyebrow")}</span>
           <h1>FM Command</h1>
-          <p>Visão executiva governada de {identity?.organizationName ?? "sua organização"}.</p>
+          <p>{t("home.lead", { org: identity?.organizationName ?? t("home.leadFallbackOrg") })}</p>
         </div>
-        <span className="dashboard-header-context">{identity?.organizationName ?? "Organização ativa"}</span>
+        <span className="dashboard-header-context">{identity?.organizationName ?? t("home.activeOrgFallback")}</span>
       </header>
 
-      <section className="command-overview" aria-label="Resumo executivo">
+      <section className="command-overview" aria-label={t("home.summaryAria")}>
         <article className={activeAlerts > 0 ? "command-card attention" : "command-card"}>
-          <span>Exigem atenção</span>
+          <span>{t("home.card.attention")}</span>
           <strong>{activeAlerts}</strong>
-          <small>{activeAlerts > 0 ? "alertas ativos com regra governada" : "nenhum alerta ativo governado"}</small>
+          <small>{activeAlerts > 0 ? t("home.card.alertsActive") : t("home.card.alertsNone")}</small>
         </article>
         <article className="command-card">
-          <span>Cobertura factual</span>
+          <span>{t("home.card.coverage")}</span>
           <strong>{governedAvailable}/{metrics.length}</strong>
-          <small>métricas com valor governado disponível agora</small>
+          <small>{t("home.card.coverageNote")}</small>
         </article>
         <article className="command-card">
-          <span>Produtos ativos</span>
+          <span>{t("home.card.products")}</span>
           <strong>{activeProducts}</strong>
-          <small>produtos autorizados no tenant atual</small>
+          <small>{t("home.card.productsNote")}</small>
         </article>
         <article className="command-card">
-          <span>Core Executivo</span>
-          <strong>Governado</strong>
-          <small><a href="#core-title">Consultar com evidência</a></small>
+          <span>{t("home.card.core")}</span>
+          <strong>{t("home.card.coreValue")}</strong>
+          <small><a href="#core-title">{t("home.card.coreLink")}</a></small>
         </article>
       </section>
 
-      <section className="command-home-stage" aria-label="Command Core e operação">
+      <section className="command-home-stage" aria-label={t("home.stageAria")}>
         <div className="command-home-main">
           <CoreQueryForm />
         </div>
 
-        <aside className="command-home-rail" aria-label="Saúde, serviços e alertas">
+        <aside className="command-home-rail" aria-label={t("home.railAria")}>
           <section className="panel command-rail-panel" aria-labelledby="dashboard-operational-health-title">
             <div className="command-rail-heading">
               <div>
-                <span className="eyebrow">Operação</span>
-                <h2 id="dashboard-operational-health-title">Saúde Operacional</h2>
+                <span className="eyebrow">{t("home.ops.eyebrow")}</span>
+                <h2 id="dashboard-operational-health-title">{t("home.ops.title")}</h2>
               </div>
-              <Link href="/dashboard/operations">Ver todos</Link>
+              <Link href="/dashboard/operations">{t("common.seeAll")}</Link>
             </div>
 
             {operationalHealth.services.length ? (
@@ -130,15 +133,15 @@ export default async function DashboardPage() {
                 <div className="command-health-summary">
                   <div
                     className="command-health-ring"
-                    aria-label={`${operationalHealth.counts.operational} de ${operationalHealth.services.length} serviços operacionais`}
+                    aria-label={t("home.ops.ringAria", { ok: operationalHealth.counts.operational, total: operationalHealth.services.length })}
                   >
                     <strong>{operationalHealth.counts.operational}/{operationalHealth.services.length}</strong>
-                    <span>serviços operacionais</span>
+                    <span>{t("home.ops.ringLabel")}</span>
                   </div>
                   <div className="command-health-counts">
-                    <span><strong>{operationalHealth.counts.degraded}</strong> degradados</span>
-                    <span><strong>{operationalHealth.counts.unavailable}</strong> indisponíveis</span>
-                    <span><strong>{operationalHealth.counts.unknown}</strong> desconhecidos/stale</span>
+                    <span><strong>{operationalHealth.counts.degraded}</strong> {t("home.ops.degraded")}</span>
+                    <span><strong>{operationalHealth.counts.unavailable}</strong> {t("home.ops.unavailable")}</span>
+                    <span><strong>{operationalHealth.counts.unknown}</strong> {t("home.ops.unknown")}</span>
                   </div>
                 </div>
 
@@ -150,30 +153,28 @@ export default async function DashboardPage() {
                         <small>{service.environment}</small>
                       </div>
                       <span className={`command-status-pill ${effectiveStatus}`}>
-                        {healthStatusLabel(effectiveStatus)}
+                        {healthLabel(effectiveStatus)}
                       </span>
                     </li>
                   ))}
                 </ul>
               </>
             ) : (
-              <p>
-                Indisponível — nenhuma autoridade de saúde foi registrada.
-              </p>
+              <p>{t("home.ops.empty")}</p>
             )}
           </section>
 
           <section className="panel command-rail-panel" aria-labelledby="dashboard-alerts-title">
             <div className="command-rail-heading">
               <div>
-                <span className="eyebrow">Atenção governada</span>
-                <h2 id="dashboard-alerts-title">Alertas e Incidentes</h2>
+                <span className="eyebrow">{t("home.alerts.eyebrow")}</span>
+                <h2 id="dashboard-alerts-title">{t("home.alerts.title")}</h2>
               </div>
-              <Link href="/dashboard/alerts">Ver todos</Link>
+              <Link href="/dashboard/alerts">{t("common.seeAll")}</Link>
             </div>
             <div className={activeAlerts > 0 ? "command-alert-summary attention" : "command-alert-summary"}>
               <strong>{activeAlerts}</strong>
-              <span>{activeAlerts === 1 ? "alerta ativo" : "alertas ativos"}</span>
+              <span>{activeAlerts === 1 ? t("home.alerts.one") : t("home.alerts.other")}</span>
             </div>
             {alertOverview.occurrences.length ? (
               <ul className="command-alert-list">
@@ -181,14 +182,14 @@ export default async function DashboardPage() {
                   <li key={occurrence.id}>
                     <span className={`command-alert-dot ${occurrence.severity}`} aria-hidden="true" />
                     <div>
-                      <strong>{rotuloMetrica(occurrence.metricId)}</strong>
-                      <small>{rotuloSeveridadeAlerta(occurrence.severity)}</small>
+                      <strong>{labels.metric(occurrence.metricId)}</strong>
+                      <small>{labels.alertSeverity(occurrence.severity)}</small>
                     </div>
                   </li>
                 ))}
               </ul>
             ) : (
-              <p>Nenhuma ocorrência governada na janela atual.</p>
+              <p>{t("home.alerts.empty")}</p>
             )}
           </section>
         </aside>
@@ -198,10 +199,10 @@ export default async function DashboardPage() {
         <section className="panel command-activity-panel" aria-labelledby="dashboard-activity-title">
           <div className="command-rail-heading">
             <div>
-              <span className="eyebrow">Auditoria</span>
-              <h2 id="dashboard-activity-title">Atividades recentes</h2>
+              <span className="eyebrow">{t("home.activity.eyebrow")}</span>
+              <h2 id="dashboard-activity-title">{t("home.activity.title")}</h2>
             </div>
-            <Link href="/dashboard/activity">Ver histórico completo</Link>
+            <Link href="/dashboard/activity">{t("home.activity.all")}</Link>
           </div>
           {activityFeed.items.length ? (
             <ul className="command-activity-grid">
@@ -209,50 +210,44 @@ export default async function DashboardPage() {
                 <li key={item.id}>
                   <strong>{item.title}</strong>
                   <span>{item.category}</span>
-                  <small>
-                    {new Intl.DateTimeFormat("pt-BR", {
-                      dateStyle: "short",
-                      timeStyle: "short",
-                      timeZone: "America/Sao_Paulo",
-                    }).format(new Date(item.occurredAt))}
-                  </small>
+                  <small>{formatDateTime(item.occurredAt, locale, timeZone)}</small>
                 </li>
               ))}
             </ul>
           ) : (
-            <p>Nenhuma atividade auditável encontrada na janela atual.</p>
+            <p>{t("home.activity.empty")}</p>
           )}
         </section>
       ) : null}
 
-      <section className="foundation-grid" aria-label="Inteligência empresarial">
-        <Link href="/dashboard/finance"><strong>Financeiro</strong><span>F12 · dados governados</span></Link>
-        <Link href="/dashboard/growth"><strong>Growth / Comercial</strong><span>F13 · funil governado</span></Link>
-        <Link href="/dashboard/operations"><strong>Operações / SRE</strong><span>F14 · sinais operacionais</span></Link>
-        <Link href="/dashboard/customers"><strong>Clientes / Uso / Suporte</strong><span>F15 · agregados governados</span></Link>
-        <Link href="/dashboard/intelligence"><strong>Inteligência Executiva</strong><span>F16 · análise avançada governada</span></Link>
-        <Link href="/dashboard/alerts"><strong>Alertas e Automações</strong><span>F17 · regras e workflows governados</span></Link>
-        {roleHasPermission(context.role, "source:read") ? <Link href="/dashboard/sources"><strong>Fontes e Integrações</strong><span>Malha de Integrações · conexões governadas</span></Link> : null}
+      <section className="foundation-grid" aria-label={t("home.intel.aria")}>
+        <Link href="/dashboard/finance"><strong>{t("home.intel.finance")}</strong><span>{t("home.intel.financeNote")}</span></Link>
+        <Link href="/dashboard/growth"><strong>{t("home.intel.growth")}</strong><span>{t("home.intel.growthNote")}</span></Link>
+        <Link href="/dashboard/operations"><strong>{t("home.intel.ops")}</strong><span>{t("home.intel.opsNote")}</span></Link>
+        <Link href="/dashboard/customers"><strong>{t("home.intel.customers")}</strong><span>{t("home.intel.customersNote")}</span></Link>
+        <Link href="/dashboard/intelligence"><strong>{t("home.intel.exec")}</strong><span>{t("home.intel.execNote")}</span></Link>
+        <Link href="/dashboard/alerts"><strong>{t("home.intel.alerts")}</strong><span>{t("home.intel.alertsNote")}</span></Link>
+        {roleHasPermission(context.role, "source:read") ? <Link href="/dashboard/sources"><strong>{t("home.intel.sources")}</strong><span>{t("home.intel.sourcesNote")}</span></Link> : null}
       </section>
 
       <section className="executive-section" aria-labelledby="executive-overview-title">
         <div className="section-heading">
-          <div><span className="eyebrow">Métricas governadas</span><h2 id="executive-overview-title">Visão executiva</h2></div>
-          <p>Ausência de fonte é exibida como indisponível — nunca como zero.</p>
+          <div><span className="eyebrow">{t("home.overview.eyebrow")}</span><h2 id="executive-overview-title">{t("home.overview.title")}</h2></div>
+          <p>{t("home.overview.note")}</p>
         </div>
         <div className="metric-grid">
           {metrics.map(({ target, definition, value }) => (
             <article className="metric-card" key={target.metricId}>
-              <span className="metric-label">{target.displayName}</span>
+              <span className="metric-label">{labels.metricName(target.metricId, target.displayName)}</span>
               <strong className={value?.value === null || !value ? "metric-value unavailable" : "metric-value"}>
-                {value ? formatMetric(value.value, value.unit, value.currency) : "Indisponível"}
+                {value ? formatMetric(t, locale, value.value, value.unit, value.currency) : t("common.unavailable")}
               </strong>
               <div className="metric-meta">
-                <span>{value ? `Qualidade: ${rotuloQualidade(value.qualityStatus)}` : definition ? "Sem valor governado" : "Definição semântica pendente"}</span>
-                <span>{value ? `Atualidade: ${rotuloAtualidade(value.freshnessStatus)}` : definition ? "Fonte ainda não conectada" : "Métrica ainda não implementada"}</span>
-                <span>{value ? formatTemporalContext(value) : "Período indisponível"}</span>
+                <span>{value ? t("home.metric.quality", { value: labels.quality(value.qualityStatus) }) : definition ? t("home.metric.noValue") : t("home.metric.pendingDefinition")}</span>
+                <span>{value ? t("home.metric.freshness", { value: labels.freshness(value.freshnessStatus) }) : definition ? t("home.metric.notConnected") : t("home.metric.notImplemented")}</span>
+                <span>{value ? formatTemporalContext(t, value) : t("home.metric.noPeriod")}</span>
               </div>
-              <small className="metric-provenance">{value ? `Fonte: ${rotuloAutoridadeFonte(value.sourceAuthority)} · versão ${value.metricVersion}` : `Identificador técnico: ${target.metricId} · ${rotuloStatusDefinicao(target.definitionStatus)}`}</small>
+              <small className="metric-provenance">{value ? t("home.metric.source", { source: labels.sourceAuthority(value.sourceAuthority), version: value.metricVersion }) : t("home.metric.technicalId", { id: target.metricId, status: labels.definitionStatus(target.definitionStatus) })}</small>
             </article>
           ))}
         </div>
@@ -260,38 +255,38 @@ export default async function DashboardPage() {
 
       <section className="executive-section" aria-labelledby="product-intelligence-title">
         <div className="section-heading">
-          <div><span className="eyebrow">F11 · Inteligência por Produto</span><h2 id="product-intelligence-title">Inteligência por produto</h2></div>
-          <p>Produto é escopo governado da organização, nunca inferido pela interface.</p>
+          <div><span className="eyebrow">{t("home.products.eyebrow")}</span><h2 id="product-intelligence-title">{t("home.products.title")}</h2></div>
+          <p>{t("home.products.note")}</p>
         </div>
         {context.role === "owner" || context.role === "admin" ? <ProductCreateForm /> : null}
         {products.length ? (
           <div className="product-grid">
             {products.map((product) => (
               <Link className="product-card" key={product.id} href={`/dashboard/products/${product.id}`}>
-                <span className="eyebrow">{rotuloStatusProduto(product.status)}</span>
+                <span className="eyebrow">{labels.productStatus(product.status)}</span>
                 <strong>{product.name}</strong>
                 <small>{product.slug}</small>
               </Link>
             ))}
           </div>
-        ) : <div className="empty-state"><strong>Nenhum produto configurado.</strong><p>Cadastre um SaaS para habilitar visão e comparação por produto. Nenhum valor é presumido.</p></div>}
+        ) : <div className="empty-state"><strong>{t("home.products.emptyTitle")}</strong><p>{t("home.products.emptyText")}</p></div>}
       </section>
 
       {products.length >= 2 ? (
         <section className="executive-section" aria-labelledby="portfolio-comparison-title">
           <div className="section-heading">
-            <div><span className="eyebrow">Portfólio</span><h2 id="portfolio-comparison-title">Comparação governada</h2></div>
-            <p>Somente mesma métrica, unidade, moeda e período podem ser comparados.</p>
+            <div><span className="eyebrow">{t("home.compare.eyebrow")}</span><h2 id="portfolio-comparison-title">{t("home.compare.title")}</h2></div>
+            <p>{t("home.compare.note")}</p>
           </div>
           <ProductComparisonForm products={products.map(({ id, name, slug }) => ({ id, name, slug }))} />
         </section>
       ) : null}
 
-      <section className="foundation-grid" aria-label="Controles da plataforma">
-        <article><strong>Identidade</strong><span>Validada no servidor</span></article>
-        <article><strong>Isolamento por organização</strong><span>Bloqueio por padrão</span></article>
-        <article><strong>Motor de Métricas</strong><span>Determinístico</span></article>
-        <article><strong>Acesso ao Core</strong><span>Serviço canônico / bloqueio por padrão</span></article>
+      <section className="foundation-grid" aria-label={t("home.platform.aria")}>
+        <article><strong>{t("home.platform.identity")}</strong><span>{t("home.platform.identityNote")}</span></article>
+        <article><strong>{t("home.platform.isolation")}</strong><span>{t("home.platform.isolationNote")}</span></article>
+        <article><strong>{t("home.platform.metrics")}</strong><span>{t("home.platform.metricsNote")}</span></article>
+        <article><strong>{t("home.platform.core")}</strong><span>{t("home.platform.coreNote")}</span></article>
       </section>
 
     </main>

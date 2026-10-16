@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { readUiSource } from "./helpers/ui-source";
+import { ptBR } from "../src/i18n/messages/pt-BR";
 
 function source(path: string): string {
-  return readFileSync(resolve(process.cwd(), path), "utf8");
+  return readUiSource(path);
 }
 
 describe("R9 Global Search UI/API contract", () => {
@@ -62,9 +62,10 @@ describe("R9 Global Search UI/API contract", () => {
     const error = source("src/app/dashboard/search/error.tsx");
 
     expect(page).toContain("RESULT_GROUPS");
-    expect(page).toContain("Módulos e configurações");
-    expect(page).toContain("Alertas e incidentes");
-    expect(page).toContain("Atividades");
+    expect(page).toContain("search.group.${group}");
+    expect(ptBR["search.group.navigation"]).toBe("Módulos e configurações");
+    expect(ptBR["search.group.alert_occurrence"]).toBe("Alertas e incidentes");
+    expect(ptBR["search.group.activity"]).toBe("Atividades");
     expect(loading).toContain('aria-busy="true"');
     expect(error).toContain('role="alert"');
     expect(error).toContain("Tentar novamente");

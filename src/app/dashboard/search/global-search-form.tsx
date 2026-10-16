@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { useTranslator } from "@/i18n/react/i18n-provider";
 
 export function GlobalSearchForm({ query }: { query: string }) {
+  const { t } = useTranslator();
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -21,7 +23,7 @@ export function GlobalSearchForm({ query }: { query: string }) {
   return (
     <form action="/dashboard/search" method="get" role="search">
       <label htmlFor="global-search-query">
-        Buscar <kbd>Ctrl/Cmd + K</kbd>
+        {t("search.form.label")} <kbd>Ctrl/Cmd + K</kbd>
       </label>
       <input
         ref={inputRef}
@@ -31,11 +33,11 @@ export function GlobalSearchForm({ query }: { query: string }) {
         minLength={2}
         maxLength={80}
         defaultValue={query}
-        placeholder="Ex.: Kordena, MRR, integrações, incidentes"
+        placeholder={t("search.form.placeholder")}
         autoComplete="off"
       />
       <button className="button primary" type="submit">
-        Buscar
+        {t("search.form.submit")}
       </button>
     </form>
   );

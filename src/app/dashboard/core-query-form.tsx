@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { FormEvent, useEffect, useRef, useState } from "react";
-import { rotuloAutoridadeFonte, rotuloMetrica } from "@/presentation/pt-br";
+import { createLabels } from "@/presentation/labels";
 import { APPROVED_COMMAND_ARTWORK_SRC } from "@/presentation/command-approved-artwork";
 import { useTranslator } from "@/i18n/react/i18n-provider";
 import type { MessageKey } from "@/i18n/messages/pt-BR";
@@ -75,14 +75,10 @@ function speechRecognitionConstructor(): SpeechRecognitionConstructorLike | null
   return speechWindow.SpeechRecognition ?? speechWindow.webkitSpeechRecognition ?? null;
 }
 
-function cognitiveErrorMessage(code?: string): string {
-  if (code === "core.cognitive_model_unavailable") {
-    return "Provedor cognitivo indisponível. Verifique a configuração, a credencial ou a conectividade do modelo.";
-  }
-  if (code === "core.cognitive_model_contract_invalid") {
-    return "O provedor respondeu, mas a resposta não passou pelo contrato cognitivo governado.";
-  }
-  return "Não foi possível consultar o Core.";
+function cognitiveErrorMessage(t: (key: MessageKey) => string, code?: string): string {
+  if (code === "core.cognitive_model_unavailable") return t("core.error.modelUnavailable");
+  if (code === "core.cognitive_model_contract_invalid") return t("core.error.contractInvalid");
+  return t("core.error.generic");
 }
 
 /** Erros do modo assincrono (fila): mensagens vêm do catálogo de idiomas. */
@@ -101,14 +97,10 @@ function sleep(ms: number): Promise<void> {
   });
 }
 
-function voiceErrorMessage(code?: string): string {
-  if (code === "not-allowed" || code === "service-not-allowed") {
-    return "Permissão do microfone não concedida.";
-  }
-  if (code === "no-speech") {
-    return "Nenhuma fala foi detectada. Tente novamente.";
-  }
-  return "Não foi possível reconhecer a fala neste momento.";
+function voiceErrorMessage(t: (key: MessageKey) => string, code?: string): string {
+  if (code === "not-allowed" || code === "service-not-allowed") return t("core.voice.errorDenied");
+  if (code === "no-speech") return t("core.voice.errorNoSpeech");
+  return t("core.voice.errorGeneric");
 }
 
 export function CoreQueryForm({
@@ -116,6 +108,7 @@ export function CoreQueryForm({
   domainContext,
 }: CoreQueryFormProps = {}) {
   const { t, locale } = useTranslator();
+  const labels = createLabels(locale);
   const [speaking, setSpeaking] = useState(false);
   const [state, setState] = useState<State>({ status: "idle" });
   const aliveRef = useRef(true);
@@ -129,15 +122,11 @@ export function CoreQueryForm({
   const contextLabel = domainContext?.label ?? productContext?.name;
   const suggestions = contextLabel
     ? [
-        `O que precisa da minha atenção em ${contextLabel}?`,
-        `Explique as principais variações de ${contextLabel}.`,
-        `Quais são os principais riscos em ${contextLabel}?`,
+        t("core.suggest.scoped1", { label: contextLabel }),
+        t("core.suggest.scoped2", { label: contextLabel }),
+        t("core.suggest.scoped3", { label: contextLabel }),
       ]
-    : [
-        "O que precisa da minha atenção?",
-        "Explique as principais variações da empresa.",
-        "Quais são os principais riscos?",
-      ];
+    : [t("core.suggest.company1"), t("core.suggest.company2"), t("core.suggest.company3")];
 
   useEffect(() => {
     aliveRef.current = true;
@@ -163,7 +152,7 @@ export function CoreQueryForm({
 
     const Constructor = speechRecognitionConstructor();
     if (!Constructor) {
-      setVoiceMessage("Reconhecimento de voz não disponível neste navegador.");
+      setVoiceMessage(t("core.voice.notSupported"));
       return;
     }
 
@@ -183,11 +172,11 @@ export function CoreQueryForm({
       const spokenText = parts.join(" ").trim();
       const combined = [voiceBaseRef.current, spokenText].filter(Boolean).join(" ").trim();
       setQuestion(combined);
-      setVoiceMessage(spokenText ? "Transcrição recebida." : "Ouvindo…");
+      setVoiceMessage(spokenText ? t("core.voice.received") : t("core.voice.listening"));
     };
 
     recognition.onerror = (event) => {
-      setVoiceMessage(voiceErrorMessage(event.error));
+      setVoiceMessage(voiceErrorMessage(t, event.error));
       setListening(false);
       recognitionRef.current = null;
     };
@@ -198,7 +187,7 @@ export function CoreQueryForm({
     };
 
     recognitionRef.current = recognition;
-    setVoiceMessage("Ouvindo…");
+    setVoiceMessage(t("core.voice.listening"));
     setListening(true);
 
     try {
@@ -206,7 +195,7 @@ export function CoreQueryForm({
     } catch {
       recognitionRef.current = null;
       setListening(false);
-      setVoiceMessage("Não foi possível iniciar o microfone.");
+      setVoiceMessage(t("core.voice.micFailed"));
     }
   }
 
@@ -259,7 +248,7 @@ export function CoreQueryForm({
 
       if (!response.ok) {
         const key = asyncErrorKey(payload.error);
-        setState({ status: "error", answer: key ? t(key) : cognitiveErrorMessage(payload.error) });
+        setState({ status: "error", answer: key ? t(key) : cognitiveErrorMessage(t, payload.error) });
         return;
       }
 
@@ -275,7 +264,7 @@ export function CoreQueryForm({
           if (!aliveRef.current || runRef.current !== myRun) return;
           const poll = await fetch(`/api/core/query/${encodeURIComponent(payload.id)}`, { cache: "no-store" });
           if (!poll.ok) {
-            setState({ status: "error", answer: cognitiveErrorMessage() });
+            setState({ status: "error", answer: cognitiveErrorMessage(t) });
             return;
           }
           const st = await poll.json() as {
@@ -291,7 +280,7 @@ export function CoreQueryForm({
           }
           if (st.status === "failed") {
             const key = asyncErrorKey(st.error);
-            setState({ status: "error", answer: key ? t(key) : cognitiveErrorMessage(st.error) });
+            setState({ status: "error", answer: key ? t(key) : cognitiveErrorMessage(t, st.error) });
             return;
           }
           phase = st.status === "running" ? "running" : "queued";
@@ -302,13 +291,13 @@ export function CoreQueryForm({
       }
 
       if (typeof payload.answer !== "string" || !payload.answer.trim()) {
-        setState({ status: "error", answer: cognitiveErrorMessage() });
+        setState({ status: "error", answer: cognitiveErrorMessage(t) });
         return;
       }
 
       setState({ status: "success", answer: payload.answer, evidence: payload.evidence });
     } catch {
-      setState({ status: "error", answer: cognitiveErrorMessage() });
+      setState({ status: "error", answer: cognitiveErrorMessage(t) });
     }
   }
 
@@ -354,18 +343,17 @@ export function CoreQueryForm({
     <section className="core-panel" aria-labelledby="core-title">
       <div className="core-panel-head">
         <div className="core-panel-copy">
-          <span className="eyebrow">INTELIGÊNCIA COGNITIVA VERTICAL</span>
+          <span className="eyebrow">{t("core.panel.eyebrow")}</span>
           <h2 id="core-title">FM COMMAND CORE</h2>
-          <p>A inteligência cognitiva que entende sua operação, conecta informações e transforma contexto em decisões mais precisas.</p>
-          <p className="core-supporting-copy">Analisa, contextualiza, recomenda e coordena capacidades com governança e rastreabilidade.</p>
+          <p>{t("core.panel.lead")}</p>
+          <p className="core-supporting-copy">{t("core.panel.supporting")}</p>
           {productContext ? (
             <p className="core-context">
-              Contexto governado: <strong>{productContext.name}</strong> ·{" "}
-              <code>{productContext.slug}</code>
+              {t("core.panel.context", { name: productContext.name })} · <code>{productContext.slug}</code>
             </p>
           ) : domainContext ? (
             <p className="core-context">
-              Contexto governado: <strong>{domainContext.label}</strong>
+              {t("core.panel.context", { name: domainContext.label })}
             </p>
           ) : null}
         </div>
@@ -383,8 +371,8 @@ export function CoreQueryForm({
       </div>
 
       <form onSubmit={submit} className="core-form">
-        <label htmlFor="core-question">Pergunta executiva</label>
-        <div className="core-suggestions" aria-label="Perguntas sugeridas">
+        <label htmlFor="core-question">{t("core.form.question")}</label>
+        <div className="core-suggestions" aria-label={t("core.form.suggestionsAria")}>
           {suggestions.map((suggestion) => (
             <button
               className="core-suggestion"
@@ -404,10 +392,10 @@ export function CoreQueryForm({
             maxLength={4000}
             placeholder={
               productContext
-                ? `Ex.: Quanto o ${productContext.name} faturou no período?`
+                ? t("core.form.placeholderProduct", { name: productContext.name })
                 : domainContext
-                  ? `Pergunte ao Core sobre ${domainContext.label}...`
-                  : "Pergunte ao Core sobre faturamento, trials, churn ou operação..."
+                  ? t("core.form.placeholderDomain", { label: domainContext.label })
+                  : t("core.form.placeholderDefault")
             }
             autoComplete="off"
             value={question}
@@ -418,13 +406,13 @@ export function CoreQueryForm({
             type="button"
             onClick={toggleVoice}
             aria-pressed={listening}
-            aria-label={listening ? "Parar reconhecimento de voz" : "Falar a pergunta"}
-            title={listening ? "Parar reconhecimento de voz" : "Falar a pergunta"}
+            aria-label={listening ? t("core.form.stopVoice") : t("core.form.speak")}
+            title={listening ? t("core.form.stopVoice") : t("core.form.speak")}
           >
-            <span aria-hidden="true">🎙️</span> {listening ? "Parar" : "Falar"}
+            <span aria-hidden="true">🎙️</span> {listening ? t("core.form.stop") : t("core.form.talk")}
           </button>
           <button className="button core-submit-button" type="submit" disabled={state.status === "loading" || !question.trim()}>
-            {state.status === "loading" ? "Consultando…" : "Consultar"}
+            {state.status === "loading" ? t("core.form.consulting") : t("core.form.submit")}
           </button>
         </div>
         {voiceMessage ? <small className="core-voice-status" aria-live="polite">{voiceMessage}</small> : null}
@@ -439,7 +427,7 @@ export function CoreQueryForm({
 
       {state.answer && (
         <div className={state.status === "error" ? "core-answer error" : "core-answer"} role="status" aria-live="polite">
-          <strong>{state.status === "error" ? "Indisponível" : "Resposta"}</strong>
+          <strong>{state.status === "error" ? t("core.answer.unavailable") : t("core.answer.title")}</strong>
           <p>{state.answer}</p>
           {state.status === "success" ? (
             <button type="button" className="button core-listen-button" onClick={() => (speaking ? stopSpeaking() : speakAnswer(state.answer ?? ""))}
@@ -449,9 +437,11 @@ export function CoreQueryForm({
           ) : null}
           {state.evidence?.length ? (
             <small className="core-evidence">
-              Proveniência: {state.evidence
-                .map((item) => `${rotuloMetrica(item.ref)} · ${rotuloAutoridadeFonte(item.sourceAuthority)}`)
-                .join(", ")}
+              {t("core.answer.provenance", {
+                value: state.evidence
+                  .map((item) => `${labels.metric(item.ref)} · ${labels.sourceAuthority(item.sourceAuthority)}`)
+                  .join(", "),
+              })}
             </small>
           ) : null}
         </div>
