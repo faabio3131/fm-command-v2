@@ -25,6 +25,10 @@ export class OAuthSimulator implements JsonHttpTransport {
     this.codes.set(code, { challenge });
   }
 
+  async get(): Promise<JsonHttpResponse> {
+    throw new Error("n/a");
+  }
+
   async postForm(
     url: string,
     form: Readonly<Record<string, string>>,

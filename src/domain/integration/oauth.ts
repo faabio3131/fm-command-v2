@@ -11,6 +11,8 @@ export interface OAuthProviderConfig {
   readonly clientAuth: "basic" | "body";
   readonly usesPkce: boolean;
   readonly scopes: readonly string[];
+  /** O provedor lê os parâmetros depois de `#` (ex.: Conta Azul: `.../#/oauth/authorize?...`). */
+  readonly queryInFragment?: boolean;
 }
 
 export class OAuthProviderNotConfiguredError extends Error {

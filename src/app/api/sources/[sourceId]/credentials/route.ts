@@ -8,10 +8,9 @@ import {
   requirePermission,
   TenantScopeRequiredError,
 } from "@/domain/security/tenant-context";
+import { catalogEntry } from "@/infrastructure/connectors/catalog";
 import { PostgresCredentialStore } from "@/infrastructure/integration/postgres-credential-store";
 import { PostgresSourceRepository } from "@/infrastructure/integration/postgres-repositories";
-
-const API_KEY_SOURCE_TYPES = new Set(["omie"]);
 
 /**
  * O cliente cola a chave do ERP dele. A resposta nunca devolve o segredo:
@@ -30,34 +29,38 @@ export async function PUT(
     if (!source) {
       return NextResponse.json({ error: "integration.source_not_found" }, { status: 404 });
     }
-    if (!API_KEY_SOURCE_TYPES.has(source.sourceType)) {
+    const authType = catalogEntry(source.sourceType)?.authType;
+    if (authType !== "api_key_pair" && authType !== "api_key") {
       return NextResponse.json({ error: "integration.credential_kind_not_supported" }, { status: 400 });
     }
     const body = (await request.json().catch(() => null)) as {
       kind?: unknown;
       appKey?: unknown;
       appSecret?: unknown;
+      apiKey?: unknown;
     } | null;
-    const valid =
-      body?.kind === "api_key_pair" &&
-      typeof body.appKey === "string" && body.appKey.trim().length >= 1 && body.appKey.length <= 200 &&
-      typeof body.appSecret === "string" && body.appSecret.trim().length >= 1 && body.appSecret.length <= 500;
-    if (!valid) {
+    const str = (v: unknown, max: number) => typeof v === "string" && v.trim().length >= 1 && v.length <= max;
+    let credential:
+      | { kind: "api_key_pair"; appKey: string; appSecret: string }
+      | { kind: "api_key"; apiKey: string }
+      | undefined;
+    if (authType === "api_key_pair" && body?.kind === "api_key_pair" && str(body.appKey, 200) && str(body.appSecret, 500)) {
+      credential = { kind: "api_key_pair", appKey: (body.appKey as string).trim(), appSecret: (body.appSecret as string).trim() };
+    } else if (authType === "api_key" && body?.kind === "api_key" && str(body.apiKey, 1000)) {
+      credential = { kind: "api_key", apiKey: (body.apiKey as string).trim() };
+    }
+    if (!credential) {
       return NextResponse.json({ error: "integration.credential_invalid" }, { status: 400 });
     }
     const secretRef = `vault:source-${source.id}`;
-    await new PostgresCredentialStore().save(context.tenantId, secretRef, {
-      kind: "api_key_pair",
-      appKey: (body.appKey as string).trim(),
-      appSecret: (body.appSecret as string).trim(),
-    });
+    await new PostgresCredentialStore().save(context.tenantId, secretRef, credential);
     await sources.attachSecretRef(context.tenantId, source.id, secretRef);
     await recordAuditEvent(context, {
       action: "integration.credential.stored",
       resourceType: "integration_source",
       resourceId: source.id,
       result: "success",
-      metadata: { kind: "api_key_pair" },
+      metadata: { kind: credential.kind },
     });
     return NextResponse.json({ stored: true });
   } catch (error) {

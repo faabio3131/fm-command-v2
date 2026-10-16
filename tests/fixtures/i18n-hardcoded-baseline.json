@@ -28,8 +28,6 @@
   "src/app/dashboard/settings/loading.tsx": 2,
   "src/app/dashboard/settings/page.tsx": 13,
   "src/app/dashboard/settings/settings-identity-admin.tsx": 19,
-  "src/app/dashboard/sources/page.tsx": 9,
-  "src/app/dashboard/sources/source-control-panel.tsx": 41,
   "src/app/dashboard/subscriptions/error.tsx": 3,
   "src/app/dashboard/subscriptions/loading.tsx": 2,
   "src/app/dashboard/subscriptions/page.tsx": 23,

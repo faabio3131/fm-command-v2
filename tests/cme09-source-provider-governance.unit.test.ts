@@ -28,8 +28,12 @@ describe("CME-09 source/provider governance", () => {
     );
 
     expect(page).toContain("operationalState");
-    expect(panel).toContain("Último sync bem-sucedido");
-    expect(panel).toContain("Saúde persistida");
+    // O texto saiu do componente para os catálogos (ADR-020): a tela usa as chaves.
+    const ptBR = source("src/i18n/messages/pt-BR.ts");
+    expect(panel).toContain("sources.list.lastSync");
+    expect(panel).toContain("sources.list.health");
+    expect(ptBR).toContain("Último sync bem-sucedido");
+    expect(ptBR).toContain("Saúde registrada");
     expect(repositories).toContain("updateStatus");
     expect(repositories).toContain("lastSuccessfulAt");
   });

@@ -1,4 +1,5 @@
 import type { ConnectorFact } from "@/domain/integration/contracts";
+import { toMinorUnits } from "@/infrastructure/connectors/money";
 
 /**
  * Tradução dos registros do Omie para fatos canônicos. Regra do produto: o que
@@ -69,15 +70,7 @@ function isoDay(date: Date | undefined): string | undefined {
   return date ? date.toISOString().slice(0, 10) : undefined;
 }
 
-/** Valor decimal do Omie -> menor unidade (centavos), sem acumular erro de ponto flutuante. */
-export function toMinorUnits(value: unknown): number | undefined {
-  let n = NaN;
-  if (typeof value === "number") n = value;
-  else if (typeof value === "string" && /^-?\d+([.,]\d+)?$/.test(value.trim())) n = Number(value.trim().replace(",", "."));
-  if (!Number.isFinite(n)) return undefined;
-  const minor = Math.round(n * 100);
-  return Number.isSafeInteger(minor) ? minor : undefined;
-}
+export { toMinorUnits };
 
 function mapStatus(raw: unknown): "open" | "overdue" | "settled" | "cancelled" | undefined {
   const v = typeof raw === "string" ? raw.trim().toUpperCase() : "";
@@ -101,7 +94,7 @@ export function mapOmieRecord(
   const unavailable: string[] = [];
   const payload: Record<string, unknown> = { currency: options.currency };
 
-  const amount = toMinorUnits(r.valor_documento);
+  const amount = toMinorUnits(r.valor_documento, options.currency);
   if (amount === undefined) unavailable.push("amountMinor");
   else payload.amountMinor = amount;
 
