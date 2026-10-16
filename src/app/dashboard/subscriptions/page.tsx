@@ -3,7 +3,6 @@ import Link from "next/link";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { CoreQueryForm } from "@/app/dashboard/core-query-form";
-import type { MetricView } from "@/application/metrics/metric-service";
 import { temporalLabel } from "@/app/dashboard/metric-text";
 import { createMetricService } from "@/application/metrics/metric-composition";
 import { ProductRegistryService } from "@/application/products/product-registry-service";
@@ -129,7 +128,7 @@ export default async function SubscriptionsPage({
         </article>
         {metrics.map(({ target, definition, value }) => (
           <article className="metric-card" key={target.metricId}>
-            <span className="metric-label">{target.displayName}</span>
+            <span className="metric-label">{labels.metricName(target.metricId, target.displayName)}</span>
             <strong>
               {target.definitionStatus === "pending_semantics"
                 ? t("common.pendingSemantics")
@@ -174,8 +173,7 @@ export default async function SubscriptionsPage({
           label: selectedProduct
             ? t("subs.coreLabelScoped", { name: selectedProduct.name })
             : t("subs.coreLabel"),
-          promptPrefix:
-            "Responda no contexto governado do módulo Assinaturas do FM Command. Preserve as autoridades do Metric Registry e não confunda MRR, ARR, faturamento, caixa ou inadimplência.",
+          promptPrefix: t("subs.corePrompt"),
         }}
       />
     </main>

@@ -8,6 +8,7 @@ import { getRequestLocale } from "@/application/i18n/request-locale";
 import { resolveTenantContext } from "@/application/security/resolve-tenant-context";
 import { AuthenticationRequiredError, TenantScopeRequiredError } from "@/domain/security/tenant-context";
 import { createTranslator } from "@/i18n/translate";
+import { createLabels } from "@/presentation/labels";
 import { PostgresProductRepository } from "@/infrastructure/products/postgres-product-repository";
 
 export default async function GrowthPage() {
@@ -21,7 +22,9 @@ export default async function GrowthPage() {
 
   if (await companyLevelDenied(context)) return <NoCompanyAccess />;
 
-  const { t } = createTranslator(await getRequestLocale());
+  const locale = await getRequestLocale();
+  const { t } = createTranslator(locale);
+  const labels = createLabels(locale);
   const overview = await new GrowthIntelligenceService(
     createMetricService(),
     new PostgresProductRepository(),
@@ -41,7 +44,7 @@ export default async function GrowthPage() {
       <section className="metric-grid">
         {overview.metrics.map(({ target, status, value }) => (
           <article className="metric-card" key={target.metricId}>
-            <span className="metric-label">{target.displayName}</span>
+            <span className="metric-label">{labels.metricName(target.metricId, target.displayName)}</span>
             <strong>{status === "pending_semantics" ? t("common.pendingSemantics") : value?.value ?? t("common.unavailable")}</strong>
             <small>{value ? t("common.sourceLine", { source: value.sourceAuthority }) : status === "pending_semantics" ? t("common.ruleNotApprovedShort") : t("common.sourceNotConnected")}</small>
           </article>

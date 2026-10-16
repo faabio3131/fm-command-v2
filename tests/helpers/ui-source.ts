@@ -16,7 +16,10 @@ function text(key: string): string | undefined {
  * A chamada original (chave e parâmetros) continua no código lido, em comentário, então afirmar "usa a chave X" ou "passa este valor" também funciona.
  */
 export function readUiSource(path: string): string {
-  const raw = readFileSync(resolve(process.cwd(), path), "utf8");
+  let raw = readFileSync(resolve(process.cwd(), path), "utf8");
+  // Telas de erro e carregamento usam componentes compartilhados; o marcado (aria-busy, role="alert") vive neles.
+  if (raw.includes("RouteLoading")) raw += "\n" + readFileSync(resolve(process.cwd(), "src/app/dashboard/route-loading.tsx"), "utf8");
+  if (raw.includes("RouteError")) raw += "\n" + readFileSync(resolve(process.cwd(), "src/app/dashboard/route-states.tsx"), "utf8");
   return raw
     .replace(T_JSX, (whole, key: string) => {
       const value = text(key);

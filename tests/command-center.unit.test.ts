@@ -14,7 +14,7 @@ describe("F10 Executive Command Center contract", () => {
   it("renders canonical metric labels instead of widening their meaning in the UI", () => {
     const dashboard = readUiSource("src/app/dashboard/page.tsx");
     const registry = readUiSource("src/domain/metrics/registry.ts");
-    expect(dashboard).toContain("{target.displayName}");
+    expect(dashboard).toContain("labels.metricName(target.metricId, target.displayName)");
     expect(dashboard).toContain("home.metric.technicalId");
     expect(ptBR["home.metric.technicalId"]).toContain("Identificador técnico: {id}");
     expect(registry).toContain('metricId: "revenue.cash_collected"');

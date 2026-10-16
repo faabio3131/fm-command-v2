@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import * as pt from "../src/presentation/pt-br";
 import { createLabels } from "../src/presentation/labels";
+import { METRIC_REGISTRY } from "../src/domain/metrics/registry";
 
 describe("rótulos por idioma", () => {
   const ptL = createLabels("pt-BR");
@@ -39,5 +40,14 @@ describe("rótulos por idioma", () => {
     expect(enL.freshness("stale")).toBe("Outdated");
     expect(enL.metric("nao.existe")).toBe("Governed metric");
     expect(enL.role("owner")).toBe("Owner");
+  });
+
+  it("toda métrica do registro tem nome nos dois idiomas, e em pt-BR é o nome do registro", () => {
+    for (const { metricId, displayName } of METRIC_REGISTRY) {
+      expect(ptL.metricName(metricId, "x")).toBe(displayName);
+      expect(enL.metricName(metricId, "x")).not.toBe("x");
+      expect(enL.metricName(metricId, "x")).not.toBe(displayName);
+    }
+    expect(enL.metricName("metrica.nova", "Nome do registro")).toBe("Nome do registro");
   });
 });

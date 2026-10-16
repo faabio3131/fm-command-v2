@@ -142,7 +142,7 @@ export default async function ProductPage({
           {cockpit.intelligence.metrics.map(({ target, status, value }) => (
             <article className="metric-card" key={target.metricId}>
               <span className="metric-label">
-                {labels.productCategory(target.category)} · {target.displayName}
+                {labels.productCategory(target.category)} · {labels.metricName(target.metricId, target.displayName)}
               </span>
               <strong
                 className={
@@ -186,7 +186,7 @@ export default async function ProductPage({
         <div className="metric-grid">
           {cockpit.commercial.metrics.map(({ target, status, value }) => (
             <article className="metric-card" key={target.metricId}>
-              <span className="metric-label">{target.displayName}</span>
+              <span className="metric-label">{labels.metricName(target.metricId, target.displayName)}</span>
               <strong>{metricStateLabel(status, value)}</strong>
               <small>
                 {value
@@ -215,7 +215,7 @@ export default async function ProductPage({
         <div className="metric-grid">
           {cockpit.finance.metrics.map(({ target, status, value }) => (
             <article className="metric-card" key={target.metricId}>
-              <span className="metric-label">{target.displayName}</span>
+              <span className="metric-label">{labels.metricName(target.metricId, target.displayName)}</span>
               <strong>{metricStateLabel(status, value)}</strong>
               <small>
                 {value
@@ -250,7 +250,7 @@ export default async function ProductPage({
         <div className="metric-grid">
           {cockpit.customer.metrics.map(({ target, status, value }) => (
             <article className="metric-card" key={target.metricId}>
-              <span className="metric-label">{target.displayName}</span>
+              <span className="metric-label">{labels.metricName(target.metricId, target.displayName)}</span>
               <strong>{metricStateLabel(status, value)}</strong>
               <small>
                 {value
@@ -281,7 +281,7 @@ export default async function ProductPage({
         <div className="metric-grid">
           {cockpit.operations.metrics.map(({ target, status, value }) => (
             <article className="metric-card" key={target.metricId}>
-              <span className="metric-label">{target.displayName}</span>
+              <span className="metric-label">{labels.metricName(target.metricId, target.displayName)}</span>
               <strong>{metricStateLabel(status, value)}</strong>
               <small>
                 {value

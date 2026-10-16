@@ -1,20 +1,20 @@
 import Link from "next/link";
+import { getRequestLocale } from "@/application/i18n/request-locale";
+import { createTranslator } from "@/i18n/translate";
 
-export default function HomePage() {
+export default async function HomePage() {
+  const { t } = createTranslator(await getRequestLocale());
   return (
     <main className="shell">
       <section className="hero">
-        <span className="eyebrow">FM Tecnologia · Intelligence Control Plane</span>
+        <span className="eyebrow">{t("landing.eyebrow")}</span>
         <h1>FM Command</h1>
-        <p>
-          Centro executivo governado para métricas, produtos, operações, alertas e decisões assistidas pelo
-          FM Cognitive Vertical Core.
-        </p>
+        <p>{t("landing.lead")}</p>
         <div className="actions">
-          <Link className="button primary" href="/sign-in">Entrar com segurança</Link>
-          <Link className="button" href="/dashboard">Abrir FM Command</Link>
+          <Link className="button primary" href="/sign-in">{t("landing.signIn")}</Link>
+          <Link className="button" href="/dashboard">{t("landing.open")}</Link>
         </div>
-        <p className="phase">Preview governado · mesma linha arquitetural destinada à operação comercial</p>
+        <p className="phase">{t("landing.phase")}</p>
       </section>
     </main>
   );

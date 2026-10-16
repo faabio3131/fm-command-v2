@@ -8,6 +8,7 @@ import { getRequestLocale } from "@/application/i18n/request-locale";
 import { resolveTenantContext } from "@/application/security/resolve-tenant-context";
 import { AuthenticationRequiredError, TenantScopeRequiredError } from "@/domain/security/tenant-context";
 import { createTranslator, type Translate } from "@/i18n/translate";
+import { createLabels } from "@/presentation/labels";
 import { PostgresProductRepository } from "@/infrastructure/products/postgres-product-repository";
 import { CoreQueryForm } from "../core-query-form";
 
@@ -27,7 +28,9 @@ export default async function IntelligencePage() {
 
   if (await companyLevelDenied(context)) return <NoCompanyAccess />;
 
-  const { t } = createTranslator(await getRequestLocale());
+  const locale = await getRequestLocale();
+  const { t } = createTranslator(locale);
+  const labels = createLabels(locale);
   const overview = await new ExecutiveAnalysisService(
     createMetricService(),
     new PostgresProductRepository(),
@@ -52,7 +55,7 @@ export default async function IntelligencePage() {
         <div className="metric-grid">
           {overview.signals.map((signal) => (
             <article className="metric-card" key={signal.metricId}>
-              <span className="metric-label">{signal.displayName}</span>
+              <span className="metric-label">{labels.metricName(signal.metricId, signal.displayName)}</span>
               <strong>{signal.value ? formatValue(t, signal.value.value, signal.value.unit, signal.value.currency) : t("common.unavailable")}</strong>
               <small>{signal.status === "available" ? t("intel.fact") : t("intel.noData")}</small>
               <small>

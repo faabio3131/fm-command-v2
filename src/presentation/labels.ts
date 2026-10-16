@@ -27,6 +27,11 @@ export function createLabels(locale: Locale) {
     productCreateError: (code?: string) => pick("productCreateError", code),
     compareError: (code?: string) => pick("compareError", code),
     metric: (metricId: string) => pick("metric", metricId),
+    /** Nome da métrica no idioma da tela; o nome do registro (pt-BR) é só o último recurso. */
+    metricName: (metricId: string, fallback: string) => {
+      const key = `label.metricName.${metricId}`;
+      return key in ptBR ? t(key as MessageKey) : fallback;
+    },
     sourceAuthority: (authority?: string) => pick("sourceAuthority", authority),
     alertOperator: (operator: string) => pick("alertOperator", operator),
     alertSeverity: (severity: string) => pick("alertSeverity", severity),

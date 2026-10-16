@@ -4,7 +4,8 @@ import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { authClient } from "@/infrastructure/auth/auth-client";
 import type { FmccRole } from "@/domain/security/permissions";
-import { rotuloPapelFmcc } from "@/presentation/pt-br";
+import { useTranslator } from "@/i18n/react/i18n-provider";
+import { createLabels } from "@/presentation/labels";
 
 type MemberView = {
   readonly id: string;
@@ -35,6 +36,8 @@ export function SettingsIdentityAdmin({
   canManageMembers: boolean;
 }) {
   const router = useRouter();
+  const { t, locale } = useTranslator();
+  const labels = createLabels(locale);
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState("");
 
@@ -44,7 +47,7 @@ export function SettingsIdentityAdmin({
     const data = new FormData(event.currentTarget);
     const name = String(data.get("name") ?? "").trim();
     if (name.length < 2 || name.length > 120) {
-      setMessage("Informe um nome de organização válido.");
+      setMessage(t("settings.admin.nameInvalid"));
       return;
     }
 
@@ -56,10 +59,10 @@ export function SettingsIdentityAdmin({
         data: { name },
       });
       if (result.error) {
-        setMessage("Não foi possível atualizar a organização.");
+        setMessage(t("settings.admin.orgFailed"));
         return;
       }
-      setMessage("Organização atualizada.");
+      setMessage(t("settings.admin.orgDone"));
       router.refresh();
     } finally {
       setBusy(null);
@@ -73,7 +76,7 @@ export function SettingsIdentityAdmin({
     const email = String(data.get("email") ?? "").trim().toLowerCase();
     const role = String(data.get("role") ?? "member") as Exclude<FmccRole, "owner">;
     if (!email || !ASSIGNABLE_ROLES.includes(role)) {
-      setMessage("Convite inválido.");
+      setMessage(t("settings.admin.inviteInvalid"));
       return;
     }
 
@@ -86,10 +89,10 @@ export function SettingsIdentityAdmin({
         organizationId: organization.id,
       });
       if (result.error) {
-        setMessage("Não foi possível criar o convite.");
+        setMessage(t("settings.admin.inviteFailed"));
         return;
       }
-      setMessage("Convite registrado pela autoridade de autenticação.");
+      setMessage(t("settings.admin.inviteDone"));
       event.currentTarget.reset();
       router.refresh();
     } finally {
@@ -108,10 +111,10 @@ export function SettingsIdentityAdmin({
         organizationId: organization.id,
       });
       if (result.error) {
-        setMessage("Não foi possível alterar o papel.");
+        setMessage(t("settings.admin.roleFailed"));
         return;
       }
-      setMessage("Papel atualizado.");
+      setMessage(t("settings.admin.roleDone"));
       router.refresh();
     } finally {
       setBusy(null);
@@ -128,10 +131,10 @@ export function SettingsIdentityAdmin({
         organizationId: organization.id,
       });
       if (result.error) {
-        setMessage("Não foi possível remover o membro.");
+        setMessage(t("settings.admin.removeFailed"));
         return;
       }
-      setMessage("Membro removido.");
+      setMessage(t("settings.admin.removeDone"));
       router.refresh();
     } finally {
       setBusy(null);
@@ -142,22 +145,19 @@ export function SettingsIdentityAdmin({
     <section className="executive-section" aria-labelledby="identity-settings-title">
       <div className="section-heading">
         <div>
-          <span className="eyebrow">Autoridade Better Auth</span>
-          <h2 id="identity-settings-title">Organização, usuários e papéis</h2>
+          <span className="eyebrow">{t("settings.admin.eyebrow")}</span>
+          <h2 id="identity-settings-title">{t("settings.admin.title")}</h2>
         </div>
-        <p>
-          Alterações usam a autoridade de autenticação existente; o FM Command
-          não mantém uma segunda fonte de verdade para membros ou papéis.
-        </p>
+        <p>{t("settings.admin.note")}</p>
       </div>
 
       <div className="settings-governance-grid">
         <section className="panel">
-          <h3>Organização</h3>
+          <h3>{t("settings.org")}</h3>
           <p><strong>{organization.name}</strong> · <code>{organization.slug}</code></p>
           {canManageTenant ? (
             <form onSubmit={updateOrganization}>
-              <label htmlFor="settings-org-name">Nome da organização</label>
+              <label htmlFor="settings-org-name">{t("settings.admin.orgName")}</label>
               <input
                 id="settings-org-name"
                 name="name"
@@ -167,38 +167,38 @@ export function SettingsIdentityAdmin({
                 required
               />
               <button className="button" type="submit" disabled={busy !== null}>
-                {busy === "organization" ? "Salvando…" : "Salvar nome"}
+                {busy === "organization" ? t("settings.admin.saving") : t("settings.admin.saveName")}
               </button>
             </form>
           ) : (
-            <p>Somente o proprietário pode alterar dados da organização.</p>
+            <p>{t("settings.admin.ownerOnly")}</p>
           )}
         </section>
 
         <section className="panel">
-          <h3>Convidar membro</h3>
+          <h3>{t("settings.admin.invite")}</h3>
           {canManageMembers ? (
             <form onSubmit={inviteMember}>
-              <label htmlFor="settings-invite-email">E-mail</label>
+              <label htmlFor="settings-invite-email">{t("settings.admin.email")}</label>
               <input id="settings-invite-email" name="email" type="email" required />
-              <label htmlFor="settings-invite-role">Papel</label>
+              <label htmlFor="settings-invite-role">{t("settings.admin.role")}</label>
               <select id="settings-invite-role" name="role" defaultValue="member">
                 {ASSIGNABLE_ROLES.map((role) => (
-                  <option value={role} key={role}>{rotuloPapelFmcc(role)}</option>
+                  <option value={role} key={role}>{labels.role(role)}</option>
                 ))}
               </select>
               <button className="button" type="submit" disabled={busy !== null}>
-                {busy === "invite" ? "Registrando…" : "Convidar"}
+                {busy === "invite" ? t("settings.admin.registering") : t("settings.admin.inviteButton")}
               </button>
             </form>
           ) : (
-            <p>Seu papel atual não pode administrar membros.</p>
+            <p>{t("settings.admin.cannotManage")}</p>
           )}
         </section>
       </div>
 
       <section className="panel">
-        <h3>Membros atuais</h3>
+        <h3>{t("settings.admin.members")}</h3>
         <div className="settings-member-list">
           {members.map((member) => (
             <article className="settings-member-row" key={member.id}>
@@ -209,7 +209,7 @@ export function SettingsIdentityAdmin({
               <div>
                 {canManageMembers && member.role !== "owner" ? (
                   <select
-                    aria-label={`Papel de ${member.name}`}
+                    aria-label={t("settings.admin.roleOf", { name: member.name })}
                     value={member.role}
                     disabled={busy !== null}
                     onChange={(event) =>
@@ -220,11 +220,11 @@ export function SettingsIdentityAdmin({
                     }
                   >
                     {ASSIGNABLE_ROLES.map((role) => (
-                      <option value={role} key={role}>{rotuloPapelFmcc(role)}</option>
+                      <option value={role} key={role}>{labels.role(role)}</option>
                     ))}
                   </select>
                 ) : (
-                  <span>{rotuloPapelFmcc(member.role)}</span>
+                  <span>{labels.role(member.role)}</span>
                 )}
                 {canManageMembers &&
                 member.userId !== currentUserId &&
@@ -235,7 +235,7 @@ export function SettingsIdentityAdmin({
                     disabled={busy !== null}
                     onClick={() => removeMember(member)}
                   >
-                    {busy === `remove:${member.id}` ? "Removendo…" : "Remover"}
+                    {busy === `remove:${member.id}` ? t("settings.admin.removing") : t("settings.admin.remove")}
                   </button>
                 ) : null}
               </div>

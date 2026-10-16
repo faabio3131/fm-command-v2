@@ -10,6 +10,7 @@ import { resolveTenantContext } from "@/application/security/resolve-tenant-cont
 import { AuthenticationRequiredError, TenantScopeRequiredError } from "@/domain/security/tenant-context";
 import { PostgresOperationalHealthRepository } from "@/infrastructure/operations/postgres-health-repository";
 import { createTranslator } from "@/i18n/translate";
+import { createLabels } from "@/presentation/labels";
 import { PostgresProductRepository } from "@/infrastructure/products/postgres-product-repository";
 
 export default async function OperationsPage() {
@@ -36,7 +37,9 @@ export default async function OperationsPage() {
     ).overview(context),
   ]);
 
-  const { t } = createTranslator(await getRequestLocale());
+  const locale = await getRequestLocale();
+  const { t } = createTranslator(locale);
+  const labels = createLabels(locale);
   const statusLabel = (status: "operational" | "degraded" | "unavailable" | "unknown") => t(`home.health.${status}`);
   const hasMonitoredServices = health.services.length > 0;
 
@@ -106,7 +109,7 @@ export default async function OperationsPage() {
       <section className="metric-grid">
         {overview.metrics.map(({ target, status, value }) => (
           <article className="metric-card" key={target.metricId}>
-            <span className="metric-label">{target.displayName}</span>
+            <span className="metric-label">{labels.metricName(target.metricId, target.displayName)}</span>
             <strong>
               {status === "pending_semantics"
                 ? t("common.pendingSemantics")

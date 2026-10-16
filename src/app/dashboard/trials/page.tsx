@@ -3,7 +3,6 @@ import Link from "next/link";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { CoreQueryForm } from "@/app/dashboard/core-query-form";
-import type { MetricView } from "@/application/metrics/metric-service";
 import { temporalLabel } from "@/app/dashboard/metric-text";
 import { createMetricService } from "@/application/metrics/metric-composition";
 import { ProductRegistryService } from "@/application/products/product-registry-service";
@@ -124,7 +123,7 @@ export default async function TrialsPage({
       <section className="metric-grid" aria-label={t("trials.metricsAria")}>
         {metrics.map(({ target, definition, value }) => (
           <article className="metric-card" key={target.metricId}>
-            <span className="metric-label">{target.displayName}</span>
+            <span className="metric-label">{labels.metricName(target.metricId, target.displayName)}</span>
             <strong>
               {target.definitionStatus === "pending_semantics"
                 ? t("common.pendingSemantics")
@@ -172,8 +171,7 @@ export default async function TrialsPage({
         }
         domainContext={{
           label: selectedProduct ? t("trials.coreLabelScoped", { name: selectedProduct.name }) : t("trials.coreLabel"),
-          promptPrefix:
-            "Responda no contexto governado do módulo Trials do FM Command. Preserve as autoridades do Metric Registry e trate dados ausentes como indisponíveis.",
+          promptPrefix: t("trials.corePrompt"),
         }}
       />
     </main>

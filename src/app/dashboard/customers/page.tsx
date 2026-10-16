@@ -8,6 +8,7 @@ import { getRequestLocale } from "@/application/i18n/request-locale";
 import { resolveTenantContext } from "@/application/security/resolve-tenant-context";
 import { AuthenticationRequiredError, TenantScopeRequiredError } from "@/domain/security/tenant-context";
 import { createTranslator } from "@/i18n/translate";
+import { createLabels } from "@/presentation/labels";
 import { PostgresProductRepository } from "@/infrastructure/products/postgres-product-repository";
 
 export default async function CustomersPage() {
@@ -21,7 +22,9 @@ export default async function CustomersPage() {
 
   if (await companyLevelDenied(context)) return <NoCompanyAccess />;
 
-  const { t } = createTranslator(await getRequestLocale());
+  const locale = await getRequestLocale();
+  const { t } = createTranslator(locale);
+  const labels = createLabels(locale);
   const overview = await new CustomerIntelligenceService(
     createMetricService(),
     new PostgresProductRepository(),
@@ -41,7 +44,7 @@ export default async function CustomersPage() {
       <section className="metric-grid">
         {overview.metrics.map(({ target, status, value }) => (
           <article className="metric-card" key={target.metricId}>
-            <span className="metric-label">{target.displayName}</span>
+            <span className="metric-label">{labels.metricName(target.metricId, target.displayName)}</span>
             <strong>{status === "pending_semantics" ? t("common.pendingSemantics") : value?.value ?? t("common.unavailable")}</strong>
             <small>{value ? t("common.sourceLine", { source: value.sourceAuthority }) : status === "pending_semantics" ? t("common.ruleNotApprovedShort") : t("common.sourceNotConnected")}</small>
           </article>
@@ -53,7 +56,7 @@ export default async function CustomersPage() {
         {overview.factualSignals.length ? (
           <ul>
             {overview.factualSignals.map((signal) => (
-              <li key={signal.metricId}><strong>{signal.displayName}:</strong> {signal.value ?? t("common.unavailable")}</li>
+              <li key={signal.metricId}><strong>{labels.metricName(signal.metricId, signal.displayName)}:</strong> {signal.value ?? t("common.unavailable")}</li>
             ))}
           </ul>
         ) : <p>{t("customers.signalsNone")}</p>}

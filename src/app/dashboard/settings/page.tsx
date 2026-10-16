@@ -2,12 +2,14 @@ import Link from "next/link";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
+import { getRequestLocale } from "@/application/i18n/request-locale";
 import { resolveTenantContext } from "@/application/security/resolve-tenant-context";
 import { normalizeRole, roleHasPermission } from "@/domain/security/permissions";
 import { AuthenticationRequiredError, TenantScopeRequiredError } from "@/domain/security/tenant-context";
 import { db } from "@/infrastructure/db/client";
 import { member, organization, user } from "@/infrastructure/db/auth-schema";
-import { rotuloPapelFmcc } from "@/presentation/pt-br";
+import { createTranslator } from "@/i18n/translate";
+import { createLabels } from "@/presentation/labels";
 import { SettingsIdentityAdmin } from "./settings-identity-admin";
 
 export default async function SettingsPage() {
@@ -20,6 +22,9 @@ export default async function SettingsPage() {
     throw error;
   }
 
+  const locale = await getRequestLocale();
+  const { t } = createTranslator(locale);
+  const labels = createLabels(locale);
   const canReadSources = roleHasPermission(context.role, "source:read");
   const canManageTenant = roleHasPermission(context.role, "tenant:manage");
   const canManageMembers = roleHasPermission(context.role, "member:manage");
@@ -56,14 +61,11 @@ export default async function SettingsPage() {
     <main className="dashboard-shell dashboard-shell-compact settings-compact">
       <header className="dashboard-header">
         <div>
-          <span className="eyebrow">Configurações</span>
-          <h1>Governança do FM Command</h1>
-          <p>
-            Organização, permissões, produtos, integrações e capacidades
-            preservando as autoridades canônicas.
-          </p>
+          <span className="eyebrow">{t("settings.eyebrow")}</span>
+          <h1>{t("settings.title")}</h1>
+          <p>{t("settings.lead")}</p>
         </div>
-        <Link href="/dashboard">Voltar</Link>
+        <Link href="/dashboard">{t("common.back")}</Link>
       </header>
 
       {canManageTenant || canManageMembers ? (
@@ -79,62 +81,52 @@ export default async function SettingsPage() {
         />
       ) : (
         <section className="panel">
-          <h2>Organização</h2>
-          <p>
-            <strong>{activeOrganization.name}</strong>. Seu papel atual possui
-            acesso somente ao contexto autorizado e não à administração de membros.
-          </p>
+          <h2>{t("settings.org")}</h2>
+          <p>{t("settings.orgReadOnly", { name: activeOrganization.name })}</p>
         </section>
       )}
 
       <section className="executive-section" aria-labelledby="settings-authorities-title">
         <div className="section-heading">
           <div>
-            <span className="eyebrow">Autoridades existentes</span>
-            <h2 id="settings-authorities-title">Produtos, integrações e operação</h2>
+            <span className="eyebrow">{t("settings.auth.eyebrow")}</span>
+            <h2 id="settings-authorities-title">{t("settings.auth.title")}</h2>
           </div>
-          <p>
-            Configurações orquestra os módulos canônicos; não replica Source
-            Registry, Product Registry, Alert Service ou Core.
-          </p>
+          <p>{t("settings.auth.note")}</p>
         </div>
         <div className="foundation-grid command-action-grid">
           <Link href="/dashboard#product-intelligence-title">
-            <strong>Produtos</strong>
-            <span>Administrar portfólio conforme permissão</span>
+            <strong>{t("settings.link.products")}</strong>
+            <span>{t("settings.link.productsNote")}</span>
           </Link>
           {canReadSources ? (
             <Link href="/dashboard/sources">
-              <strong>Fontes e integrações</strong>
-              <span>Conectividade, health e sincronização</span>
+              <strong>{t("settings.link.sources")}</strong>
+              <span>{t("settings.link.sourcesNote")}</span>
             </Link>
           ) : null}
           <Link href="/dashboard/alerts">
-            <strong>Alertas</strong>
-            <span>Regras, ocorrências e ações governadas</span>
+            <strong>{t("settings.link.alerts")}</strong>
+            <span>{t("settings.link.alertsNote")}</span>
           </Link>
           <Link href="/dashboard/intelligence">
-            <strong>Core</strong>
-            <span>Inteligência executiva e proveniência</span>
+            <strong>{t("settings.link.core")}</strong>
+            <span>{t("settings.link.coreNote")}</span>
           </Link>
           <Link href="/dashboard/customers">
-            <strong>Clientes e suporte</strong>
-            <span>Uso, engajamento e atendimento</span>
+            <strong>{t("settings.link.customers")}</strong>
+            <span>{t("settings.link.customersNote")}</span>
           </Link>
           <Link href="/dashboard/operations">
-            <strong>Runtime e saúde</strong>
-            <span>Status governado dos serviços monitorados</span>
+            <strong>{t("settings.link.ops")}</strong>
+            <span>{t("settings.link.opsNote")}</span>
           </Link>
         </div>
       </section>
 
       <section className="panel">
-        <h2>Escopo ativo</h2>
-        <p>
-          Organização: <strong>{activeOrganization.name}</strong>. Papel atual:{" "}
-          <strong>{rotuloPapelFmcc(context.role)}</strong>. Identificadores
-          técnicos permanecem fora da UX principal.
-        </p>
+        <h2>{t("settings.scope")}</h2>
+        <p>{t("settings.scopeText", { org: activeOrganization.name, role: labels.role(context.role) })}</p>
       </section>
     </main>
   );

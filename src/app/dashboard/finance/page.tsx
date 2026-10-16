@@ -8,6 +8,7 @@ import { getRequestLocale } from "@/application/i18n/request-locale";
 import { resolveTenantContext } from "@/application/security/resolve-tenant-context";
 import { AuthenticationRequiredError, TenantScopeRequiredError } from "@/domain/security/tenant-context";
 import { createTranslator, type Translate } from "@/i18n/translate";
+import { createLabels } from "@/presentation/labels";
 import { PostgresProductRepository } from "@/infrastructure/products/postgres-product-repository";
 
 function displayValue(t: Translate, value: string | null, unit: string, currency?: string) {
@@ -27,7 +28,9 @@ export default async function FinancePage() {
 
   if (await companyLevelDenied(context)) return <NoCompanyAccess />;
 
-  const { t } = createTranslator(await getRequestLocale());
+  const locale = await getRequestLocale();
+  const { t } = createTranslator(locale);
+  const labels = createLabels(locale);
   const overview = await new FinancialIntelligenceService(
     createMetricService(),
     new PostgresProductRepository(),
@@ -47,7 +50,7 @@ export default async function FinancePage() {
       <section className="metric-grid">
         {overview.metrics.map(({ target, status, value }) => (
           <article className="metric-card" key={target.metricId}>
-            <span className="metric-label">{target.displayName}</span>
+            <span className="metric-label">{labels.metricName(target.metricId, target.displayName)}</span>
             <strong>{status === "pending_semantics" ? t("common.pendingSemantics") : value ? displayValue(t, value.value, value.unit, value.currency) : t("common.unavailable")}</strong>
             <small>{value ? t("common.sourceLine", { source: value.sourceAuthority }) : t("common.sourceNotConnected")}</small>
           </article>

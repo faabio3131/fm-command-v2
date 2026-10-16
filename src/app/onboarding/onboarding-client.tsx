@@ -3,10 +3,12 @@
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { authClient } from "@/infrastructure/auth/auth-client";
+import { useTranslator } from "@/i18n/react/i18n-provider";
 import { ORGANIZATION_SLUG_PATTERN } from "@/domain/organization/slug";
 
 export default function OnboardingPage() {
   const router = useRouter();
+  const { t } = useTranslator();
   const { data: organizations } = authClient.useListOrganizations();
   const [message, setMessage] = useState<string | null>(null);
   const [busyAction, setBusyAction] = useState<string | null>(null);
@@ -28,7 +30,7 @@ export default function OnboardingPage() {
       });
 
       if (result.error) {
-        setMessage("Não foi possível criar a organização.");
+        setMessage(t("onboarding.createFailed"));
         return;
       }
 
@@ -47,7 +49,7 @@ export default function OnboardingPage() {
       const result = await authClient.organization.setActive({ organizationId });
 
       if (result.error) {
-        setMessage("Não foi possível entrar na organização.");
+        setMessage(t("onboarding.enterFailed"));
         return;
       }
 
@@ -63,12 +65,12 @@ export default function OnboardingPage() {
   return (
     <main className="shell">
       <section className="card auth-card">
-        <span className="eyebrow">Organização</span>
-        <h1>Organização</h1>
-        <p>A organização autenticada é a raiz de isolamento de dados do FM Command.</p>
+        <span className="eyebrow">{t("onboarding.eyebrow")}</span>
+        <h1>{t("onboarding.title")}</h1>
+        <p>{t("onboarding.lead")}</p>
 
         <section aria-labelledby="existing-orgs-title">
-          <h2 id="existing-orgs-title">Entrar em organização existente</h2>
+          <h2 id="existing-orgs-title">{t("onboarding.existing")}</h2>
           {availableOrganizations.length > 0 ? (
             <div className="organization-list">
               {availableOrganizations.map((organization) => (
@@ -83,31 +85,31 @@ export default function OnboardingPage() {
                     disabled={busyAction !== null}
                     onClick={() => enterOrganization(organization.id)}
                   >
-                    {busyAction === organization.id ? "Entrando…" : "Entrar"}
+                    {busyAction === organization.id ? t("onboarding.entering") : t("onboarding.enter")}
                   </button>
                 </article>
               ))}
             </div>
           ) : (
-            <p>Nenhuma organização existente está vinculada a este usuário.</p>
+            <p>{t("onboarding.none")}</p>
           )}
         </section>
 
         <div className="section-divider" role="separator" />
 
         <section aria-labelledby="create-org-title">
-          <h2 id="create-org-title">Criar nova organização</h2>
+          <h2 id="create-org-title">{t("onboarding.createTitle")}</h2>
           <form onSubmit={createOrganization}>
             <label>
-              Nome da organização
+              {t("onboarding.name")}
               <input name="name" required minLength={2} autoComplete="organization" />
             </label>
             <label>
-              Identificador
+              {t("onboarding.slug")}
               <input name="slug" required pattern={ORGANIZATION_SLUG_PATTERN} autoComplete="off" />
             </label>
             <button className="button primary" disabled={busyAction !== null} type="submit">
-              {busyAction === "create" ? "Criando…" : "Criar organização"}
+              {busyAction === "create" ? t("onboarding.creating") : t("onboarding.create")}
             </button>
           </form>
         </section>

@@ -238,7 +238,7 @@ export default async function DashboardPage() {
         <div className="metric-grid">
           {metrics.map(({ target, definition, value }) => (
             <article className="metric-card" key={target.metricId}>
-              <span className="metric-label">{target.displayName}</span>
+              <span className="metric-label">{labels.metricName(target.metricId, target.displayName)}</span>
               <strong className={value?.value === null || !value ? "metric-value unavailable" : "metric-value"}>
                 {value ? formatMetric(t, locale, value.value, value.unit, value.currency) : t("common.unavailable")}
               </strong>

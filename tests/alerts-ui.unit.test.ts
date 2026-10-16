@@ -27,9 +27,9 @@ describe("F17 alerts UI", () => {
     expect(control).toContain("Já existe uma regra ativa equivalente.");
     expect(control).toContain("Avaliação concluída: métrica indisponível; nenhum alerta criado.");
     expect(control).toContain("limite não atingido; nenhum alerta criado.");
-    expect(control).toContain("rotuloMetrica(rule.metricId)");
-    expect(control).toContain("rotuloOperadorAlerta(rule.operator)");
-    expect(control).toContain("rotuloSeveridadeAlerta(rule.severity)");
+    expect(control).toContain("labels.metric(rule.metricId)");
+    expect(control).toContain("labels.alertOperator(rule.operator)");
+    expect(control).toContain("labels.alertSeverity(rule.severity)");
     expect(control).toContain("Identificador técnico:");
     expect(control).not.toContain("<label>Threshold");
     expect(page).not.toContain("Unknown nunca vira zero");

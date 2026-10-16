@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { resolve } from "node:path";
 import { readUiSource } from "./helpers/ui-source";
 
 function source(path: string): string {
