@@ -1,12 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { createHash } from "node:crypto";
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
 import { APPROVED_COMMAND_ARTWORK_SRC } from "../src/presentation/command-approved-artwork";
 import { ptBR } from "../src/i18n/messages/pt-BR";
+import { readUiSource } from "./helpers/ui-source";
 
 function source(path: string) {
-  return readFileSync(resolve(process.cwd(), path), "utf8");
+  return readUiSource(path);
 }
 
 describe("F18 premium UX/UI", () => {

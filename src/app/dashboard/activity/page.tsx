@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { getRequestLocale } from "@/application/i18n/request-locale";
+import { getCompanyTimeZone } from "@/application/i18n/request-timezone";
 import { buildActivityFeedService } from "@/application/activity/activity-feed-composition";
 import { resolveTenantContext } from "@/application/security/resolve-tenant-context";
 import {
@@ -13,40 +15,26 @@ import {
   AuthenticationRequiredError,
   TenantScopeRequiredError,
 } from "@/domain/security/tenant-context";
+import { formatDateTime } from "@/i18n/format";
+import type { Locale } from "@/i18n/locales";
+import { createTranslator, type MessageKey } from "@/i18n/translate";
 
-const FILTERS: readonly {
-  value: "all" | ActivityCategory;
-  label: string;
-}[] = [
-  { value: "all", label: "Todos" },
-  { value: "finance", label: "Financeiro" },
-  { value: "commercial", label: "Comercial" },
-  { value: "operations", label: "Operações" },
-  { value: "system", label: "Sistema" },
-  { value: "security", label: "Segurança" },
+const FILTERS: readonly { value: "all" | ActivityCategory; labelKey: MessageKey }[] = [
+  { value: "all", labelKey: "activity.filter.all" },
+  { value: "finance", labelKey: "activity.filter.finance" },
+  { value: "commercial", labelKey: "activity.filter.commercial" },
+  { value: "operations", labelKey: "activity.filter.operations" },
+  { value: "system", labelKey: "activity.filter.system" },
+  { value: "security", labelKey: "activity.filter.security" },
 ];
 
-function dateLabel(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "Data indisponível";
-  return new Intl.DateTimeFormat("pt-BR", {
-    dateStyle: "short",
-    timeStyle: "medium",
-    timeZone: "America/Sao_Paulo",
-  }).format(date);
-}
-
-function categoryLabel(category: ActivityCategory): string {
-  return FILTERS.find((filter) => filter.value === category)?.label ?? category;
-}
-
-function amountLabel(item: ActivityFeedItem): string | null {
+function amountLabel(item: ActivityFeedItem, locale: Locale): string | null {
   if (!item.amount) return null;
   if (item.currency) {
     const numeric = Number(item.amount);
     if (Number.isFinite(numeric)) {
       try {
-        return new Intl.NumberFormat("pt-BR", {
+        return new Intl.NumberFormat(locale, {
           style: "currency",
           currency: item.currency,
         }).format(numeric);
@@ -108,37 +96,42 @@ export default async function ActivityPage({
   }
 
   const productId = params.productId?.trim() || undefined;
-  const feed = await buildActivityFeedService().page(context, {
-    category,
-    productId,
-    page,
-    pageSize: 20,
-  });
+  const locale = await getRequestLocale();
+  const { t } = createTranslator(locale);
+  const [feed, timeZone] = await Promise.all([
+    buildActivityFeedService().page(context, { category, productId, page, pageSize: 20 }),
+    getCompanyTimeZone(context.tenantId),
+  ]);
+  const categoryLabel = (value: ActivityCategory) => {
+    const filter = FILTERS.find((f) => f.value === value);
+    return filter ? t(filter.labelKey) : value;
+  };
+  const dateLabel = (value: string) =>
+    Number.isNaN(new Date(value).getTime()) ? t("common.dateUnavailable") : formatDateTime(value, locale, timeZone);
 
   return (
     <main className="dashboard-shell dashboard-shell-compact">
       <header className="dashboard-header">
         <div>
-          <span className="eyebrow">CME-04 · Activity Feed governado</span>
-          <h1>Atividades recentes</h1>
+          <span className="eyebrow">{t("activity.eyebrow")}</span>
+          <h1>{t("activity.title")}</h1>
           <p>
-            Projeção somente leitura de eventos governados já existentes no
-            Audit Ledger e nos canonical facts da organização ativa.
+            {t("activity.lead")}
           </p>
         </div>
         <Link className="button" href="/dashboard">
-          Voltar à Visão Geral
+          {t("activity.back")}
         </Link>
       </header>
 
       <section className="panel">
-        <h2>Fronteira do feed</h2>
+        <h2>{t("activity.boundary")}</h2>
         <p>{feed.dataBoundary}</p>
         <p>{feed.windowNote}</p>
       </section>
 
-      <nav className="panel" aria-label="Filtros do Activity Feed">
-        <strong>Filtrar por categoria</strong>
+      <nav className="panel" aria-label={t("activity.filtersAria")}>
+        <strong>{t("activity.filterBy")}</strong>
         <div className="command-quick-actions">
           {FILTERS.map((filter) => {
             const active = filter.value === (category ?? "all");
@@ -153,7 +146,7 @@ export default async function ActivityPage({
                 )}
                 key={filter.value}
               >
-                {filter.label}
+                {t(filter.labelKey)}
               </Link>
             );
           })}
@@ -163,86 +156,66 @@ export default async function ActivityPage({
       <section className="executive-section">
         <div className="section-heading">
           <div>
-            <span className="eyebrow">Unified Operational Activity Projection</span>
-            <h2>Timeline tenant-scoped</h2>
+            <span className="eyebrow">{t("activity.projection")}</span>
+            <h2>{t("activity.timeline")}</h2>
           </div>
           <p>
-            Eventos técnicos permanecem técnicos; o Command não os converte em
-            fatos comerciais adicionais nem expõe payload/metadata brutos.
+            {t("activity.timelineNote")}
           </p>
         </div>
 
         <div className="product-grid">
           {feed.items.length ? (
             feed.items.map((item) => {
-              const amount = amountLabel(item);
+              const amount = amountLabel(item, locale);
               return (
                 <article className="product-card" key={item.id}>
                   <span className="eyebrow">
                     {categoryLabel(item.category)} · {dateLabel(item.occurredAt)}
                   </span>
                   <strong>{item.title}</strong>
-                  <small>
-                    Tipo: <code>{item.eventType}</code>
-                  </small>
-                  {amount ? <small>Valor: {amount}</small> : null}
-                  {item.result ? <small>Resultado: {item.result}</small> : null}
-                  {item.actorRef ? <small>Ator: {item.actorRef}</small> : null}
+                  <small>{t("activity.type", { value: item.eventType })}</small>
+                  {amount ? <small>{t("activity.amount", { value: amount })}</small> : null}
+                  {item.result ? <small>{t("activity.result", { value: item.result })}</small> : null}
+                  {item.actorRef ? <small>{t("activity.actor", { value: item.actorRef })}</small> : null}
                   {item.productId ? (
-                    <small>
-                      Produto: <code>{item.productId}</code>
-                    </small>
+                    <small>{t("activity.product", { value: item.productId })}</small>
                   ) : null}
-                  <small>
-                    Autoridade: <code>{item.sourceAuthority}</code>
-                  </small>
-                  <small>
-                    Proveniência:{" "}
-                    {item.provenanceRefs.map((ref, index) => (
-                      <span key={ref}>
-                        {index ? " · " : ""}
-                        <code>{ref}</code>
-                      </span>
-                    ))}
-                  </small>
+                  <small>{t("activity.authority", { value: item.sourceAuthority })}</small>
+                  <small>{t("activity.provenance", { value: item.provenanceRefs.join(" · ") })}</small>
                   {item.correlationId ? (
-                    <small>
-                      Correlação: <code>{item.correlationId}</code>
-                    </small>
+                    <small>{t("activity.correlation", { value: item.correlationId })}</small>
                   ) : null}
                 </article>
               );
             })
           ) : (
             <article className="product-card">
-              <strong>Nenhuma atividade governada encontrada.</strong>
-              <small>
-                Ausência de eventos não é convertida em garantia de
-                inatividade nem em dado fictício.
-              </small>
+              <strong>{t("activity.emptyTitle")}</strong>
+              <small>{t("activity.emptyText")}</small>
             </article>
           )}
         </div>
       </section>
 
-      <nav className="panel" aria-label="Paginação do Activity Feed">
+      <nav className="panel" aria-label={t("activity.paginationAria")}>
         {feed.pagination.hasPrevious ? (
           <Link
             className="button"
             rel="prev"
             href={pageHref(category, page - 1, productId)}
           >
-            Página anterior
+            {t("activity.prev")}
           </Link>
         ) : null}
-        <span>Página {page}</span>
+        <span>{t("activity.page", { page })}</span>
         {feed.pagination.hasNext ? (
           <Link
             className="button"
             rel="next"
             href={pageHref(category, page + 1, productId)}
           >
-            Próxima página
+            {t("activity.next")}
           </Link>
         ) : null}
       </nav>

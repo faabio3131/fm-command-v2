@@ -4,32 +4,31 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { NotificationItem } from "@/domain/notifications/contracts";
+import { formatDateTime } from "@/i18n/format";
+import { useTranslator } from "@/i18n/react/i18n-provider";
+import type { MessageKey } from "@/i18n/translate";
 
-function kindLabel(kind: NotificationItem["kind"]): string {
-  if (kind === "critical_alert") return "Alerta crítico";
-  if (kind === "operational_warning") return "Aviso operacional";
-  if (kind === "integration_failure") return "Falha de integração";
-  if (kind === "incident") return "Incidente";
-  if (kind === "action_required") return "Requer atenção";
-  if (kind === "state_change") return "Mudança de estado";
-  return "Informação do sistema";
-}
-
-function dateLabel(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "Data indisponível";
-  return new Intl.DateTimeFormat("pt-BR", {
-    dateStyle: "short",
-    timeStyle: "medium",
-    timeZone: "America/Sao_Paulo",
-  }).format(date);
-}
+const KIND_KEY: Record<NotificationItem["kind"], MessageKey> = {
+  critical_alert: "notifications.kind.critical_alert",
+  operational_warning: "notifications.kind.operational_warning",
+  integration_failure: "notifications.kind.integration_failure",
+  incident: "notifications.kind.incident",
+  action_required: "notifications.kind.action_required",
+  state_change: "notifications.kind.state_change",
+  system_info: "notifications.kind.system_info",
+};
 
 export function NotificationList({
   items,
+  timeZone,
 }: {
   items: readonly NotificationItem[];
+  timeZone: string;
 }) {
+  const { t, locale } = useTranslator();
+  const kindLabel = (kind: NotificationItem["kind"]) => t(KIND_KEY[kind] ?? "notifications.kind.system_info");
+  const dateLabel = (value: string) =>
+    Number.isNaN(new Date(value).getTime()) ? t("common.dateUnavailable") : formatDateTime(value, locale, timeZone);
   const router = useRouter();
   const [busyId, setBusyId] = useState<string | null>(null);
   const [message, setMessage] = useState("");
@@ -45,12 +44,12 @@ export function NotificationList({
       });
       const payload = await response.json() as { error?: string };
       if (!response.ok) {
-        setMessage(payload.error ?? "Não foi possível marcar como lida.");
+        setMessage(payload.error ?? t("notifications.list.markFailed"));
         return;
       }
       router.refresh();
     } catch {
-      setMessage("Não foi possível marcar como lida.");
+      setMessage(t("notifications.list.markFailed"));
     } finally {
       setBusyId(null);
     }
@@ -59,8 +58,8 @@ export function NotificationList({
   if (!items.length) {
     return (
       <div className="empty-state">
-        <strong>Nenhuma notificação governada.</strong>
-        <p>Eventos inexistentes não são transformados em notificações fictícias.</p>
+        <strong>{t("notifications.list.emptyTitle")}</strong>
+        <p>{t("notifications.list.emptyText")}</p>
       </div>
     );
   }
@@ -77,19 +76,21 @@ export function NotificationList({
               <strong>{item.title}</strong>
               <span>{item.description}</span>
               <span>
-                Estado: {item.read ? "Lida" : "Não lida"}
-                {item.acknowledged !== undefined
-                  ? " · " + (item.acknowledged ? "Reconhecida" : "Não reconhecida")
-                  : ""}
+                {t("notifications.list.state", {
+                  read: item.read ? t("notifications.list.read") : t("notifications.list.unread"),
+                  ack:
+                    item.acknowledged !== undefined
+                      ? " · " + (item.acknowledged ? t("notifications.list.acknowledged") : t("notifications.list.notAcknowledged"))
+                      : "",
+                })}
               </span>
               <span>
-                Fonte: <code>{item.sourceAuthority}</code> · evento{" "}
-                <code>{item.sourceEvent}</code>
+                {t("notifications.list.source", { authority: item.sourceAuthority, event: item.sourceEvent })}
               </span>
             </div>
             <div className="alert-actions">
               <Link className="button" href={item.href}>
-                Abrir origem
+                {t("notifications.list.openSource")}
               </Link>
               {!item.read ? (
                 <button
@@ -98,7 +99,7 @@ export function NotificationList({
                   onClick={() => markRead(item.id)}
                   type="button"
                 >
-                  {busyId === item.id ? "Registrando…" : "Marcar como lida"}
+                  {busyId === item.id ? t("notifications.list.registering") : t("notifications.list.markRead")}
                 </button>
               ) : null}
             </div>

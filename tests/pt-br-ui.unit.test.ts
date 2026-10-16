@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { readUiSource } from "./helpers/ui-source";
+import { ptBR } from "../src/i18n/messages/pt-BR";
 import {
   mensagemEstadoComparacao,
   rotuloAtualidade,
@@ -29,19 +29,20 @@ describe("interface pt-BR", () => {
   });
 
   it("não renderiza status internos diretamente na comparação", () => {
-    const source = readFileSync(resolve(process.cwd(), "src/app/dashboard/product-comparison-form.tsx"), "utf8");
+    const source = readUiSource("src/app/dashboard/product-comparison-form.tsx");
     expect(source).not.toContain("Estado: {result.status}");
-    expect(source).toContain("rotuloEstadoComparacao(result.status)");
-    expect(source).toContain("mensagemEstadoComparacao(result.status)");
-    expect(source).toContain("Testes gratuitos iniciados");
+    expect(source).toContain("labels.comparisonState(result.status)");
+    expect(source).toContain("labels.comparisonMessage(result.status)");
+    expect(source).toContain("labels.metric(id)");
+    expect(ptBR["label.metric.trial.starts.count"]).toBe("Testes gratuitos iniciados");
   });
 
   it("não renderiza status de produto nem categorias internas diretamente", () => {
-    const dashboard = readFileSync(resolve(process.cwd(), "src/app/dashboard/page.tsx"), "utf8");
-    const product = readFileSync(resolve(process.cwd(), "src/app/dashboard/products/[productId]/page.tsx"), "utf8");
+    const dashboard = readUiSource("src/app/dashboard/page.tsx");
+    const product = readUiSource("src/app/dashboard/products/[productId]/page.tsx");
 
     expect(dashboard).not.toContain("{product.status}</span>");
-    expect(dashboard).toContain("rotuloStatusProduto(product.status)");
+    expect(dashboard).toContain("labels.productStatus(product.status)");
     expect(dashboard).toContain("F11 · Inteligência por Produto");
     expect(dashboard).toContain("Portfólio");
     expect(dashboard).toContain("Atualidade:");
@@ -56,8 +57,8 @@ describe("interface pt-BR", () => {
   });
 
   it("mantém autenticação e onboarding sem mensagens brutas do provedor", () => {
-    const signIn = readFileSync(resolve(process.cwd(), "src/app/sign-in/page.tsx"), "utf8");
-    const onboarding = readFileSync(resolve(process.cwd(), "src/app/onboarding/page.tsx"), "utf8");
+    const signIn = readUiSource("src/app/sign-in/page.tsx");
+    const onboarding = readUiSource("src/app/onboarding/page.tsx");
     expect(signIn).not.toContain("result.error.message");
     expect(onboarding).not.toContain("result.error.message");
     expect(onboarding).not.toContain('>Tenant<');

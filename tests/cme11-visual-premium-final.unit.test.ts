@@ -1,10 +1,9 @@
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { ptBR } from "@/i18n/messages/pt-BR";
+import { readUiSource } from "./helpers/ui-source";
 function source(path: string): string {
-  return readFileSync(resolve(process.cwd(), path), "utf8");
+  return readUiSource(path);
 }
 
 describe("CME-11 Visual Premium Final", () => {
@@ -27,7 +26,8 @@ describe("CME-11 Visual Premium Final", () => {
     expect(core).not.toContain("CommandBrainLogo");
     expect(core).not.toContain("core-orb-note");
     expect(core).toContain('fetch("/api/core/query"');
-    expect(core).toContain("Proveniência:");
+    expect(core).toContain("core.answer.provenance");
+    expect(ptBR["core.answer.provenance"]).toContain("Proveniência:");
   });
 
   it("compõe a visão geral com Core, saúde, serviços, alertas e atividade reais", () => {

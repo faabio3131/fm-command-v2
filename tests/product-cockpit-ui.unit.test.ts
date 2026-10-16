@@ -1,13 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { readUiSource } from "./helpers/ui-source";
 
 describe("R5 Product Cockpit UI/API contract", () => {
   it("página individual usa o read model governado do cockpit", () => {
-    const source = readFileSync(
-      resolve(process.cwd(), "src/app/dashboard/products/[productId]/page.tsx"),
-      "utf8",
-    );
+    const source = readUiSource("src/app/dashboard/products/[productId]/page.tsx");
 
     expect(source).toContain("R5 · Product Cockpit");
     expect(source).toContain("buildProductCockpitService");
@@ -27,14 +23,8 @@ describe("R5 Product Cockpit UI/API contract", () => {
   });
 
   it("Core contextual envia scope explícito e a API cognitiva valida o campo", () => {
-    const form = readFileSync(
-      resolve(process.cwd(), "src/app/dashboard/core-query-form.tsx"),
-      "utf8",
-    );
-    const api = readFileSync(
-      resolve(process.cwd(), "src/app/api/core/query/route.ts"),
-      "utf8",
-    );
+    const form = readUiSource("src/app/dashboard/core-query-form.tsx");
+    const api = readUiSource("src/app/api/core/query/route.ts");
 
     expect(form).toContain("productSlugs: [productContext.slug]");
     expect(form).toContain("Contexto governado:");
@@ -43,10 +33,7 @@ describe("R5 Product Cockpit UI/API contract", () => {
   });
 
   it("API do cockpit resolve tenant server-side e não aceita tenant do cliente", () => {
-    const source = readFileSync(
-      resolve(process.cwd(), "src/app/api/products/[productId]/cockpit/route.ts"),
-      "utf8",
-    );
+    const source = readUiSource("src/app/api/products/[productId]/cockpit/route.ts");
 
     expect(source).toContain("resolveTenantContext(await headers())");
     expect(source).toContain("buildProductCockpitService().overview");

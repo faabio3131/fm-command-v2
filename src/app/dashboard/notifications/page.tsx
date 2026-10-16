@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { getRequestLocale } from "@/application/i18n/request-locale";
+import { getCompanyTimeZone } from "@/application/i18n/request-timezone";
 import { buildNotificationService } from "@/application/notifications/notification-composition";
 import { resolveTenantContext } from "@/application/security/resolve-tenant-context";
 import { roleHasPermission } from "@/domain/security/permissions";
@@ -8,6 +10,7 @@ import {
   AuthenticationRequiredError,
   TenantScopeRequiredError,
 } from "@/domain/security/tenant-context";
+import { createTranslator } from "@/i18n/translate";
 import { NotificationList } from "./notification-list";
 
 export default async function NotificationsPage() {
@@ -24,54 +27,53 @@ export default async function NotificationsPage() {
     redirect("/dashboard");
   }
 
-  const inbox = await buildNotificationService().inbox(context, 50);
+  const { t } = createTranslator(await getRequestLocale());
+  const [inbox, timeZone] = await Promise.all([buildNotificationService().inbox(context, 50), getCompanyTimeZone(context.tenantId)]);
 
   return (
     <main className="dashboard-shell dashboard-shell-compact notifications-compact">
       <header className="dashboard-header">
         <div>
-          <span className="eyebrow">CME-06 · Central de Notificações</span>
-          <h1>Notificações</h1>
+          <span className="eyebrow">{t("notifications.page.eyebrow")}</span>
+          <h1>{t("notifications.page.title")}</h1>
           <p>
-            Inbox derivada de alertas e eventos governados reais da organização
-            ativa. Uma notificação nunca concede autoridade para executar ações.
+            {t("notifications.page.lead")}
           </p>
         </div>
         <Link className="button" href="/dashboard">
-          Voltar à Visão Geral
+          {t("notifications.page.back")}
         </Link>
       </header>
 
-      <section className="metric-grid" aria-label="Resumo das notificações">
+      <section className="metric-grid" aria-label={t("notifications.page.summaryAria")}>
         <article className="metric-card">
-          <span className="metric-label">Não lidas</span>
+          <span className="metric-label">{t("notifications.page.unread")}</span>
           <strong>{inbox.unreadCount}</strong>
-          <small>Estado pessoal do usuário autenticado.</small>
+          <small>{t("notifications.page.unreadNote")}</small>
         </article>
         <article className="metric-card">
-          <span className="metric-label">Eventos elegíveis</span>
+          <span className="metric-label">{t("notifications.page.eligible")}</span>
           <strong>{inbox.totalCount}</strong>
-          <small>Somente fontes e eventos permitidos ao papel atual.</small>
+          <small>{t("notifications.page.eligibleNote")}</small>
         </article>
       </section>
 
       <section className="panel">
-        <h2>Fronteira da inbox</h2>
+        <h2>{t("notifications.page.boundary")}</h2>
         <p>{inbox.dataBoundary}</p>
       </section>
 
       <section className="executive-section">
         <div className="section-heading">
           <div>
-            <span className="eyebrow">Tenant + usuário</span>
-            <h2>Caixa de entrada</h2>
+            <span className="eyebrow">{t("notifications.page.eyebrow2")}</span>
+            <h2>{t("notifications.page.inbox")}</h2>
           </div>
           <p>
-            Reconhecimento de alerta continua no serviço de Alertas; marcar como
-            lida altera somente o estado pessoal da notificação.
+            {t("notifications.page.inboxNote")}
           </p>
         </div>
-        <NotificationList items={inbox.items} />
+        <NotificationList items={inbox.items} timeZone={timeZone} />
       </section>
     </main>
   );

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslator } from "@/i18n/react/i18n-provider";
 
 export function ArchivedRuleActions(props: {
   metricId: string;
@@ -9,6 +10,7 @@ export function ArchivedRuleActions(props: {
   threshold: string;
   severity: "info" | "warning" | "critical";
 }) {
+  const { t } = useTranslator();
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -31,15 +33,15 @@ export function ArchivedRuleActions(props: {
       const payload = await response.json() as { error?: string };
       if (!response.ok) {
         if (payload.error === "alert.rule_duplicate") {
-          setMessage("Já existe uma regra ativa equivalente. O arquivo permanece preservado.");
+          setMessage(t("rule.action.duplicate"));
         } else {
-          setMessage(payload.error ?? "Não foi possível criar a nova regra.");
+          setMessage(payload.error ?? t("rule.action.failed"));
         }
         return;
       }
-      setMessage("Nova regra criada a partir do arquivo. O registro arquivado foi preservado.");
+      setMessage(t("rule.action.created"));
     } catch {
-      setMessage("Não foi possível criar a nova regra.");
+      setMessage(t("rule.action.failed"));
     } finally {
       setBusy(false);
     }
@@ -48,7 +50,7 @@ export function ArchivedRuleActions(props: {
   return (
     <div className="archive-actions">
       <button className="button primary" disabled={busy} onClick={recreate}>
-        Criar nova regra baseada nesta
+        {t("rule.action.button")}
       </button>
       {message ? <p className="alert-feedback" role="status">{message}</p> : null}
     </div>
