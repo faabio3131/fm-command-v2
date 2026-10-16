@@ -22,9 +22,17 @@ O V2 lê os ERPs que o cliente já usa (decisão do Diretor, 16/10/2026). Os sis
 8. **Ausente nunca é zero.** Campo que o ERP não entregou fica fora do fato e listado em `payload.unavailable`. Zero só quando o ERP disse zero. Dinheiro em menor unidade com a moeda da fonte.
 9. **Registro que muda é atualizado.** A ingestão passa de "ignora se já existe" para "atualiza se a versão da origem for igual ou mais nova"; repetir a leitura não altera nada.
 
+## OAuth (acréscimo de 16/10/2026)
+
+10. **Um aplicativo OAuth do V2 por provedor** (`FMCC_OAUTH_<PROVEDOR>_CLIENT_ID/SECRET`, no ambiente). O cliente só autoriza; não copia chave. Endereços do provedor são dado (descritor), trocáveis por ambiente, só em https.
+11. **Fluxo de autorização** (`POST /api/sources/{id}/oauth/start`, `GET /api/oauth/callback`): `state` aleatório de uso único e 10 minutos, guardado só como hash e preso a empresa, usuário e fonte; PKCE S256 quando o provedor usa, com o verificador cifrado. O retorno nunca ecoa `code`, `state` nem mensagem do provedor.
+12. **Token no cofre, renovação com trava.** O refresh token de vários provedores é de uso único: a renovação roda dentro de uma transação com `SELECT ... FOR UPDATE` na credencial e confere de novo se outro processo já renovou. Refresh recusado (400/401) vira falha de autenticação e não apaga a credencial; sem novo refresh token na resposta vale o anterior (RFC 6749 §6).
+    Limites conhecidos do OAuth (revisão independente): se a gravação do token renovado falhar depois de o provedor já ter invalidado o refresh token antigo, a conexão precisa ser refeita (o evento `credential_refresh_not_persisted` é registrado); a transação de renovação segura uma conexão do pool durante a chamada ao provedor (mitigado por uma renovação por processo e `lock_timeout` de 10 s); `save` e `attachSecretRef` não são atômicos; o `state` é consumido antes de conferir empresa e usuário.
+13. **Conta Azul e Bling:** descritores existem (endereços de documentação de terceiros, não conferidos); os conectores de leitura aguardam a documentação oficial dos endpoints financeiros.
+
 ## Fora desta decisão
 
-OAuth (Conta Azul, Bling, Xero, QuickBooks), webhook do Omie, planilha/CSV e banco de dados, rodízio de chave de cifra, agendamento automático da sincronização, tela de configuração para o cliente.
+Conectores de leitura do Conta Azul e do Bling, Xero e QuickBooks, webhook do Omie, planilha/CSV e banco de dados, rodízio de chave de cifra, agendamento automático da sincronização, tela de configuração para o cliente.
 
 ## O que foi e o que não foi provado
 

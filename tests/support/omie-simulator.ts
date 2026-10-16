@@ -27,6 +27,10 @@ export class OmieSimulator implements JsonHttpTransport {
   latencyMs = 0;
   private stamps = new Map<string, number[]>();
 
+  async postForm(): Promise<JsonHttpResponse> {
+    throw new OmieSimulatorFormUnsupported();
+  }
+
   async post(url: string, body: unknown): Promise<JsonHttpResponse> {
     const b = body as { call: string; app_key: string; app_secret: string; param: Record<string, unknown>[] };
     this.calls.push({ url, call: b.call, appKey: b.app_key, param: b.param?.[0] ?? {} });
@@ -89,6 +93,8 @@ export class OmieSimulator implements JsonHttpTransport {
     }
   }
 }
+
+export class OmieSimulatorFormUnsupported {}
 
 export class InMemoryCredentialStore implements CredentialStore {
   private readonly entries = new Map<string, ConnectorCredential>();
