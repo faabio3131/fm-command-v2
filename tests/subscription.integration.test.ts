@@ -14,6 +14,7 @@ let simA: SimulatedPaymentProvider; let simB: SimulatedPaymentProvider;
 let service: SubscriptionService; let repo: PostgresSubscriptionRepository;
 
 async function clean() {
+  await pool.query("DELETE FROM fmcc_saas_fee_schedule WHERE provider_id IN ('sim_a','sim_b')");
   await pool.query("DELETE FROM fmcc_saas_event WHERE provider_id IN ('sim_a','sim_b','sim_c')");
   await pool.query("DELETE FROM fmcc_saas_subscription WHERE tenant_id LIKE $1", [`${TP}%`]);
   await pool.query("DELETE FROM fmcc_saas_payment_route WHERE provider_id IN ('sim_a','sim_b','sim_c','nao_configurado')");
@@ -193,8 +194,12 @@ describe("retomada, posse e avisos (revisao independente)", () => {
     await expect(subscribe("br", "kr")).rejects.toMatchObject({ httpStatus: 503 });
     simA.fault = "none"; await age("br");
     const results = await Promise.allSettled([subscribe("br", "kr"), subscribe("br", "kr"), subscribe("br", "kr")]);
-    expect(results.filter((r) => r.status === "fulfilled" && r.value.subscription.state === "pending")).toHaveLength(1);
-    expect(results.filter((r) => r.status === "rejected" && (r.reason as { code?: string }).code === "subscription.in_progress")).toHaveLength(2);
+    // uma retomou e terminou; as outras ou veem "em andamento" ou recebem o resultado ja pronto
+    expect(results.some((r) => r.status === "fulfilled")).toBe(true);
+    for (const r of results) {
+      if (r.status === "fulfilled") expect(r.value.subscription.state).toBe("pending");
+      else expect((r.reason as { code?: string }).code).toBe("subscription.in_progress");
+    }
     expect(simA.subscriptions.size).toBe(1);
   });
 
@@ -232,6 +237,38 @@ describe("retomada, posse e avisos (revisao independente)", () => {
     await pool.query(`UPDATE fmcc_saas_subscription SET state='pending', provider_subscription_ref='sim_a_sub_reenvio' WHERE id=$1`, [row.id]);
     expect(await service.handleWebhook("sim_a", early.headers, early.body)).toBe("applied");
     expect(await repo.current(t)).toMatchObject({ state: "active" });
+  });
+});
+
+describe("taxas configuraveis por meio de cobranca", () => {
+  const fee = (providerId: string, method: string, fixed: number, bps: number, from: string) =>
+    pool.query(`INSERT INTO fmcc_saas_fee_schedule(provider_id, method, currency, fixed_minor, percent_bps, effective_from) VALUES($1,$2,'BRL',$3,$4,$5)`, [providerId, method, fixed, bps, from]);
+
+  it("sem tabela configurada a taxa e indisponivel (null), nunca zero", async () => {
+    expect(await service.feeFor("sim_a", "boleto", 4900, "BRL")).toBeNull();
+  });
+
+  it("cada banco e cada forma de pagamento tem a sua taxa; vale a vigencia mais recente que ja comecou", async () => {
+    await fee("sim_a", "boleto", 349, 0, "2026-01-01T00:00:00Z");
+    await fee("sim_a", "boleto", 299, 0, "2026-03-01T00:00:00Z"); // reajuste ja vigente
+    await fee("sim_a", "boleto", 100, 0, "2026-06-01T00:00:00Z"); // futura: ainda nao vale
+    await fee("sim_a", "pix", 0, 99, "2026-01-01T00:00:00Z");
+    await fee("sim_b", "boleto", 500, 0, "2026-01-01T00:00:00Z");
+    expect(await service.feeFor("sim_a", "boleto", 4900, "BRL")).toMatchObject({ feeMinor: 299, netMinor: 4601 });
+    expect(await service.feeFor("sim_a", "pix", 4900, "BRL")).toMatchObject({ feeMinor: 49, netMinor: 4851 });
+    expect(await service.feeFor("sim_b", "boleto", 4900, "BRL")).toMatchObject({ feeMinor: 500 });
+    expect(await service.feeFor("sim_a", "card", 4900, "BRL")).toBeNull(); // forma nao configurada
+    expect(await service.feeFor("sim_a", "boleto", 4900, "USD")).toBeNull(); // outra moeda: nao converte
+    expect(await service.feeFor("sim_a", "boleto", 4900, "BRL", new Date("2026-07-01T00:00:00Z"))).toMatchObject({ feeMinor: 100 });
+    expect(await service.feeFor("sim_a", "boleto", 4900, "BRL", new Date("2025-12-01T00:00:00Z"))).toBeNull(); // antes de qualquer vigencia
+  });
+
+  it("tabela desativada nao vale; o banco recusa taxa invalida", async () => {
+    await fee("sim_a", "boleto", 349, 0, "2026-01-01T00:00:00Z");
+    await pool.query(`UPDATE fmcc_saas_fee_schedule SET active=false WHERE provider_id='sim_a'`);
+    expect(await service.feeFor("sim_a", "boleto", 4900, "BRL")).toBeNull();
+    await expect(fee("sim_a", "pix", 0, 10001, "2026-01-01T00:00:00Z")).rejects.toThrow();
+    await expect(fee("sim_a", "cheque", 0, 1, "2026-01-01T00:00:00Z")).rejects.toThrow();
   });
 });
 

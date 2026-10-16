@@ -90,3 +90,27 @@ export const saasEvents = pgTable("fmcc_saas_event", {
   index("fmcc_saas_event_subscription_idx").on(t.subscriptionId),
   index("fmcc_saas_event_unmatched_idx").on(t.providerId, t.subscriptionRef).where(sql`${t.outcome} = 'unmatched'`),
 ]);
+
+/**
+ * Tabela de taxas de cada meio de cobranca (banco/PSP), por forma de pagamento. Nenhuma taxa fica no codigo: cada banco cobra
+ * o seu valor fixo e o seu percentual para boleto, PIX, cartao etc. e isso muda no tempo (vigencia). Percentual em centesimos de
+ * ponto percentual (basis points: 199 = 1,99%). Dinheiro em inteiro na menor unidade da moeda.
+ */
+export const saasFeeSchedules = pgTable("fmcc_saas_fee_schedule", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  providerId: text("provider_id").notNull(),
+  method: text("method").notNull(),
+  currency: text("currency").notNull(),
+  fixedMinor: integer("fixed_minor").notNull().default(0),
+  percentBps: integer("percent_bps").notNull().default(0),
+  minMinor: integer("min_minor").notNull().default(0),
+  maxMinor: integer("max_minor"),
+  effectiveFrom: timestamp("effective_from", { withTimezone: true }).notNull().defaultNow(),
+  active: boolean("active").notNull().default(true),
+}, (t) => [
+  uniqueIndex("fmcc_saas_fee_schedule_uq").on(t.providerId, t.method, t.currency, t.effectiveFrom),
+  check("fmcc_saas_fee_schedule_method_ck", sql`${t.method} in ('boleto','pix','card','transfer','other')`),
+  check("fmcc_saas_fee_schedule_currency_ck", sql`${t.currency} ~ '^[A-Z]{3}$'`),
+  check("fmcc_saas_fee_schedule_amounts_ck", sql`${t.fixedMinor} >= 0 and ${t.minMinor} >= 0 and (${t.maxMinor} is null or ${t.maxMinor} >= ${t.minMinor})`),
+  check("fmcc_saas_fee_schedule_percent_ck", sql`${t.percentBps} between 0 and 10000`),
+]);

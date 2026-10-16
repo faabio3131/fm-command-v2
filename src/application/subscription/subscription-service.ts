@@ -1,4 +1,5 @@
 import { PaymentProviderError, WebhookRejectedError, type PaymentProvider } from "@/domain/subscription/payment-provider";
+import { estimateFee, type FeeEstimate, type PaymentMethod } from "@/domain/subscription/fee-schedule";
 import { selectPrice } from "@/domain/subscription/plan";
 import { DEFAULT_GRACE_DAYS, isEntitled, type SubscriptionState } from "@/domain/subscription/subscription-state";
 import { requirePermission, type TenantContext } from "@/domain/security/tenant-context";
@@ -57,6 +58,15 @@ export class SubscriptionService {
     return { subscription: s ? this.view(s) : null, entitled: s ? isEntitled(s, this.clock(), this.graceDays) : false };
   }
 
+  /**
+   * Uso interno (conciliacao e margem): quanto o meio de cobranca retem de um pagamento, pela tabela de taxas configurada.
+   * Sem tabela configurada para esse meio/forma/moeda a resposta e null ("indisponivel"), nunca taxa zero presumida.
+   */
+  async feeFor(providerId: string, method: PaymentMethod, amountMinor: number, currency: string, at: Date = this.clock()): Promise<FeeEstimate | null> {
+    const schedule = await this.repo.feeScheduleAt(providerId, method, currency, at);
+    return schedule ? estimateFee(schedule, amountMinor, currency) : null;
+  }
+
   /** Uso interno (sem papel): a empresa tem direito de uso agora? */
   async isEntitled(tenantId: string): Promise<boolean> {
     const s = await this.repo.current(tenantId);
@@ -100,7 +110,12 @@ export class SubscriptionService {
       activeProvider = stored;
       // Reserva atomica: so um retomador por vez, e so se a posse anterior expirou.
       const claimed = await this.repo.claimResume(sub.id, CREATE_LEASE_MS);
-      if (!claimed) throw new SubscriptionError("subscription.in_progress", 409);
+      if (!claimed) {
+        // Perdeu a disputa: se o vencedor ja terminou, devolve o resultado dele; senao ainda esta em andamento.
+        const now = await this.repo.current(ctx.tenantId);
+        if (now && now.id === sub.id && now.state !== "creating") return { subscription: this.view(now), deduplicated: true };
+        throw new SubscriptionError("subscription.in_progress", 409);
+      }
       sub = claimed;
     }
     sub = await this.finishCreation(activeProvider, sub, { name: (c.name as string).trim(), email: c.email as string, taxId: (c.taxId as string | null | undefined) ?? null }, plan.name);
