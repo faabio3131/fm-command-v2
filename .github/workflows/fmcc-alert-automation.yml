@@ -40,9 +40,19 @@ jobs:
           echo "::add-mask::$FMCC_ALERT_AUTOMATION_SCHEDULER_SECRET"
           echo "configured=true" >> "$GITHUB_OUTPUT"
 
-      - name: Evaluate governed alert rules
+      # Ordem importa: números primeiro, depois alertas, depois relatórios (cada rodada já recalcula antes de usar; aqui é a
+      # rodada de segurança para empresas sem sincronização recente). Repetir qualquer rota é seguro (idempotentes).
+      - name: Recompute metrics, evaluate alerts, send due reports
         if: steps.config.outputs.configured == 'true'
         shell: bash
         run: |
           run_id="gha-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
-          curl             --fail-with-body             --silent             --show-error             --retry 2             --retry-all-errors             --max-time 45             --request POST             --header "Authorization: Bearer $FMCC_ALERT_AUTOMATION_SCHEDULER_SECRET"             --header "Idempotency-Key: $run_id"             --header "X-Correlation-ID: $run_id"             "${FMCC_AUTOMATION_BASE_URL%/}/api/internal/automation/alerts/evaluate"
+          for path in metrics/recompute alerts/evaluate reports/run; do
+            curl --fail-with-body --silent --show-error --retry 2 --retry-all-errors --max-time 45 \
+              --request POST \
+              --header "Authorization: Bearer $FMCC_ALERT_AUTOMATION_SCHEDULER_SECRET" \
+              --header "Idempotency-Key: $run_id-${path//\//-}" \
+              --header "X-Correlation-ID: $run_id" \
+              "${FMCC_AUTOMATION_BASE_URL%/}/api/internal/automation/$path"
+            echo
+          done
