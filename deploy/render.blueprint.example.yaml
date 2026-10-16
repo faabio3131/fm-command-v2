@@ -1,0 +1,22 @@
+# TARGET example only. Connect/rename only after explicit environment approval.
+services:
+  - type: web
+    name: fm-control-center-preview
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/health
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: BETTER_AUTH_SECRET
+        sync: false
+      - key: BETTER_AUTH_URL
+        sync: false
+      - key: RUN_MIGRATIONS_ON_STARTUP
+        value: "false"
+      - key: FMCC_COGNITIVE_MODEL_BASE_URL
+        sync: false
+      - key: FMCC_COGNITIVE_MODEL_API_KEY
+        sync: false
+      - key: FMCC_COGNITIVE_MODEL_ID
+        sync: false
