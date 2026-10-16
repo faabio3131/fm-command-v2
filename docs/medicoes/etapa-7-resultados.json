@@ -1,0 +1,146 @@
+{
+  "nota": "Modelos SIMULADOS e preços ILUSTRATIVOS. Tokens estimados a partir dos prompts reais. Não mede qualidade de modelo real.",
+  "simulacao": {
+    "planner": {
+      "acc": {
+        "easy": 0.98,
+        "hard": 0.9
+      },
+      "overconfidentWrong": 0.15,
+      "latencyMs": 1500,
+      "tokensOut": 60
+    },
+    "fast": {
+      "acc": {
+        "easy": 0.95,
+        "hard": 0.7
+      },
+      "overconfidentWrong": 0.3,
+      "latencyMs": 350,
+      "tokensOut": 25
+    }
+  },
+  "precos": {
+    "planner": {
+      "currency": "USD",
+      "inputMinorPerMillion": 300,
+      "outputMinorPerMillion": 1500
+    },
+    "fast": {
+      "currency": "USD",
+      "inputMinorPerMillion": 25,
+      "outputMinorPerMillion": 125
+    }
+  },
+  "casos": 48,
+  "porLimite": {
+    "0.7": {
+      "cases": 48,
+      "threshold": 0.7,
+      "planner": {
+        "name": "planejador (grande, simulado)",
+        "accuracy": 1,
+        "accuracyEasy": 1,
+        "accuracyHard": 1,
+        "costMicroMinor": 18271200,
+        "avgLatencyMs": 1765.6041666666667,
+        "p95LatencyMs": 2224,
+        "tokensIn": 46504,
+        "tokensOut": 2880
+      },
+      "fast": {
+        "name": "decisão rápida (pequeno, simulado)",
+        "accuracy": 0.8541666666666666,
+        "accuracyEasy": 1,
+        "accuracyHard": 0.5625,
+        "costMicroMinor": 578750,
+        "avgLatencyMs": 386.5208333333333,
+        "p95LatencyMs": 502,
+        "tokensIn": 17150,
+        "tokensOut": 1200
+      },
+      "agreement": 0.8541666666666666,
+      "escalationRate": 0.08333333333333333,
+      "acceptedAccuracy": 0.9318181818181818,
+      "confidentWrong": 3,
+      "cascade": {
+        "accuracy": 0.9375,
+        "costMicroMinor": 2102150,
+        "avgLatencyMs": 542.0416666666666,
+        "p95LatencyMs": 2047
+      }
+    },
+    "0.8": {
+      "cases": 48,
+      "threshold": 0.8,
+      "planner": {
+        "name": "planejador (grande, simulado)",
+        "accuracy": 1,
+        "accuracyEasy": 1,
+        "accuracyHard": 1,
+        "costMicroMinor": 18271200,
+        "avgLatencyMs": 1765.6041666666667,
+        "p95LatencyMs": 2224,
+        "tokensIn": 46504,
+        "tokensOut": 2880
+      },
+      "fast": {
+        "name": "decisão rápida (pequeno, simulado)",
+        "accuracy": 0.8541666666666666,
+        "accuracyEasy": 1,
+        "accuracyHard": 0.5625,
+        "costMicroMinor": 578750,
+        "avgLatencyMs": 386.5208333333333,
+        "p95LatencyMs": 502,
+        "tokensIn": 17150,
+        "tokensOut": 1200
+      },
+      "agreement": 0.8541666666666666,
+      "escalationRate": 0.08333333333333333,
+      "acceptedAccuracy": 0.9318181818181818,
+      "confidentWrong": 3,
+      "cascade": {
+        "accuracy": 0.9375,
+        "costMicroMinor": 2102150,
+        "avgLatencyMs": 542.0416666666666,
+        "p95LatencyMs": 2047
+      }
+    },
+    "0.9": {
+      "cases": 48,
+      "threshold": 0.9,
+      "planner": {
+        "name": "planejador (grande, simulado)",
+        "accuracy": 1,
+        "accuracyEasy": 1,
+        "accuracyHard": 1,
+        "costMicroMinor": 18271200,
+        "avgLatencyMs": 1765.6041666666667,
+        "p95LatencyMs": 2224,
+        "tokensIn": 46504,
+        "tokensOut": 2880
+      },
+      "fast": {
+        "name": "decisão rápida (pequeno, simulado)",
+        "accuracy": 0.8541666666666666,
+        "accuracyEasy": 1,
+        "accuracyHard": 0.5625,
+        "costMicroMinor": 578750,
+        "avgLatencyMs": 386.5208333333333,
+        "p95LatencyMs": 502,
+        "tokensIn": 17150,
+        "tokensOut": 1200
+      },
+      "agreement": 0.8541666666666666,
+      "escalationRate": 0.4375,
+      "acceptedAccuracy": 0.9629629629629629,
+      "confidentWrong": 1,
+      "cascade": {
+        "accuracy": 0.9791666666666666,
+        "costMicroMinor": 8574050,
+        "avgLatencyMs": 1177.3541666666667,
+        "p95LatencyMs": 2608
+      }
+    }
+  }
+}

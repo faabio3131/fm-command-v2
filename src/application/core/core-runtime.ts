@@ -5,6 +5,7 @@ import { OpenAiCompatibleProvider } from "@/infrastructure/core/openai-compatibl
 import { ProviderRouter } from "@/application/core/provider-router";
 import { AsyncCoreQueryService } from "@/application/core/async-core-query";
 import { createAiTaskHandler } from "@/application/core/ai-task-handler";
+import { createDecisionHandler } from "@/application/core/decision-handler";
 import { createCoreQueryHandler } from "@/application/core/core-query-handler";
 import { runWorker, type HandlerRegistry } from "@/application/core/work-worker";
 import { logEvent } from "@/infrastructure/observability/logger";
@@ -40,7 +41,7 @@ export function startCoreWorkers(): void {
   const handlers: HandlerRegistry = {
     core_query: createCoreQueryHandler({ router }),
     analysis: createAiTaskHandler(router), synthesis: createAiTaskHandler(router), attendance: createAiTaskHandler(router),
-    transcription: createAiTaskHandler(router), decision: createAiTaskHandler(router),
+    transcription: createAiTaskHandler(router), decision: createDecisionHandler(router),
   };
   const concurrency = intEnv("FMCC_CORE_WORKER_CONCURRENCY", 4, 1, 64);
   const options = {

@@ -40,6 +40,9 @@ Provedores novos exigem revisão de privacidade antes de receber dados de client
 
 **Limites:** só o adaptador compatível com OpenAI (sem Gemini); nenhum provedor real foi chamado; não há tela nem API para administrar provedores e rotas (hoje é SQL); a verificação de endereço olha o nome/IP escrito, não resolve DNS (sem proteção contra DNS malicioso); o disjuntor vale por processo, não é compartilhado entre processos; se o teto de simultâneas mudar com chamadas em andamento, a contagem recomeça (pico breve acima do limite); uma tarefa reentregue depois de perder a posse faz nova chamada paga e grava nova linha de uso (é custo real); `/api/core/query` ainda é síncrona e usa o provedor único da V1 — a ligação à fila é decisão de produto (resposta passa a ser assíncrona); o tipo "decisão" tem rota mas a avaliação de modelos é a etapa 7.
 
+## Implementação da etapa 7 (15/10/2026)
+O tipo `decision` tem executor próprio (`decision-handler.ts`): pedido fechado validado, prompt enxuto, resposta tipada com confiança e marca `needsHuman` abaixo do limite (padrão 0,8). Opções e intervalo vêm do pedido, não do modelo. Modelo escolhido pelo Diretor: Haiku (sem chave e sem gasto ainda). A avaliação em dados sintéticos usa modelos simulados e não prova qualidade real; ver `docs/medicoes/ETAPA-7-DECISOES-RAPIDAS.md`. O Core ainda não usa o atalho.
+
 ## Condições de revisão
 
 Revisar com os resultados das etapas de medição e de decisões rápidas.
