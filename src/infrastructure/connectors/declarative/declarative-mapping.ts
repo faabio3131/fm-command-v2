@@ -58,7 +58,7 @@ export function mapDeclarativeRecord(
     const raw = read(record, f.amount);
     const minor = f.amount.type === "minor"
       ? (typeof raw === "number" && Number.isSafeInteger(raw) ? raw : undefined)
-      : toMinorUnits(raw);
+      : toMinorUnits(raw, options.currency);
     if (minor === undefined) unavailable.push("amountMinor");
     else payload.amountMinor = minor;
   }

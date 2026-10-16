@@ -81,9 +81,9 @@ const ID = /^[a-z][a-z0-9_]{1,40}$/;
 const PARAM = /^[A-Za-z0-9_.\[\]-]{1,64}$/;
 const HEADER = /^[A-Za-z0-9-]{1,64}$/;
 const VAR_NAME = /^[a-z][a-zA-Z0-9]{0,31}$/;
-const PATH_SEGMENT = /^[A-Za-z0-9_.\-/{}~%]*$/;
+const PATH_SEGMENT = /^[A-Za-z0-9_.\-/{}~]*$/;
 
-export const VARIABLE_VALUE = /^[A-Za-z0-9._-]{1,64}$/;
+export const VARIABLE_VALUE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
 
 function isObject(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);

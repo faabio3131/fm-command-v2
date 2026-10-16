@@ -283,3 +283,20 @@ describe("8E motor declarativo: OAuth", () => {
     await expect(connector.pull(context, source)).rejects.toBeInstanceOf(ConnectorAuthError);
   });
 });
+
+describe("8E correções da revisão", () => {
+  it("moeda sem centavos e com 3 casas; casas a mais viram ausente", async () => {
+    const { toMinorUnits } = await import("@/infrastructure/connectors/money");
+    expect(toMinorUnits("1500", "JPY")).toBe(1500);
+    expect(toMinorUnits("1.234", "KWD")).toBe(1234);
+    expect(toMinorUnits("10.005", "USD")).toBeUndefined();
+    expect(toMinorUnits("10.50", "USD")).toBe(1050);
+    expect(Object.is(toMinorUnits("-0"), 0)).toBe(true);
+  });
+  it("variável só de pontos ou começando por ponto é recusada", async () => {
+    const { VARIABLE_VALUE } = await import("@/domain/integration/connector-definition");
+    expect(VARIABLE_VALUE.test("..")).toBe(false);
+    expect(VARIABLE_VALUE.test(".x")).toBe(false);
+    expect(VARIABLE_VALUE.test("acc-1.v2")).toBe(true);
+  });
+});

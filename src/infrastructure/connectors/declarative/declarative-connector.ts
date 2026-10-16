@@ -39,6 +39,8 @@ interface Cursor {
   p: number;
   since?: string;
   w?: string;
+  /** impressão da primeira linha da página anterior (detecta API que ignora a página) */
+  h?: string;
 }
 
 function validDay(value: unknown): value is string {
@@ -125,7 +127,7 @@ export class DeclarativeRestConnector implements Connector {
     limits: { requestsPerMinute: number; maxConcurrent: number },
   ) {
     const headers = await this.headers(context, source);
-    const key = `${context.tenantId}:${this.def.id}:${new URL(url).pathname}`;
+    const key = `${context.tenantId}:${this.def.id}:${source.secretRef ?? source.id}`;
     let response;
     try {
       response = await this.deps.limiter.run(
@@ -171,7 +173,7 @@ export class DeclarativeRestConnector implements Connector {
       !Number.isInteger(c.p) || (c.p as number) < 0 || (c.p as number) > MAX_PAGE ||
       (c.since !== undefined && !validDay(c.since)) || (c.w !== undefined && !validDay(c.w))
     ) throw new ConnectorConfigError("integration.connector_cursor_invalid");
-    return { s: c.s, p: c.p as number, since: c.since, w: c.w };
+    return { s: c.s, p: c.p as number, since: c.since, w: c.w, h: typeof c.h === "string" && c.h.length <= 128 ? c.h : undefined };
   }
 
   async pull(context: ConnectorContext, source: SourceDefinition, rawCursor?: string): Promise<ConnectorPullResult> {
@@ -212,13 +214,16 @@ export class DeclarativeRestConnector implements Connector {
     }
 
     const totalRaw = pg.totalPagesPath ? getPath(body, pg.totalPagesPath) : undefined;
-    const hasMore = typeof totalRaw === "number" && Number.isInteger(totalRaw) && totalRaw >= 1
-      ? cursor.p < totalRaw
-      : list.length >= pg.size;
+    const firstPage = pg.style === "page" ? pg.startPage ?? 1 : 1;
+    const fingerprint = list.length ? JSON.stringify(list[0]).slice(0, 128) : undefined;
+    const repeated = fingerprint !== undefined && fingerprint === cursor.h;
+    const hasMore = !repeated && (typeof totalRaw === "number" && Number.isInteger(totalRaw) && totalRaw >= 1
+      ? cursor.p < totalRaw - 1 + firstPage
+      : list.length >= pg.size);
 
     let next: Cursor;
     if (hasMore && cursor.p < MAX_PAGE) {
-      next = { s: stream.name, p: cursor.p + 1, since: cursor.since, w: cycleDay };
+      next = { s: stream.name, p: cursor.p + 1, since: cursor.since, w: cycleDay, h: fingerprint };
     } else if (index + 1 < this.def.streams.length) {
       const nx = this.def.streams[index + 1];
       next = { s: nx.name, p: nx.pagination.style === "page" ? nx.pagination.startPage ?? 1 : 1, since: cursor.since, w: cycleDay };

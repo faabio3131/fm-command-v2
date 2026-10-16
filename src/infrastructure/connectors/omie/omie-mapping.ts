@@ -94,7 +94,7 @@ export function mapOmieRecord(
   const unavailable: string[] = [];
   const payload: Record<string, unknown> = { currency: options.currency };
 
-  const amount = toMinorUnits(r.valor_documento);
+  const amount = toMinorUnits(r.valor_documento, options.currency);
   if (amount === undefined) unavailable.push("amountMinor");
   else payload.amountMinor = amount;
 

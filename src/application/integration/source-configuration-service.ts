@@ -139,6 +139,8 @@ export class SourceConfigurationService {
     const entry = this.entry(source.sourceType);
     const incoming = await this.validate(context, entry, patch);
     const merged = { ...source.config, ...incoming };
+    const vars = (merged.variables ?? {}) as Record<string, string>;
+    for (const name of entry.variables) if (!vars[name]) throw new SourceConfigInvalidError(`variables.${name}`);
     await this.deps.sources.updateConfig(context.tenantId, source.id, merged);
     return merged;
   }

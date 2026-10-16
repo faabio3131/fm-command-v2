@@ -102,7 +102,7 @@ export async function POST(request: Request) {
       );
     }
 
-    if (catalogEntry(body.sourceType)) {
+    if (catalogEntry(body.sourceType.trim())) {
       // Conectores do catálogo só nascem por /api/sources/from-catalog, onde a configuração é validada.
       return NextResponse.json({ error: "integration.use_catalog" }, { status: 400 });
     }
