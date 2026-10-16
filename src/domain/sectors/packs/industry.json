@@ -1,0 +1,202 @@
+{
+  "id": "industry",
+  "version": 1,
+  "label": {
+    "pt-BR": "Indústria",
+    "en-US": "Industry"
+  },
+  "description": {
+    "pt-BR": "Ordens de produção, refugo e compras, por unidade fabril.",
+    "en-US": "Production orders, scrap and purchasing, by plant."
+  },
+  "facts": [
+    {
+      "factType": "industry.production_order",
+      "money": false,
+      "description": {
+        "pt-BR": "Uma ordem de produção do sistema de gestão da fábrica.",
+        "en-US": "One production order from the plant management system."
+      },
+      "statusMeaning": {
+        "open": {
+          "pt-BR": "Em produção, dentro do prazo",
+          "en-US": "In production, on schedule"
+        },
+        "overdue": {
+          "pt-BR": "Em produção e atrasada",
+          "en-US": "In production and late"
+        },
+        "settled": {
+          "pt-BR": "Concluída",
+          "en-US": "Completed"
+        },
+        "cancelled": {
+          "pt-BR": "Cancelada",
+          "en-US": "Cancelled"
+        }
+      }
+    },
+    {
+      "factType": "industry.scrap",
+      "money": true,
+      "description": {
+        "pt-BR": "Um lançamento de refugo ou perda, com o custo.",
+        "en-US": "One scrap or loss entry, with its cost."
+      },
+      "statusMeaning": {
+        "settled": {
+          "pt-BR": "Apurado",
+          "en-US": "Recorded"
+        }
+      }
+    },
+    {
+      "factType": "industry.purchase_order",
+      "money": true,
+      "description": {
+        "pt-BR": "Uma ordem de compra de insumos, com o valor.",
+        "en-US": "One purchase order for inputs, with its value."
+      },
+      "statusMeaning": {
+        "open": {
+          "pt-BR": "Aberta, dentro do prazo",
+          "en-US": "Open, on time"
+        },
+        "overdue": {
+          "pt-BR": "Aberta e atrasada",
+          "en-US": "Open and late"
+        },
+        "settled": {
+          "pt-BR": "Recebida",
+          "en-US": "Received"
+        }
+      }
+    }
+  ],
+  "metrics": [
+    {
+      "id": "industry.orders.in_progress.count",
+      "kind": "count",
+      "factType": "industry.production_order",
+      "grain": "as_of",
+      "statuses": [
+        "open",
+        "overdue"
+      ],
+      "name": {
+        "pt-BR": "Ordens em produção",
+        "en-US": "Orders in production"
+      },
+      "description": {
+        "pt-BR": "Ordens de produção ainda não concluídas.",
+        "en-US": "Production orders not yet completed."
+      }
+    },
+    {
+      "id": "industry.orders.late.count",
+      "kind": "count",
+      "factType": "industry.production_order",
+      "grain": "as_of",
+      "statuses": [
+        "overdue"
+      ],
+      "name": {
+        "pt-BR": "Ordens atrasadas",
+        "en-US": "Late orders"
+      },
+      "description": {
+        "pt-BR": "Ordens em produção fora do prazo.",
+        "en-US": "Production orders past their due date."
+      }
+    },
+    {
+      "id": "industry.orders.completed.count",
+      "kind": "count",
+      "factType": "industry.production_order",
+      "grain": "period",
+      "statuses": [
+        "settled"
+      ],
+      "name": {
+        "pt-BR": "Ordens concluídas",
+        "en-US": "Orders completed"
+      },
+      "description": {
+        "pt-BR": "Ordens concluídas no mês corrente.",
+        "en-US": "Orders completed in the current month."
+      }
+    },
+    {
+      "id": "industry.scrap.cost",
+      "kind": "sum",
+      "factType": "industry.scrap",
+      "grain": "period",
+      "statuses": [
+        "settled"
+      ],
+      "name": {
+        "pt-BR": "Custo de refugo",
+        "en-US": "Scrap cost"
+      },
+      "description": {
+        "pt-BR": "Custo do refugo apurado no mês corrente.",
+        "en-US": "Cost of scrap recorded in the current month."
+      }
+    },
+    {
+      "id": "industry.purchases.open_amount",
+      "kind": "sum",
+      "factType": "industry.purchase_order",
+      "grain": "as_of",
+      "statuses": [
+        "open",
+        "overdue"
+      ],
+      "name": {
+        "pt-BR": "Compras em aberto",
+        "en-US": "Open purchases"
+      },
+      "description": {
+        "pt-BR": "Valor das ordens de compra ainda não recebidas.",
+        "en-US": "Value of purchase orders not yet received."
+      }
+    }
+  ],
+  "sections": [
+    {
+      "title": {
+        "pt-BR": "Produção",
+        "en-US": "Production"
+      },
+      "metricIds": [
+        "industry.orders.in_progress.count",
+        "industry.orders.late.count",
+        "industry.orders.completed.count"
+      ]
+    },
+    {
+      "title": {
+        "pt-BR": "Custos e compras",
+        "en-US": "Costs and purchasing"
+      },
+      "metricIds": [
+        "industry.scrap.cost",
+        "industry.purchases.open_amount"
+      ]
+    }
+  ],
+  "suggestedReport": {
+    "name": {
+      "pt-BR": "Operação da fábrica",
+      "en-US": "Plant operation"
+    },
+    "metricIds": [
+      "industry.orders.in_progress.count",
+      "industry.orders.late.count",
+      "industry.orders.completed.count",
+      "industry.scrap.cost"
+    ],
+    "frequency": "weekly",
+    "hour": 8
+  }
+}

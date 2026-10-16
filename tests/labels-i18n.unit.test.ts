@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import * as pt from "../src/presentation/pt-br";
 import { createLabels } from "../src/presentation/labels";
-import { METRIC_REGISTRY } from "../src/domain/metrics/registry";
+import { BASE_METRIC_REGISTRY, METRIC_REGISTRY } from "../src/domain/metrics/registry";
 import { ptBR } from "../src/i18n/messages/pt-BR";
 
 describe("rótulos por idioma", () => {
@@ -55,8 +55,11 @@ describe("rótulos por idioma", () => {
 
 describe("comparação entre filiais (9B)", () => {
   it("toda métrica do registro tem nome nos dois idiomas (o seletor da tela de Filiais lista o registro inteiro)", () => {
-    for (const m of METRIC_REGISTRY) {
+    // Métricas de pacote por setor trazem o nome no próprio pacote (validado nos dois idiomas); aqui entra o catálogo da plataforma.
+    for (const m of BASE_METRIC_REGISTRY) {
       expect(`label.metricName.${m.metricId}` in ptBR, m.metricId).toBe(true);
+    }
+    for (const m of METRIC_REGISTRY) {
       expect(createLabels("en-US").metricName(m.metricId, "FALLBACK"), m.metricId).not.toBe("FALLBACK");
     }
   });

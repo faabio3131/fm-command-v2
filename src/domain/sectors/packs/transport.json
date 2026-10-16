@@ -1,0 +1,183 @@
+{
+  "id": "transport",
+  "version": 1,
+  "label": {
+    "pt-BR": "Transporte e logística",
+    "en-US": "Transport and logistics"
+  },
+  "description": {
+    "pt-BR": "Entregas, frete e manutenção da frota, por filial.",
+    "en-US": "Deliveries, freight and fleet maintenance, by branch."
+  },
+  "facts": [
+    {
+      "factType": "transport.delivery",
+      "money": true,
+      "description": {
+        "pt-BR": "Uma entrega (viagem ou romaneio) do sistema de transporte, com o valor do frete.",
+        "en-US": "One delivery (trip or manifest) from the transport system, with the freight value."
+      },
+      "statusMeaning": {
+        "open": {
+          "pt-BR": "Em trânsito ou programada, dentro do prazo",
+          "en-US": "In transit or scheduled, on time"
+        },
+        "overdue": {
+          "pt-BR": "Atrasada em relação ao prazo prometido",
+          "en-US": "Late against the promised date"
+        },
+        "settled": {
+          "pt-BR": "Entregue",
+          "en-US": "Delivered"
+        },
+        "cancelled": {
+          "pt-BR": "Cancelada",
+          "en-US": "Cancelled"
+        }
+      }
+    },
+    {
+      "factType": "transport.maintenance",
+      "money": true,
+      "description": {
+        "pt-BR": "Uma ordem de manutenção de veículo, com o custo.",
+        "en-US": "One vehicle maintenance order, with its cost."
+      },
+      "statusMeaning": {
+        "settled": {
+          "pt-BR": "Concluída",
+          "en-US": "Completed"
+        },
+        "open": {
+          "pt-BR": "Em andamento",
+          "en-US": "In progress"
+        }
+      }
+    }
+  ],
+  "metrics": [
+    {
+      "id": "transport.deliveries.completed.count",
+      "kind": "count",
+      "factType": "transport.delivery",
+      "grain": "period",
+      "statuses": [
+        "settled"
+      ],
+      "name": {
+        "pt-BR": "Entregas concluídas",
+        "en-US": "Deliveries completed"
+      },
+      "description": {
+        "pt-BR": "Entregas concluídas no mês corrente.",
+        "en-US": "Deliveries completed in the current month."
+      }
+    },
+    {
+      "id": "transport.deliveries.in_transit.count",
+      "kind": "count",
+      "factType": "transport.delivery",
+      "grain": "as_of",
+      "statuses": [
+        "open",
+        "overdue"
+      ],
+      "name": {
+        "pt-BR": "Entregas em andamento",
+        "en-US": "Deliveries in progress"
+      },
+      "description": {
+        "pt-BR": "Entregas ainda não concluídas, no prazo ou atrasadas.",
+        "en-US": "Deliveries not yet completed, on time or late."
+      }
+    },
+    {
+      "id": "transport.deliveries.late.count",
+      "kind": "count",
+      "factType": "transport.delivery",
+      "grain": "as_of",
+      "statuses": [
+        "overdue"
+      ],
+      "name": {
+        "pt-BR": "Entregas atrasadas",
+        "en-US": "Late deliveries"
+      },
+      "description": {
+        "pt-BR": "Entregas em andamento já fora do prazo prometido.",
+        "en-US": "Deliveries in progress already past the promised date."
+      }
+    },
+    {
+      "id": "transport.freight.revenue",
+      "kind": "sum",
+      "factType": "transport.delivery",
+      "grain": "period",
+      "statuses": [
+        "settled"
+      ],
+      "name": {
+        "pt-BR": "Frete faturado",
+        "en-US": "Freight billed"
+      },
+      "description": {
+        "pt-BR": "Soma do frete das entregas concluídas no mês corrente.",
+        "en-US": "Sum of the freight of deliveries completed in the current month."
+      }
+    },
+    {
+      "id": "transport.fleet.maintenance_cost",
+      "kind": "sum",
+      "factType": "transport.maintenance",
+      "grain": "period",
+      "statuses": [
+        "settled"
+      ],
+      "name": {
+        "pt-BR": "Custo de manutenção da frota",
+        "en-US": "Fleet maintenance cost"
+      },
+      "description": {
+        "pt-BR": "Custo das manutenções concluídas no mês corrente.",
+        "en-US": "Cost of maintenance completed in the current month."
+      }
+    }
+  ],
+  "sections": [
+    {
+      "title": {
+        "pt-BR": "Entregas",
+        "en-US": "Deliveries"
+      },
+      "metricIds": [
+        "transport.deliveries.completed.count",
+        "transport.deliveries.in_transit.count",
+        "transport.deliveries.late.count"
+      ]
+    },
+    {
+      "title": {
+        "pt-BR": "Resultado da frota",
+        "en-US": "Fleet results"
+      },
+      "metricIds": [
+        "transport.freight.revenue",
+        "transport.fleet.maintenance_cost"
+      ]
+    }
+  ],
+  "suggestedReport": {
+    "name": {
+      "pt-BR": "Operação de transporte",
+      "en-US": "Transport operation"
+    },
+    "metricIds": [
+      "transport.deliveries.completed.count",
+      "transport.deliveries.late.count",
+      "transport.freight.revenue",
+      "transport.fleet.maintenance_cost"
+    ],
+    "frequency": "weekly",
+    "hour": 8
+  }
+}

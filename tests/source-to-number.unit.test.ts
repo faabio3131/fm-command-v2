@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { MetricRecomputeService } from "@/application/metrics/metric-recompute-service";
 import { computeMetric, minorToDecimalText, type MetricFact } from "@/domain/metrics/metric-engine";
-import { getMetricDefinition, METRIC_REGISTRY } from "@/domain/metrics/registry";
+import { BASE_METRIC_REGISTRY, getMetricDefinition } from "@/domain/metrics/registry";
 
 const fact = (id: string, factType: string, payload: Record<string, unknown>): MetricFact => ({ id, externalId: id, factType, payload, sourceTimestamp: new Date("2026-10-10T00:00:00Z"), provenanceRef: id });
 const open = getMetricDefinition("finance.receivable.open_amount")!;
@@ -45,7 +45,7 @@ describe("métricas de receber e pagar vindas dos fatos do ERP", () => {
   it("métricas antigas continuam iguais (sem status nem escala)", () => {
     const cash = getMetricDefinition("revenue.cash_collected")!;
     expect(computeMetric(cash, [fact("p", "payment.settled", { amount: "10.50", currency: "BRL" })])).toMatchObject({ value: "10.5" });
-    expect(METRIC_REGISTRY.filter((m) => m.valueScale === "minor")).toHaveLength(4);
+    expect(BASE_METRIC_REGISTRY.filter((m) => m.valueScale === "minor")).toHaveLength(4);
   });
 });
 

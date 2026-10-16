@@ -1,3 +1,4 @@
+import { PACK_METRIC_DEFINITIONS } from "@/domain/sectors/catalog";
 export type MetricKind = "count" | "sum";
 export type MetricGrain = "period" | "as_of";
 
@@ -23,7 +24,7 @@ export interface MetricDefinition {
   readonly sourceAuthority: string;
 }
 
-export const METRIC_REGISTRY: readonly MetricDefinition[] = [
+export const BASE_METRIC_REGISTRY: readonly MetricDefinition[] = [
   {
     metricId: "trial.starts.count", version: 1, calculationVersion: "v1",
     displayName: "Testes gratuitos iniciados", description: "Testes gratuitos distintos iniciados no período.",
@@ -150,6 +151,9 @@ export const METRIC_REGISTRY: readonly MetricDefinition[] = [
     grain: "as_of", dimensions: ["currency"], timeWindow: "as_of", freshnessPolicy: "source_governed", sourceAuthority: "configured_erp_source",
   },
 ] as const;
+
+/** Métricas da plataforma + as dos pacotes por setor (o pacote que a empresa não ligou só não aparece nas telas dela). */
+export const METRIC_REGISTRY: readonly MetricDefinition[] = [...BASE_METRIC_REGISTRY, ...PACK_METRIC_DEFINITIONS];
 
 export function getMetricDefinition(metricId: string): MetricDefinition | null {
   return METRIC_REGISTRY.find((item) => item.metricId === metricId) ?? null;
