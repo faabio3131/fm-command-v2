@@ -1,4 +1,5 @@
-import { index, integer, jsonb, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { foreignKey, index, integer, jsonb, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { orgUnits } from "./unit-schema";
 
 export const productDefinitions = pgTable("fmcc_product_definition", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -58,6 +59,7 @@ export const canonicalFacts = pgTable("fmcc_canonical_fact", {
   id: uuid("id").defaultRandom().primaryKey(),
   tenantId: text("tenant_id").notNull(),
   productId: uuid("product_id"),
+  unitId: uuid("unit_id"),
   sourceId: uuid("source_id").notNull(),
   externalId: text("external_id").notNull(),
   factType: text("fact_type").notNull(),
@@ -70,6 +72,8 @@ export const canonicalFacts = pgTable("fmcc_canonical_fact", {
   uniqueIndex("fmcc_fact_dedupe_uq").on(t.tenantId, t.sourceId, t.externalId, t.mappingVersion),
   index("fmcc_fact_tenant_type_time_idx").on(t.tenantId, t.factType, t.sourceTimestamp),
   index("fmcc_fact_tenant_product_type_time_idx").on(t.tenantId, t.productId, t.factType, t.sourceTimestamp),
+  index("fmcc_fact_tenant_unit_type_time_idx").on(t.tenantId, t.unitId, t.factType, t.sourceTimestamp),
+  foreignKey({ columns: [t.tenantId, t.unitId], foreignColumns: [orgUnits.tenantId, orgUnits.id], name: "fmcc_fact_unit_fk" }),
 ]);
 
 export const monitoredServices = pgTable("fmcc_monitored_service", {
@@ -109,6 +113,7 @@ export const metricValues = pgTable("fmcc_metric_value", {
   id: uuid("id").defaultRandom().primaryKey(),
   tenantId: text("tenant_id").notNull(),
   productId: uuid("product_id"),
+  unitId: uuid("unit_id"),
   metricId: text("metric_id").notNull(),
   metricVersion: integer("metric_version").notNull(),
   value: text("value"),
@@ -126,4 +131,6 @@ export const metricValues = pgTable("fmcc_metric_value", {
 }, (t) => [
   index("fmcc_metric_tenant_metric_time_idx").on(t.tenantId, t.metricId, t.computedAt),
   index("fmcc_metric_tenant_product_metric_time_idx").on(t.tenantId, t.productId, t.metricId, t.computedAt),
+  index("fmcc_metric_tenant_unit_metric_time_idx").on(t.tenantId, t.unitId, t.metricId, t.computedAt),
+  foreignKey({ columns: [t.tenantId, t.unitId], foreignColumns: [orgUnits.tenantId, orgUnits.id], name: "fmcc_metric_unit_fk" }),
 ]);
