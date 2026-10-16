@@ -38,9 +38,10 @@ Legenda: ✅ fechado e provado por teste interno · 🔌 depende de terceiro (fa
 **Primeira instalação / atualização**
 1. Backup do banco antes de qualquer migração (código volta com redeploy; **banco não volta sozinho**).
 2. Variáveis obrigatórias: `DATABASE_URL`, `BETTER_AUTH_URL`, `BETTER_AUTH_SECRET`, `FMCC_CREDENTIAL_KEY` (32 bytes base64; **perder a chave = perder as chaves de ERP/canal guardadas**; não há rodízio ainda), `FMCC_ALERT_AUTOMATION_SCHEDULER_SECRET`. Cognitivo: `FMCC_COGNITIVE_MODEL_*` (teto de gasto 🛑).
-3. Migrações: 0000–0025 (`RUN_MIGRATIONS_ON_STARTUP=true` ou `npm run db:migrate`). O CI confere a contagem contra o diário.
+3. Migrações: 0000–0026 (`RUN_MIGRATIONS_ON_STARTUP=true` ou `npm run db:migrate`). O CI confere a contagem contra o diário.
 4. Pós-deploy: `/api/health`, `/api/ready`, `/api/version` (SHA certo), entrar, criar empresa, abrir Fontes/Canais/Relatórios/Setores.
-5. Canais simulados só com `FMCC_CHANNEL_SIMULATED=1` (+ `FMCC_CHANNEL_ALLOW_SIMULATED=1` em produção). **Em produção real, deixar desligado.**
+5. Agente piloto (resumo semanal): precisa de uma rota de IA para a tarefa `synthesis` e de um orçamento definido pelo proprietário em Agentes; sem isso fica desligado. O gasto é limitado pelo teto mensal, mas o custo real depende do preço configurado do provedor.
+6. Canais simulados só com `FMCC_CHANNEL_SIMULATED=1` (+ `FMCC_CHANNEL_ALLOW_SIMULATED=1` em produção). **Em produção real, deixar desligado.**
 
 **Reverter:** redeploy do SHA anterior. Migrações da V2 só adicionam tabelas/colunas/índices; ainda assim, não restaurar banco sem decisão.
 

@@ -183,6 +183,13 @@
       "when": 1792186037097,
       "tag": "0025_sector_packs",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1792190663389,
+      "tag": "0026_agent_pilot",
+      "breakpoints": true
     }
   ]
 }
