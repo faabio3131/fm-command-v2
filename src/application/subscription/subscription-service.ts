@@ -1,4 +1,3 @@
-import { randomUUID } from "node:crypto";
 import { PaymentProviderError, WebhookRejectedError, type PaymentProvider } from "@/domain/subscription/payment-provider";
 import { selectPrice } from "@/domain/subscription/plan";
 import { DEFAULT_GRACE_DAYS, isEntitled, type SubscriptionState } from "@/domain/subscription/subscription-state";
@@ -19,7 +18,8 @@ export interface PublicSubscription {
 
 const NAME = (v: unknown) => typeof v === "string" && v.trim().length >= 2 && v.length <= 200;
 const EMAIL = (v: unknown) => typeof v === "string" && v.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
-const IN_PROGRESS_MS = 30_000;
+/** Posse da criacao: maior que a soma dos tempos limite das 3 chamadas ao provedor (3 x 10 s). Cada chamada renova a posse. */
+const CREATE_LEASE_MS = 60_000;
 const KEY = /^[\x21-\x7e]{1,128}$/;
 
 export class SubscriptionService {
@@ -68,7 +68,9 @@ export class SubscriptionService {
     const c = (input.customer ?? {}) as Record<string, unknown>;
     if (typeof input.planId !== "string" || !NAME(c.name) || !EMAIL(c.email) || (c.taxId != null && !(typeof c.taxId === "string" && c.taxId.length <= 32)))
       throw new SubscriptionError("subscription.input_invalid", 400);
-    const key = input.idempotencyKey == null || input.idempotencyKey === "" ? randomUUID() : input.idempotencyKey;
+    // A chave e obrigatoria: sem ela, uma falha incerta deixaria a empresa presa em "creating" sem como retomar.
+    const key = input.idempotencyKey;
+    if (key == null || key === "") throw new SubscriptionError("subscription.idempotency_key_required", 400);
     if (typeof key !== "string" || !KEY.test(key)) throw new SubscriptionError("subscription.input_invalid", 400);
 
     const profile = await this.repo.orgProfile(ctx.tenantId);
@@ -87,14 +89,21 @@ export class SubscriptionService {
     catch (e) { if (e instanceof LiveSubscriptionExistsError) throw new SubscriptionError("subscription.already_exists", 409); throw e; }
 
     let sub = reserved.row;
+    let activeProvider = provider;
     if (!reserved.inserted) {
       // Mesma chave: devolve o que ja existe; so uma criacao interrompida ("creating") e retomada.
       if (sub.state === "failed") throw new SubscriptionError("subscription.failed", 409);
       if (sub.state !== "creating") return { subscription: this.view(sub), deduplicated: true };
-      // Outra requisicao ainda criando (atividade recente): nao disputa. Parada ha mais de 30 s: e uma criacao interrompida, retoma.
-      if (sub.idleMs < IN_PROGRESS_MS) throw new SubscriptionError("subscription.in_progress", 409);
+      // A retomada usa o provedor GRAVADO na assinatura, nunca a rota de hoje (a rota pode ter mudado).
+      const stored = this.providers.get(sub.providerId);
+      if (!stored) throw new SubscriptionError("subscription.provider_unavailable", 503);
+      activeProvider = stored;
+      // Reserva atomica: so um retomador por vez, e so se a posse anterior expirou.
+      const claimed = await this.repo.claimResume(sub.id, CREATE_LEASE_MS);
+      if (!claimed) throw new SubscriptionError("subscription.in_progress", 409);
+      sub = claimed;
     }
-    sub = await this.finishCreation(provider, sub, { name: (c.name as string).trim(), email: c.email as string, taxId: (c.taxId as string | null | undefined) ?? null }, plan.name);
+    sub = await this.finishCreation(activeProvider, sub, { name: (c.name as string).trim(), email: c.email as string, taxId: (c.taxId as string | null | undefined) ?? null }, plan.name);
     return { subscription: this.view(sub), deduplicated: !reserved.inserted };
   }
 
@@ -103,24 +112,27 @@ export class SubscriptionService {
     try {
       let customerRef = sub.providerCustomerRef;
       if (!customerRef) {
+        await this.repo.touch(sub.id);
         customerRef = (await provider.createCustomer({ ...customer, externalReference: sub.id })).customerRef;
         await this.repo.setCustomer(sub.id, customerRef);
       }
+      await this.repo.touch(sub.id);
       const found = await provider.findSubscriptionByReference(sub.id);
+      if (!found) await this.repo.touch(sub.id);
       const created = found ?? await provider.createSubscription({
         customerRef, price: { amountMinor: sub.priceAmountMinor, currency: sub.currency }, interval: sub.interval, externalReference: sub.id,
         description: `FM Command - ${planName}`, firstDueDate: this.clock().toISOString().slice(0, 10),
       });
-      const pending = await this.repo.markPending(sub.id, created.subscriptionRef, created.checkoutUrl);
-      // Se o provedor ja avisou do pagamento antes de a referencia estar gravada, o aviso foi guardado e e aplicado agora.
-      if (await this.repo.replayUnmatched(provider.id, created.subscriptionRef) > 0) return (await this.repo.current(sub.tenantId)) ?? pending;
-      return pending;
+      // Grava a referencia e reaplica, na mesma transacao, os avisos que o provedor mandou antes de ela existir.
+      return await this.repo.markPending(sub.id, provider.id, created.subscriptionRef, created.checkoutUrl);
     } catch (e) {
       if (e instanceof PaymentProviderError) {
         // Recusa definitiva: encerra. Incerta/transitoria: continua "creating"; repetir com a mesma chave recupera.
         if (e.kind === "rejected") { await this.repo.markFailed(sub.id); throw new SubscriptionError("subscription.provider_rejected", 422); }
         throw new SubscriptionError("subscription.provider_unavailable", 503);
       }
+      // Falta de chave/segredo do provedor e problema de configuracao temporario: a criacao continua retomavel.
+      if (e instanceof Error && e.name === "GatewaySecretError") throw new SubscriptionError("subscription.provider_unavailable", 503);
       throw e;
     }
   }

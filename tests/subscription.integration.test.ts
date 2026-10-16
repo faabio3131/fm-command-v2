@@ -37,9 +37,10 @@ beforeEach(async () => {
 });
 afterAll(clean);
 
-const subscribe = (t: string, key?: string) => service.subscribe(ctx(t), { planId: "saas-it-pro", customer, idempotencyKey: key });
+let autoKey = 0;
+const subscribe = (t: string, key?: string) => service.subscribe(ctx(t), { planId: "saas-it-pro", customer, idempotencyKey: key ?? `auto-${++autoKey}` });
 /** Faz a linha parecer parada ha 1 minuto (relogio do banco), como uma criacao interrompida de verdade. */
-const age = (t: string) => pool.query(`UPDATE fmcc_saas_subscription SET updated_at = now() - interval '60 seconds' WHERE tenant_id=$1`, [`${TP}${t}`]);
+const age = (t: string) => pool.query(`UPDATE fmcc_saas_subscription SET updated_at = now() - interval '120 seconds' WHERE tenant_id=$1`, [`${TP}${t}`]);
 const refOf = async (t: string) => (await repo.current(`${TP}${t}`))!.providerSubscriptionRef!;
 const hook = (sim: SimulatedPaymentProvider, ref: string, type: Parameters<SimulatedPaymentProvider["makeWebhook"]>[0]["type"], eventId: string, amountMinor?: number, currency = "BRL") =>
   sim.makeWebhook({ eventId, type, subscriptionRef: ref, amountMinor, currency, occurredAt: now });
@@ -60,7 +61,7 @@ describe("oferta por moeda e pais", () => {
   it("recusa entrada invalida, plano inexistente e empresa sem preco na moeda", async () => {
     for (const bad of [{ planId: 5, customer }, { planId: "saas-it-pro", customer: { name: "x", email: "a@b.co" } }, { planId: "saas-it-pro", customer: { name: "Maria", email: "ruim" } }, { planId: "saas-it-pro", customer, idempotencyKey: "tem espaco" }])
       await expect(service.subscribe(ctx("br"), bad)).rejects.toMatchObject({ code: "subscription.input_invalid" });
-    await expect(service.subscribe(ctx("br"), { planId: "nao-existe", customer })).rejects.toMatchObject({ code: "subscription.plan_not_found" });
+    await expect(service.subscribe(ctx("br"), { planId: "nao-existe", customer, idempotencyKey: "kx" })).rejects.toMatchObject({ code: "subscription.plan_not_found" });
     await expect(subscribe("eu")).rejects.toMatchObject({ code: "subscription.no_price_for_currency" });
   });
 });
@@ -168,10 +169,69 @@ describe("falhas do provedor e idempotencia", () => {
     const early = simA.makeWebhook({ eventId: "early1", type: "payment_confirmed", subscriptionRef: "sim_a_sub_corrida", amountMinor: 4900, currency: "BRL", occurredAt: now });
     expect(await service.handleWebhook("sim_a", early.headers, early.body)).toBe("unmatched");
     const { row } = await repo.reserve({ tenantId: t, planId: "saas-it-pro", price, providerId: "sim_a", idempotencyKey: "kc", createdBy: "u" });
-    await repo.markPending(row.id, "sim_a_sub_corrida", null);
-    expect(await repo.replayUnmatched("sim_a", "sim_a_sub_corrida")).toBe(1);
-    expect((await repo.current(t))).toMatchObject({ state: "active" });
-    expect(await repo.replayUnmatched("sim_a", "sim_a_sub_corrida")).toBe(0); // nao reaplica duas vezes
+    // markPending grava a referencia e reaplica os avisos guardados, na mesma transacao
+    expect((await repo.markPending(row.id, "sim_a", "sim_a_sub_corrida", null))).toMatchObject({ state: "active" });
+    expect(await outcomeOf("early1")).toBe("applied");
+    // reenvio do mesmo aviso: ja aplicado, nao estende o periodo de novo
+    const end = (await repo.current(t))!.currentPeriodEnd;
+    expect(await service.handleWebhook("sim_a", early.headers, early.body)).toBe("duplicate");
+    expect((await repo.current(t))!.currentPeriodEnd).toEqual(end);
+  });
+});
+
+async function outcomeOf(eventId: string) {
+  return (await pool.query(`SELECT outcome FROM fmcc_saas_event WHERE event_id=$1`, [eventId])).rows[0]?.outcome;
+}
+
+describe("retomada, posse e avisos (revisao independente)", () => {
+  it("a chave de idempotencia e obrigatoria", async () => {
+    await expect(service.subscribe(ctx("br"), { planId: "saas-it-pro", customer })).rejects.toMatchObject({ code: "subscription.idempotency_key_required", httpStatus: 400 });
+  });
+
+  it("duas retomadas ao mesmo tempo: so uma fala com o provedor (sem assinatura em dobro)", async () => {
+    simA.fault = "transient";
+    await expect(subscribe("br", "kr")).rejects.toMatchObject({ httpStatus: 503 });
+    simA.fault = "none"; await age("br");
+    const results = await Promise.allSettled([subscribe("br", "kr"), subscribe("br", "kr"), subscribe("br", "kr")]);
+    expect(results.filter((r) => r.status === "fulfilled" && r.value.subscription.state === "pending")).toHaveLength(1);
+    expect(results.filter((r) => r.status === "rejected" && (r.reason as { code?: string }).code === "subscription.in_progress")).toHaveLength(2);
+    expect(simA.subscriptions.size).toBe(1);
+  });
+
+  it("criacao ainda dentro da posse nao e retomada por outra requisicao", async () => {
+    simA.fault = "transient";
+    await expect(subscribe("br", "kp")).rejects.toMatchObject({ httpStatus: 503 });
+    simA.fault = "none";
+    await expect(subscribe("br", "kp")).rejects.toMatchObject({ code: "subscription.in_progress" });
+  });
+
+  it("a retomada usa o provedor gravado, mesmo que a rota tenha mudado", async () => {
+    simA.fault = "transient";
+    await expect(subscribe("br", "km")).rejects.toMatchObject({ httpStatus: 503 });
+    simA.fault = "none"; await age("br");
+    await pool.query(`UPDATE fmcc_saas_subscription SET provider_id='nao_existe' WHERE tenant_id=$1`, [`${TP}br`]);
+    await expect(subscribe("br", "km")).rejects.toMatchObject({ code: "subscription.provider_unavailable", httpStatus: 503 });
+    expect(simA.subscriptions.size).toBe(0);
+  });
+
+  it("pagamento confirmado SEM valor nao ativa", async () => {
+    await subscribe("br"); const ref = await refOf("br");
+    const w = simA.makeWebhook({ eventId: "novalue", type: "payment_confirmed", subscriptionRef: ref, occurredAt: now });
+    expect(await service.handleWebhook("sim_a", w.headers, w.body)).toBe("applied");
+    expect(await outcomeOf("novalue")).toBe("amount_missing");
+    expect((await service.status(ctx("br"))).subscription).toMatchObject({ state: "pending", entitled: false });
+  });
+
+  it("reenvio do provedor de um aviso guardado sem assinatura e aplicado quando a assinatura ja existe", async () => {
+    const t = `${TP}br`;
+    const price = { planId: "saas-it-pro", currency: "BRL", country: null, amountMinor: 4900, interval: "month" as const };
+    const early = simA.makeWebhook({ eventId: "early2", type: "payment_confirmed", subscriptionRef: "sim_a_sub_reenvio", amountMinor: 4900, currency: "BRL", occurredAt: now });
+    expect(await service.handleWebhook("sim_a", early.headers, early.body)).toBe("unmatched");
+    const { row } = await repo.reserve({ tenantId: t, planId: "saas-it-pro", price, providerId: "sim_a", idempotencyKey: "kre", createdBy: "u" });
+    // referencia gravada SEM passar pelo replay (simula a perda do replay): o reenvio precisa recuperar
+    await pool.query(`UPDATE fmcc_saas_subscription SET state='pending', provider_subscription_ref='sim_a_sub_reenvio' WHERE id=$1`, [row.id]);
+    expect(await service.handleWebhook("sim_a", early.headers, early.body)).toBe("applied");
+    expect(await repo.current(t)).toMatchObject({ state: "active" });
   });
 });
 

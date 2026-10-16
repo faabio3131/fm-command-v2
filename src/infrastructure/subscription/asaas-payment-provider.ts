@@ -1,4 +1,4 @@
-import { timingSafeEqual } from "node:crypto";
+import { createHash, timingSafeEqual } from "node:crypto";
 import { resolveGatewaySecret, ASAAS_SANDBOX_SECRET_REF } from "@/infrastructure/billing/secret-resolver";
 import { PaymentProviderError, WebhookRejectedError, type CreateSubscriptionInput, type CustomerInput, type PaymentEvent, type PaymentProvider, type ProviderSubscription } from "@/domain/subscription/payment-provider";
 
@@ -78,7 +78,7 @@ export class AsaasPaymentProvider implements PaymentProvider {
     const expected = this.env.FMCC_ASAAS_SAAS_WEBHOOK_TOKEN;
     if (!expected || expected.length < 16) throw new WebhookRejectedError("webhook.not_configured");
     const got = headers.get("asaas-access-token") ?? "";
-    if (got.length !== expected.length || !timingSafeEqual(Buffer.from(got), Buffer.from(expected))) throw new WebhookRejectedError("webhook.signature_invalid");
+    if (!sameSecret(got, expected)) throw new WebhookRejectedError("webhook.signature_invalid");
     let o: { event?: unknown; payment?: Record<string, unknown>; subscription?: Record<string, unknown> };
     try { o = JSON.parse(rawBody); } catch { throw new WebhookRejectedError("webhook.body_invalid"); }
     if (!o || typeof o.event !== "string") throw new WebhookRejectedError("webhook.body_invalid");
@@ -101,4 +101,9 @@ export class AsaasPaymentProvider implements PaymentProvider {
       default: return null;
     }
   }
+}
+
+/** Compara por hash: comprimento e bytes nao vazam e caracteres fora do ASCII nao derrubam a comparacao. */
+function sameSecret(a: string, b: string): boolean {
+  return timingSafeEqual(createHash("sha256").update(a).digest(), createHash("sha256").update(b).digest());
 }

@@ -1,4 +1,4 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import { PaymentProviderError, WebhookRejectedError, type CreateSubscriptionInput, type CustomerInput, type PaymentEvent, type PaymentEventType, type PaymentProvider, type ProviderSubscription } from "@/domain/subscription/payment-provider";
 
 export type SimFault = "none" | "transient" | "rejected" | "uncertain_after_create";
@@ -59,7 +59,7 @@ export class SimulatedPaymentProvider implements PaymentProvider {
   verifyWebhook(headers: Headers, rawBody: string): PaymentEvent | null {
     const got = headers.get("x-sim-signature") ?? "";
     const want = this.sign(rawBody);
-    if (got.length !== want.length || !timingSafeEqual(Buffer.from(got), Buffer.from(want))) throw new WebhookRejectedError("webhook.signature_invalid");
+    if (!sameSecret(got, want)) throw new WebhookRejectedError("webhook.signature_invalid");
     let o: Record<string, unknown>;
     try { o = JSON.parse(rawBody) as Record<string, unknown>; } catch { throw new WebhookRejectedError("webhook.body_invalid"); }
     const types: PaymentEventType[] = ["payment_confirmed", "payment_overdue", "payment_refunded", "subscription_cancelled"];
@@ -69,4 +69,9 @@ export class SimulatedPaymentProvider implements PaymentProvider {
     const amount = Number.isSafeInteger(o.amountMinor) && typeof o.currency === "string" ? { amountMinor: o.amountMinor as number, currency: o.currency } : null;
     return { eventId: o.eventId, type: o.type as PaymentEventType, subscriptionRef: o.subscriptionRef, paymentRef: null, amount, occurredAt: at };
   }
+}
+
+/** Compara por hash: comprimento e bytes nao vazam e caracteres fora do ASCII nao derrubam a comparacao. */
+function sameSecret(a: string, b: string): boolean {
+  return timingSafeEqual(createHash("sha256").update(a).digest(), createHash("sha256").update(b).digest());
 }

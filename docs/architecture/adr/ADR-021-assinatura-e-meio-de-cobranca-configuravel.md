@@ -38,3 +38,21 @@ Para cobrar clientes, o FM Command V2 precisa de planos, preço por moeda e paí
 ## Condições de revisão
 
 Segundo provedor real em produção; tributação por país; reembolso e disputa de pagamento; planos por assento ou por uso.
+
+## Correções da revisão independente (16/10/2026)
+
+Corrigido, com teste:
+- **Cobrança em dobro na retomada:** a retomada de uma criação interrompida agora é uma reserva atômica no banco (`claimResume`), com posse de 60 s (maior que 3 chamadas de 10 s) renovada antes de cada chamada ao provedor. Só um retomador fala com o provedor; os demais recebem "em andamento".
+- **Empresa presa em "creating":** o cabeçalho `Idempotency-Key` passou a ser obrigatório; falta de chave/segredo do provedor é erro temporário (503), não 500.
+- **Retomada usa o provedor gravado** na assinatura, não a rota de hoje.
+- **Aviso perdido:** gravar a referência e reaplicar os avisos guardados acontece na mesma transação, sob uma trava por provedor+referência que serializa com o webhook; o reenvio do provedor de um aviso "unmatched" é reprocessado.
+- **Pagamento sem valor não ativa** (`amount_missing`).
+- **Asaas sandbox em produção** só liga com `FMCC_SAAS_ALLOW_SANDBOX=1` e só se o token do webhook existir. O simulador exige segredo próprio (16+ caracteres), sem valor padrão.
+- **Corpo do webhook e da assinatura** lidos com contador de bytes (aborta ao passar do limite, inclusive em `chunked`).
+- Comparação de token por hash (sem erro 503 por caracteres fora do ASCII).
+
+Abertos (registrados, não corrigidos agora):
+- O webhook do Asaas é autenticado só por token fixo; a confirmação do pagamento direto no provedor (`GET /payments/{id}`) fica para antes de produção.
+- Estorno corta todo o período pago; chargeback não é tratado; juros/multa/desconto do Asaas podem gerar `amount_mismatch` (validar no sandbox).
+- Cliente duplicado no Asaas em retentativa incerta; erosão do dia de vencimento em meses curtos; cancelamento de assinatura já apagada no Asaas; livro cresce com eventos de outra cobrança; endurecimentos de constraint na migração; sem link de pagamento (checkoutUrl nulo).
+- O Asaas continua sem teste contra a API real.

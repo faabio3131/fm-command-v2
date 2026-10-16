@@ -13,7 +13,7 @@ export interface SubscriptionSnapshot {
   readonly lastEventAt: Date | null;
 }
 
-export type TransitionOutcome = "applied" | "ignored_stale" | "ignored_state" | "amount_mismatch";
+export type TransitionOutcome = "applied" | "ignored_stale" | "ignored_state" | "amount_mismatch" | "amount_missing";
 export interface Transition { readonly outcome: TransitionOutcome; readonly next: SubscriptionSnapshot }
 
 /** Soma meses/anos em UTC sem estourar o fim do mes (31/jan + 1 mes = 28 ou 29/fev). */
@@ -39,7 +39,9 @@ export function applyPaymentEvent(s: SubscriptionSnapshot, e: PaymentEvent): Tra
   const stamp = (n: Partial<SubscriptionSnapshot>): SubscriptionSnapshot => ({ ...s, ...n, lastEventAt: s.lastEventAt && s.lastEventAt > e.occurredAt ? s.lastEventAt : e.occurredAt });
 
   if (e.type === "payment_confirmed") {
-    if (e.amount && (e.amount.amountMinor !== s.price.amountMinor || e.amount.currency !== s.price.currency)) return keep("amount_mismatch");
+    // Pagamento sem valor informado nunca ativa: so vale com valor e moeda exatamente iguais ao preco gravado.
+    if (!e.amount) return keep("amount_missing");
+    if (e.amount.amountMinor !== s.price.amountMinor || e.amount.currency !== s.price.currency) return keep("amount_mismatch");
     const base = s.currentPeriodEnd && s.currentPeriodEnd > e.occurredAt ? s.currentPeriodEnd : e.occurredAt;
     return { outcome: "applied", next: stamp({ state: "active", currentPeriodEnd: addInterval(base, s.interval) }) };
   }

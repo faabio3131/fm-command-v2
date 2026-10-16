@@ -74,16 +74,42 @@ export class PostgresSubscriptionRepository {
     return { row: row(ex.rows[0]), inserted: false };
   }
 
+  /**
+   * Reserva ATOMICA da retomada de uma criacao interrompida: so quem muda `updated_at` com a linha parada ha mais de `leaseMs`
+   * (relogio do banco) recebe a linha; os demais recebem null e respondem "em andamento". Evita dois POSTs no provedor.
+   */
+  async claimResume(id: string, leaseMs: number): Promise<SubscriptionRow | null> {
+    const r = await this.pool.query(
+      `UPDATE fmcc_saas_subscription SET updated_at=now()
+       WHERE id=$1 AND state='creating' AND now() - updated_at > make_interval(secs => $2::float8 / 1000) RETURNING ${COLS}`, [id, leaseMs]);
+    return r.rows[0] ? row(r.rows[0]) : null;
+  }
+  /** Renova a posse antes de cada chamada ao provedor (cada uma pode levar ate o timeout). */
+  async touch(id: string): Promise<void> {
+    await this.pool.query(`UPDATE fmcc_saas_subscription SET updated_at=now() WHERE id=$1 AND state='creating'`, [id]);
+  }
+
   async setCustomer(id: string, customerRef: string): Promise<void> {
     await this.pool.query(`UPDATE fmcc_saas_subscription SET provider_customer_ref=$2, updated_at=now() WHERE id=$1 AND state='creating'`, [id, customerRef]);
   }
-  async markPending(id: string, subscriptionRef: string, checkoutUrl: string | null): Promise<SubscriptionRow> {
-    const r = await this.pool.query(
-      `UPDATE fmcc_saas_subscription SET state='pending', provider_subscription_ref=$2, checkout_url=$3, updated_at=now() WHERE id=$1 AND state='creating' RETURNING ${COLS}`,
-      [id, subscriptionRef, checkoutUrl]);
-    if (r.rows[0]) return row(r.rows[0]);
-    const cur = await this.pool.query(`SELECT ${COLS} FROM fmcc_saas_subscription WHERE id=$1`, [id]);
-    return row(cur.rows[0]);
+  /**
+   * Grava a referencia do provedor E reaplica, na MESMA transacao e sob a mesma trava da referencia, os avisos que chegaram antes.
+   * A trava (por provedor+referencia) serializa com o webhook: ou o aviso ja estava gravado e e reaplicado aqui, ou espera e ja acha a assinatura.
+   */
+  async markPending(id: string, providerId: string, subscriptionRef: string, checkoutUrl: string | null): Promise<SubscriptionRow> {
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+      await this.lockRef(client, providerId, subscriptionRef);
+      await client.query(
+        `UPDATE fmcc_saas_subscription SET state='pending', provider_subscription_ref=$2, checkout_url=$3, updated_at=now() WHERE id=$1 AND state='creating'`,
+        [id, subscriptionRef, checkoutUrl]);
+      await this.replayUnmatched(client, providerId, subscriptionRef);
+      const cur = await client.query(`SELECT ${COLS} FROM fmcc_saas_subscription WHERE id=$1`, [id]);
+      await client.query("COMMIT");
+      return row(cur.rows[0]);
+    } catch (err) { await client.query("ROLLBACK").catch(() => undefined); throw err; }
+    finally { client.release(); }
   }
   async markFailed(id: string): Promise<void> {
     await this.pool.query(`UPDATE fmcc_saas_subscription SET state='failed', updated_at=now() WHERE id=$1 AND state='creating'`, [id]);
@@ -113,11 +139,22 @@ export class PostgresSubscriptionRepository {
     const client = await this.pool.connect();
     try {
       await client.query("BEGIN");
+      await this.lockRef(client, providerId, e.subscriptionRef);
       const led = await client.query(
         `INSERT INTO fmcc_saas_event(provider_id, event_id, subscription_ref, amount_minor, currency, type, outcome, occurred_at) VALUES($1,$2,$3,$4,$5,$6,'received',$7)
          ON CONFLICT (provider_id, event_id) DO NOTHING RETURNING event_id`,
         [providerId, e.eventId, e.subscriptionRef, e.amount?.amountMinor ?? null, e.amount?.currency ?? null, e.type, e.occurredAt]);
-      if (!led.rows[0]) { await client.query("ROLLBACK"); return { kind: "duplicate" }; }
+      if (!led.rows[0]) {
+        // Reenvio de aviso que ficou guardado sem assinatura: tenta de novo (a assinatura pode ter sido gravada depois).
+        const prev = await client.query(`SELECT outcome FROM fmcc_saas_event WHERE provider_id=$1 AND event_id=$2 FOR UPDATE`, [providerId, e.eventId]);
+        if (prev.rows[0]?.outcome === "unmatched") {
+          const again = await this.resolve(client, providerId, e);
+          await client.query("COMMIT");
+          return again;
+        }
+        await client.query("ROLLBACK");
+        return { kind: "duplicate" };
+      }
       const result = await this.resolve(client, providerId, e);
       await client.query("COMMIT");
       return result;
@@ -143,29 +180,22 @@ export class PostgresSubscriptionRepository {
     return { kind: "applied", outcome: t.outcome, subscription: row(up.rows[0]) };
   }
 
-  /** Chamado logo depois de gravar a referencia do provedor: reaplica, em ordem, os eventos que chegaram antes. */
-  async replayUnmatched(providerId: string, subscriptionRef: string): Promise<number> {
-    const pending = await this.pool.query(
-      `SELECT event_id FROM fmcc_saas_event WHERE provider_id=$1 AND subscription_ref=$2 AND outcome='unmatched' ORDER BY occurred_at, received_at`, [providerId, subscriptionRef]);
+  private async lockRef(client: { query: Pool["query"] }, providerId: string, subscriptionRef: string): Promise<void> {
+    await client.query(`SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, [`${providerId}:${subscriptionRef}`]);
+  }
+
+  /** Reaplica, em ordem, os avisos guardados para esta referencia. Roda dentro da transacao e da trava de quem chama. */
+  private async replayUnmatched(client: { query: Pool["query"] }, providerId: string, subscriptionRef: string): Promise<number> {
+    const pending = await client.query(
+      `SELECT event_id, type, subscription_ref, amount_minor, currency, occurred_at FROM fmcc_saas_event
+       WHERE provider_id=$1 AND subscription_ref=$2 AND outcome='unmatched' ORDER BY occurred_at, received_at FOR UPDATE`, [providerId, subscriptionRef]);
     let applied = 0;
-    for (const p of pending.rows) {
-      const client = await this.pool.connect();
-      try {
-        await client.query("BEGIN");
-        const led = await client.query(
-          `SELECT event_id, type, subscription_ref, amount_minor, currency, occurred_at FROM fmcc_saas_event
-           WHERE provider_id=$1 AND event_id=$2 AND outcome='unmatched' FOR UPDATE`, [providerId, p.event_id]);
-        const l = led.rows[0];
-        if (l) {
-          const r = await this.resolve(client, providerId, {
-            eventId: l.event_id, type: l.type, subscriptionRef: l.subscription_ref, paymentRef: null,
-            amount: l.amount_minor !== null ? { amountMinor: l.amount_minor, currency: l.currency } : null, occurredAt: l.occurred_at,
-          });
-          if (r.kind === "applied") applied++;
-        }
-        await client.query("COMMIT");
-      } catch (err) { await client.query("ROLLBACK").catch(() => undefined); throw err; }
-      finally { client.release(); }
+    for (const l of pending.rows) {
+      const r = await this.resolve(client, providerId, {
+        eventId: l.event_id, type: l.type, subscriptionRef: l.subscription_ref, paymentRef: null,
+        amount: l.amount_minor !== null ? { amountMinor: l.amount_minor, currency: l.currency } : null, occurredAt: l.occurred_at,
+      });
+      if (r.kind === "applied") applied++;
     }
     return applied;
   }

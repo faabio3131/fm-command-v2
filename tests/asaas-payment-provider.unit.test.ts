@@ -95,10 +95,21 @@ describe("aviso (webhook) do Asaas", () => {
 
 describe("registro de provedores", () => {
   it("so cria o que o ambiente configura; o simulado nunca existe em producao", () => {
+    const secret = "segredo-do-simulador-1234";
     expect(defaultProviderRegistry({}).has("asaas")).toBe(false);
     expect(defaultProviderRegistry(env).get("asaas")?.id).toBe("asaas");
-    expect(defaultProviderRegistry({ FMCC_PAYMENT_SIMULATED: "1" }).get("simulated")?.id).toBe("simulated");
-    expect(defaultProviderRegistry({ FMCC_PAYMENT_SIMULATED: "1", NODE_ENV: "production" }).has("simulated")).toBe(false);
+    expect(defaultProviderRegistry({ FMCC_PAYMENT_SIMULATED: "1", FMCC_PAYMENT_SIMULATED_SECRET: secret }).get("simulated")?.id).toBe("simulated");
+    expect(defaultProviderRegistry({ FMCC_PAYMENT_SIMULATED: "1", FMCC_PAYMENT_SIMULATED_SECRET: secret, NODE_ENV: "production" }).has("simulated")).toBe(false);
+    // sem segredo proprio (ou curto) o simulador nao existe: nao ha segredo padrao conhecido
+    expect(defaultProviderRegistry({ FMCC_PAYMENT_SIMULATED: "1" }).has("simulated")).toBe(false);
+    expect(defaultProviderRegistry({ FMCC_PAYMENT_SIMULATED: "1", FMCC_PAYMENT_SIMULATED_SECRET: "curto" }).has("simulated")).toBe(false);
     expect(defaultProviderRegistry(env).has("toString")).toBe(false);
+  });
+
+  it("Asaas em producao so liga com autorizacao explicita e com o token do webhook", () => {
+    const prod = { ...env, NODE_ENV: "production" };
+    expect(defaultProviderRegistry(prod).has("asaas")).toBe(false);
+    expect(defaultProviderRegistry({ ...prod, FMCC_SAAS_ALLOW_SANDBOX: "1" }).has("asaas")).toBe(true);
+    expect(defaultProviderRegistry({ FMCC_ASAAS_SANDBOX_API_KEY: KEY }).has("asaas")).toBe(false);
   });
 });

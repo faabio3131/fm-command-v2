@@ -1,3 +1,4 @@
+import { BodyTooLargeError, readLimitedBody } from "@/infrastructure/http/read-limited-body";
 import { NextResponse } from "next/server";
 import { subscriptionService } from "@/application/subscription/subscription-runtime";
 import { SubscriptionError } from "@/application/subscription/subscription-service";
@@ -28,8 +29,9 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const ctx = await resolveTenantContext(request.headers);
-    const raw = await request.text();
-    if (raw.length > 8192) return NextResponse.json({ error: "subscription.input_invalid" }, { status: 413, headers: NO_STORE });
+    let raw: string;
+    try { raw = await readLimitedBody(request, 8192); }
+    catch (e) { if (e instanceof BodyTooLargeError) return NextResponse.json({ error: "subscription.input_invalid" }, { status: 413, headers: NO_STORE }); throw e; }
     let body: { planId?: unknown; customer?: unknown };
     try { body = JSON.parse(raw) as typeof body; } catch { return NextResponse.json({ error: "subscription.input_invalid" }, { status: 400, headers: NO_STORE }); }
     const r = await subscriptionService().subscribe(ctx, { planId: body?.planId, customer: body?.customer, idempotencyKey: request.headers.get("idempotency-key") });
