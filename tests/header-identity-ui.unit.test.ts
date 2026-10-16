@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { ptBR } from "@/i18n/messages/pt-BR";
+import { rotuloPapelFmcc } from "@/presentation/pt-br";
 
 function source(path: string): string {
   return readFileSync(resolve(process.cwd(), path), "utf8");
@@ -18,7 +20,9 @@ describe("CME-07 header identity UI contract", () => {
 
   it("mostra nome, papel traduzido, avatar/iniciais e organização sem tenant técnico", () => {
     const shell = source("src/app/dashboard/command-shell.tsx");
-    expect(shell).toContain("rotuloPapelFmcc(role)");
+    expect(shell).toContain("t(`role.${role}` as MessageKey)");
+    // o catálogo em português continua dizendo o mesmo que o rótulo de papel da V1
+    for (const role of ["owner", "admin", "analyst", "viewer", "member"] as const) expect(ptBR[`role.${role}`]).toBe(rotuloPapelFmcc(role));
     expect(shell).toContain("identity?.name");
     expect(shell).toContain("identity?.initials");
     expect(shell).toContain("identity?.imageUrl");
@@ -30,9 +34,11 @@ describe("CME-07 header identity UI contract", () => {
   it("preserva logout, notificações e estado de ambiente", () => {
     const shell = source("src/app/dashboard/command-shell.tsx");
     expect(shell).toContain("<SignOutButton />");
-    expect(shell).toContain("Central de Notificações");
+    expect(shell).toContain('t("shell.notifications.center")');
+    expect(ptBR["shell.notifications.center"]).toBe("Central de Notificações");
     expect(shell).toContain("environmentLabel");
-    expect(shell).toContain('aria-label={"Ambiente: " + environmentLabel}');
+    expect(shell).toContain('aria-label={t("shell.env.aria", { env: environmentLabel })}');
+    expect(ptBR["shell.env.aria"]).toBe("Ambiente: {env}");
   });
 
   it("mantém identidade e menus funcionais também no mobile", () => {
@@ -48,7 +54,8 @@ describe("CME-07 header identity UI contract", () => {
     expect(css).toContain("width:min(340px,calc(100vw - 24px))");
 
     const shell = source("src/app/dashboard/command-shell.tsx");
-    expect(shell).toContain("<p>Ambiente: {environmentLabel}</p>");
+    expect(shell).toContain('<p>{t("shell.user.env", { env: environmentLabel })}</p>');
+    expect(ptBR["shell.user.env"]).toBe("Ambiente: {env}");
   });
 
   it("não exibe role técnica em Configurações", () => {

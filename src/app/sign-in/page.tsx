@@ -4,16 +4,19 @@ import Image from "next/image";
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { authClient } from "@/infrastructure/auth/auth-client";
+import { LanguageSelector } from "@/i18n/react/language-selector";
+import { useTranslator } from "@/i18n/react/i18n-provider";
 import { APPROVED_COMMAND_ARTWORK_SRC } from "@/presentation/command-approved-artwork";
 
 const benefits = [
-  ["Mais controle", "Visão executiva governada da operação."],
-  ["Mais eficiência", "Menos dispersão entre produtos e fontes."],
-  ["Mais resultados", "Decisões apoiadas por evidência rastreável."],
-  ["Mais segurança", "Escopo, permissões e auditoria por padrão."],
+  ["auth.benefit.control.title", "auth.benefit.control.description"],
+  ["auth.benefit.efficiency.title", "auth.benefit.efficiency.description"],
+  ["auth.benefit.results.title", "auth.benefit.results.description"],
+  ["auth.benefit.security.title", "auth.benefit.security.description"],
 ] as const;
 
 export default function SignInPage() {
+  const { t } = useTranslator();
   const router = useRouter();
   const [mode, setMode] = useState<"sign-in" | "sign-up">("sign-in");
   const [message, setMessage] = useState<string | null>(null);
@@ -38,9 +41,7 @@ export default function SignInPage() {
 
       if (result.error) {
         setMessage(
-          mode === "sign-in"
-            ? "Não foi possível entrar. Verifique suas credenciais."
-            : "Não foi possível criar a conta.",
+          mode === "sign-in" ? t("auth.error.signIn") : t("auth.error.signUp"),
         );
         return;
       }
@@ -64,25 +65,23 @@ export default function SignInPage() {
             <i aria-hidden="true" />
             <b>COMMAND</b>
           </div>
-          <p>Inteligência, controle e crescimento para o seu negócio.</p>
+          <p>{t("shell.brand.tagline")}</p>
+          <LanguageSelector />
         </header>
 
         <div className="command-auth-layout">
           <section className="command-auth-hero">
             <div className="command-auth-copy">
-              <span className="eyebrow">Central executiva governada</span>
+              <span className="eyebrow">{t("auth.eyebrow")}</span>
               <h1 id="command-auth-title">
-                Comande sua operação com
-                <em> inteligência governada.</em>
+                {t("auth.title.lead")}
+                <em>{t("auth.title.emphasis")}</em>
               </h1>
-              <p>
-                Dados, operações e crescimento em um só lugar, com o poder do Core Executivo
-                e o controle que o seu negócio precisa.
-              </p>
-              <div className="command-auth-proof" aria-label="Princípios do FM Command">
-                <span>Dados governados</span>
-                <span>Decisões rastreáveis</span>
-                <span>Operação multi-produto</span>
+              <p>{t("auth.lead")}</p>
+              <div className="command-auth-proof" aria-label={t("auth.proof.aria")}>
+                <span>{t("auth.proof.governedData")}</span>
+                <span>{t("auth.proof.traceableDecisions")}</span>
+                <span>{t("auth.proof.multiProduct")}</span>
               </div>
             </div>
 
@@ -100,18 +99,16 @@ export default function SignInPage() {
           </section>
 
           <section className="command-auth-card" aria-labelledby="command-auth-card-title">
-            <span className="command-auth-card-kicker">{isSignIn ? "Acesso seguro" : "Nova conta"}</span>
-            <h2 id="command-auth-card-title">{isSignIn ? "Acesse sua conta" : "Criar conta"}</h2>
+            <span className="command-auth-card-kicker">{isSignIn ? t("auth.card.kicker.signIn") : t("auth.card.kicker.signUp")}</span>
+            <h2 id="command-auth-card-title">{isSignIn ? t("auth.card.title.signIn") : t("auth.card.title.signUp")}</h2>
             <p>
-              {isSignIn
-                ? "Entre no FM Command e continue sua gestão executiva."
-                : "Crie sua conta e configure a primeira organização do FM Command."}
+              {isSignIn ? t("auth.card.subtitle.signIn") : t("auth.card.subtitle.signUp")}
             </p>
 
             <form className="command-auth-form" onSubmit={submit}>
               {!isSignIn ? (
                 <label>
-                  Nome
+                  {t("auth.field.name")}
                   <div className="command-auth-field">
                     <span aria-hidden="true">ID</span>
                     <input
@@ -119,14 +116,14 @@ export default function SignInPage() {
                       required
                       minLength={2}
                       autoComplete="name"
-                      placeholder="Seu nome"
+                      placeholder={t("auth.field.namePlaceholder")}
                     />
                   </div>
                 </label>
               ) : null}
 
               <label>
-                E-mail
+                {t("auth.field.email")}
                 <div className="command-auth-field">
                   <span aria-hidden="true">@</span>
                   <input
@@ -134,13 +131,13 @@ export default function SignInPage() {
                     required
                     type="email"
                     autoComplete="email"
-                    placeholder="seu@empresa.com"
+                    placeholder={t("auth.field.emailPlaceholder")}
                   />
                 </div>
               </label>
 
               <label>
-                Senha
+                {t("auth.field.password")}
                 <div className="command-auth-field">
                   <span aria-hidden="true">••</span>
                   <input
@@ -151,12 +148,12 @@ export default function SignInPage() {
                     maxLength={128}
                     aria-describedby="command-password-help"
                     autoComplete={isSignIn ? "current-password" : "new-password"}
-                    placeholder="Sua senha"
+                    placeholder={t("auth.field.passwordPlaceholder")}
                   />
                   <button
                     className="command-password-toggle"
                     type="button"
-                    aria-label={showPassword ? "Ocultar caracteres" : "Mostrar caracteres"}
+                    aria-label={showPassword ? t("auth.password.hide") : t("auth.password.show")}
                     aria-pressed={showPassword}
                     onClick={() => setShowPassword((visible) => !visible)}
                   >
@@ -179,13 +176,11 @@ export default function SignInPage() {
                 </div>
               </label>
               <small id="command-password-help">
-                {isSignIn
-                  ? "Use a senha da sua conta."
-                  : "A senha deve ter de 8 a 128 caracteres. Maiúsculas, números e símbolos não são obrigatórios, mas recomendamos combinar esses elementos e não reutilizar senhas."}
+                {isSignIn ? t("auth.password.help.signIn") : t("auth.password.help.signUp")}
               </small>
 
               <button className="button primary command-auth-submit" disabled={busy} type="submit">
-                {busy ? "Processando…" : isSignIn ? "Entrar" : "Criar conta"}
+                {busy ? t("auth.submit.busy") : isSignIn ? t("auth.submit.signIn") : t("auth.submit.signUp")}
                 <span aria-hidden="true">→</span>
               </button>
             </form>
@@ -193,7 +188,7 @@ export default function SignInPage() {
             {message ? <p role="alert" className="error command-auth-feedback">{message}</p> : null}
 
             <div className="command-auth-switch">
-              <span>{isSignIn ? "Primeiro acesso ao Command?" : "Já possui uma conta?"}</span>
+              <span>{isSignIn ? t("auth.switch.toSignUpPrompt") : t("auth.switch.toSignInPrompt")}</span>
               <button
                 className="link-button"
                 type="button"
@@ -202,27 +197,27 @@ export default function SignInPage() {
                   setMessage(null);
                 }}
               >
-                {isSignIn ? "Criar uma conta" : "Já tenho uma conta"}
+                {isSignIn ? t("auth.switch.toSignUp") : t("auth.switch.toSignIn")}
               </button>
             </div>
 
             <div className="command-auth-security">
               <span aria-hidden="true">✓</span>
               <div>
-                <strong>Ambiente governado</strong>
-                <small>Autenticação e escopo da organização são validados no servidor.</small>
+                <strong>{t("auth.security.title")}</strong>
+                <small>{t("auth.security.description")}</small>
               </div>
             </div>
           </section>
         </div>
 
-        <footer className="command-auth-benefits" aria-label="Benefícios do FM Command">
+        <footer className="command-auth-benefits" aria-label={t("auth.benefits.aria")}>
           {benefits.map(([title, description], index) => (
             <article key={title}>
               <span aria-hidden="true">0{index + 1}</span>
               <div>
-                <strong>{title}</strong>
-                <small>{description}</small>
+                <strong>{t(title)}</strong>
+                <small>{t(description)}</small>
               </div>
             </article>
           ))}

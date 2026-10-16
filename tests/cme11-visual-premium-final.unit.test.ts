@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
+import { ptBR } from "@/i18n/messages/pt-BR";
 function source(path: string): string {
   return readFileSync(resolve(process.cwd(), path), "utf8");
 }
@@ -11,7 +12,8 @@ describe("CME-11 Visual Premium Final", () => {
     const shell = source("src/app/dashboard/command-shell.tsx");
 
     expect(shell).toContain('href="/dashboard/search"');
-    expect(shell).toContain("Buscar no COMMAND...");
+    expect(shell).toContain('t("shell.search.placeholder")');
+    expect(ptBR["shell.search.placeholder"]).toBe("Buscar no COMMAND...");
     expect(shell).toContain("FM Tecnologia");
     expect(shell).toContain("<strong>COMMAND</strong>");
     expect(shell).toContain("environmentLabel");
