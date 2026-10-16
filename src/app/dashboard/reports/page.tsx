@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { getRequestLocale } from "@/application/i18n/request-locale";
 import { buildReportService } from "@/application/reports/report-composition";
+import { buildSectorService } from "@/application/sectors/sector-composition";
 import { resolveTenantContext } from "@/application/security/resolve-tenant-context";
 import { METRIC_REGISTRY } from "@/domain/metrics/registry";
 import { roleHasPermission } from "@/domain/security/permissions";
@@ -28,6 +29,7 @@ export default async function ReportsPage() {
     if (error instanceof PermissionDeniedError) redirect("/dashboard");
     throw error;
   }
+  const visible = await buildSectorService().visibleMetricIds(context.tenantId);
   const canWrite = roleHasPermission(context.role, "report:write");
   return (
     <main className="dashboard-shell dashboard-shell-compact">
@@ -44,7 +46,7 @@ export default async function ReportsPage() {
       <ReportsPanel
         canWrite={canWrite}
         locale={locale}
-        metrics={METRIC_REGISTRY.map((m) => ({ id: m.metricId, name: labels.metricName(m.metricId, m.displayName) }))}
+        metrics={METRIC_REGISTRY.filter((m) => visible.has(m.metricId)).map((m) => ({ id: m.metricId, name: labels.metricName(m.metricId, m.displayName) }))}
         reports={reports.map((r) => ({ id: r.id, name: r.name, frequency: r.frequency, hour: r.hour, weekday: r.weekday, dayOfMonth: r.dayOfMonth, enabled: r.enabled, metricCount: r.metricIds.length, lastRunAt: r.lastRunAt ? r.lastRunAt.toISOString() : null }))}
       />
     </main>

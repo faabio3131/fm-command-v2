@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { BarChart } from "@/app/dashboard/charts/bar-chart";
 import { getRequestLocale } from "@/application/i18n/request-locale";
 import { createUnitComparisonService } from "@/application/metrics/metric-composition";
+import { buildSectorService } from "@/application/sectors/sector-composition";
 import { resolveTenantContext } from "@/application/security/resolve-tenant-context";
 import { barWidthPercent, compareDecimals, parseDecimal } from "@/domain/core/decimal";
 import { METRIC_REGISTRY } from "@/domain/metrics/registry";
@@ -34,7 +35,9 @@ export default async function UnitsPage({ searchParams }: { searchParams: Promis
   const { t } = createTranslator(locale);
   const labels = createLabels(locale);
   const params = await searchParams;
-  const definition = METRIC_REGISTRY.find((m) => m.metricId === params.metric) ?? METRIC_REGISTRY.find((m) => m.kind === "sum") ?? METRIC_REGISTRY[0];
+  const visible = await buildSectorService().visibleMetricIds(context.tenantId);
+  const selectable = METRIC_REGISTRY.filter((m) => visible.has(m.metricId));
+  const definition = selectable.find((m) => m.metricId === params.metric) ?? selectable.find((m) => m.kind === "sum") ?? selectable[0];
   const metricName = labels.metricName(definition.metricId, definition.displayName);
   const service = createUnitComparisonService();
 
@@ -73,7 +76,7 @@ export default async function UnitsPage({ searchParams }: { searchParams: Promis
       <form className="panel units-filter" method="get" action="/dashboard/units">
         <label>{t("units.filter.metric")}
           <select name="metric" defaultValue={definition.metricId}>
-            {METRIC_REGISTRY.map((m) => <option key={m.metricId} value={m.metricId}>{labels.metricName(m.metricId, m.displayName)}</option>)}
+            {selectable.map((m) => <option key={m.metricId} value={m.metricId}>{labels.metricName(m.metricId, m.displayName)}</option>)}
           </select>
         </label>
         <label>{t("units.filter.region")}

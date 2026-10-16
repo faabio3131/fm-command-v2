@@ -176,6 +176,13 @@
       "when": 1792184452865,
       "tag": "0024_reports",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1792186037097,
+      "tag": "0025_sector_packs",
+      "breakpoints": true
     }
   ]
 }

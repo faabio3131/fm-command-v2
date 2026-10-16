@@ -50,6 +50,7 @@ describe("FM Command capability reachability — zero órfãos", () => {
     const reachableChildRoutes = new Set([
       "/dashboard/products/[productId]",
       "/dashboard/alerts/rules/[ruleId]",
+      "/dashboard/sectors/[id]",
     ]);
 
     const routes = walkPages(DASHBOARD_ROOT).map(routeFromPage).sort();
@@ -65,6 +66,7 @@ describe("FM Command capability reachability — zero órfãos", () => {
     const product = source("src/app/dashboard/products/[productId]/page.tsx");
     const alertControl = source("src/app/dashboard/alerts/alert-control-panel.tsx");
 
+    expect(source("src/app/dashboard/sectors/sectors-panel.tsx")).toContain("/dashboard/sectors/${pack.id}");
     expect(dashboard).toContain("/dashboard/products/${product.id}");
     expect(alertControl).toContain(
       "/dashboard/alerts/rules/${encodeURIComponent(rule.id)}",
