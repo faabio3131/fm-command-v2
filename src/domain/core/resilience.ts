@@ -53,6 +53,11 @@ export class CircuitBreaker {
     return true;
   }
 
+  /** Chamada de teste cancelada por quem chamou (nao e culpa do provedor): libera a vaga do teste sem contar falha. */
+  cancelProbe(): void {
+    this.probing = false;
+  }
+
   recordSuccess(): void {
     this.failures = 0;
     this.openedAt = null;
