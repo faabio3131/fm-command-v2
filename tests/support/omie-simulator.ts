@@ -27,6 +27,10 @@ export class OmieSimulator implements JsonHttpTransport {
   latencyMs = 0;
   private stamps = new Map<string, number[]>();
 
+  async get(): Promise<JsonHttpResponse> {
+    throw new Error("n/a");
+  }
+
   async postForm(): Promise<JsonHttpResponse> {
     throw new OmieSimulatorFormUnsupported();
   }

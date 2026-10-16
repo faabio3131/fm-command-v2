@@ -1,0 +1,21 @@
+{
+  "id": "xero",
+  "version": 1,
+  "label": "Xero",
+  "regions": [
+    "AU",
+    "NZ",
+    "GB",
+    "US"
+  ],
+  "status": "planned",
+  "auth": {
+    "type": "oauth2",
+    "providerId": "xero"
+  },
+  "limits": {
+    "requestsPerMinute": 60,
+    "maxConcurrent": 4
+  },
+  "streams": []
+}

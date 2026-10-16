@@ -15,6 +15,7 @@ import {
   PermissionDeniedError,
   TenantScopeRequiredError,
 } from "@/domain/security/tenant-context";
+import { catalogEntry } from "@/infrastructure/connectors/catalog";
 import { PostgresSourceRepository } from "@/infrastructure/integration/postgres-repositories";
 import { PostgresProductRepository } from "@/infrastructure/products/postgres-product-repository";
 
@@ -99,6 +100,11 @@ export async function POST(request: Request) {
         { error: "integration.sync_mode_invalid" },
         { status: 400 },
       );
+    }
+
+    if (catalogEntry(body.sourceType)) {
+      // Conectores do catálogo só nascem por /api/sources/from-catalog, onde a configuração é validada.
+      return NextResponse.json({ error: "integration.use_catalog" }, { status: 400 });
     }
 
     const source = await service().register(context, {

@@ -1,0 +1,21 @@
+{
+  "id": "quickbooks",
+  "version": 1,
+  "label": "QuickBooks Online",
+  "regions": [
+    "US",
+    "CA",
+    "GB",
+    "AU"
+  ],
+  "status": "planned",
+  "auth": {
+    "type": "oauth2",
+    "providerId": "quickbooks"
+  },
+  "limits": {
+    "requestsPerMinute": 60,
+    "maxConcurrent": 4
+  },
+  "streams": []
+}

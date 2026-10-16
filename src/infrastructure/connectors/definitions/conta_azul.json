@@ -1,0 +1,18 @@
+{
+  "id": "conta_azul",
+  "version": 1,
+  "label": "Conta Azul",
+  "regions": [
+    "BR"
+  ],
+  "status": "planned",
+  "auth": {
+    "type": "oauth2",
+    "providerId": "conta_azul"
+  },
+  "limits": {
+    "requestsPerMinute": 60,
+    "maxConcurrent": 4
+  },
+  "streams": []
+}

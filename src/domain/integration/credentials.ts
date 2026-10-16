@@ -5,6 +5,7 @@
  */
 export type ConnectorCredential =
   | { readonly kind: "api_key_pair"; readonly appKey: string; readonly appSecret: string }
+  | { readonly kind: "api_key"; readonly apiKey: string }
   | {
       readonly kind: "oauth2";
       readonly accessToken: string;

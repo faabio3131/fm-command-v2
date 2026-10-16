@@ -95,6 +95,22 @@ export class PostgresSourceRepository
     return mapSource(rows[0]);
   }
 
+  async updateConfig(
+    tenantId: string,
+    sourceId: string,
+    config: Record<string, unknown>,
+  ): Promise<void> {
+    await db
+      .update(sourceDefinitions)
+      .set({ config, updatedAt: new Date() })
+      .where(
+        and(
+          eq(sourceDefinitions.tenantId, tenantId),
+          eq(sourceDefinitions.id, sourceId),
+        ),
+      );
+  }
+
   async attachSecretRef(
     tenantId: string,
     sourceId: string,

@@ -1,0 +1,18 @@
+{
+  "id": "bling",
+  "version": 1,
+  "label": "Bling",
+  "regions": [
+    "BR"
+  ],
+  "status": "planned",
+  "auth": {
+    "type": "oauth2",
+    "providerId": "bling"
+  },
+  "limits": {
+    "requestsPerMinute": 60,
+    "maxConcurrent": 4
+  },
+  "streams": []
+}

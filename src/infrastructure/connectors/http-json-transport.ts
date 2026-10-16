@@ -23,6 +23,10 @@ export interface JsonHttpTransport {
     body: unknown,
     options: { timeoutMs: number },
   ): Promise<JsonHttpResponse>;
+  get(
+    url: string,
+    options: { timeoutMs: number; headers?: Readonly<Record<string, string>> },
+  ): Promise<JsonHttpResponse>;
   /** application/x-www-form-urlencoded (pedido de token OAuth). */
   postForm(
     url: string,
@@ -35,14 +39,14 @@ const MAX_RESPONSE_CHARS = 5_000_000;
 
 async function send(
   url: string,
-  init: { headers: Record<string, string>; body: string },
+  init: { method?: "GET" | "POST"; headers: Record<string, string>; body?: string },
   timeoutMs: number,
 ): Promise<JsonHttpResponse> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const response = await fetch(url, {
-      method: "POST",
+      method: init.method ?? "POST",
       headers: { accept: "application/json", ...init.headers },
       body: init.body,
       redirect: "error",
@@ -66,6 +70,10 @@ async function send(
 }
 
 export class FetchJsonTransport implements JsonHttpTransport {
+  get(url: string, options: { timeoutMs: number; headers?: Readonly<Record<string, string>> }) {
+    return send(url, { method: "GET", headers: { ...(options.headers ?? {}) } }, options.timeoutMs);
+  }
+
   post(url: string, body: unknown, options: { timeoutMs: number }) {
     return send(url, { headers: { "content-type": "application/json" }, body: JSON.stringify(body) }, options.timeoutMs);
   }

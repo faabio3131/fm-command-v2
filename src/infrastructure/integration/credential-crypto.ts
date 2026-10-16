@@ -39,6 +39,7 @@ export function sealCredential(key: Buffer, tenantId: string, secretRef: string,
 export function openCredential(key: Buffer, tenantId: string, secretRef: string, sealed: SealedCredential): ConnectorCredential {
   const value = JSON.parse(openText(key, tenantId, secretRef, sealed)) as ConnectorCredential;
   if (value?.kind === "api_key_pair" && typeof value.appKey === "string" && typeof value.appSecret === "string") return value;
+  if (value?.kind === "api_key" && typeof value.apiKey === "string") return value;
   if (value?.kind === "oauth2" && typeof value.accessToken === "string") {
     return { ...value, expiresAt: value.expiresAt ? new Date(value.expiresAt) : undefined };
   }
