@@ -4,13 +4,15 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { ExecutiveAnalysisService } from "@/application/executive/executive-analysis-service";
 import { createMetricService } from "@/application/metrics/metric-composition";
+import { getRequestLocale } from "@/application/i18n/request-locale";
 import { resolveTenantContext } from "@/application/security/resolve-tenant-context";
 import { AuthenticationRequiredError, TenantScopeRequiredError } from "@/domain/security/tenant-context";
+import { createTranslator, type Translate } from "@/i18n/translate";
 import { PostgresProductRepository } from "@/infrastructure/products/postgres-product-repository";
 import { CoreQueryForm } from "../core-query-form";
 
-function formatValue(value: string | null, unit: string, currency?: string) {
-  if (value === null) return "Indisponível";
+function formatValue(t: Translate, value: string | null, unit: string, currency?: string) {
+  if (value === null) return t("common.unavailable");
   return unit === "currency" && currency ? `${value} ${currency}` : value;
 }
 
@@ -25,6 +27,7 @@ export default async function IntelligencePage() {
 
   if (await companyLevelDenied(context)) return <NoCompanyAccess />;
 
+  const { t } = createTranslator(await getRequestLocale());
   const overview = await new ExecutiveAnalysisService(
     createMetricService(),
     new PostgresProductRepository(),
@@ -34,39 +37,42 @@ export default async function IntelligencePage() {
     <main className="dashboard-shell">
       <header className="dashboard-header">
         <div>
-          <span className="eyebrow">F16 · Core Executivo Avançado</span>
-          <h1>Inteligência executiva governada</h1>
-          <p>Fatos, inferências, recomendações e previsões permanecem separados. Ausência de evidência nunca vira certeza.</p>
+          <span className="eyebrow">{t("intel.eyebrow")}</span>
+          <h1>{t("intel.title")}</h1>
+          <p>{t("intel.lead")}</p>
         </div>
-        <Link href="/dashboard">Voltar</Link>
+        <Link href="/dashboard">{t("common.back")}</Link>
       </header>
 
       <section className="executive-section">
         <div className="section-heading">
-          <div><span className="eyebrow">Evidence Pack</span><h2>Sinais multi-domínio</h2></div>
-          <p>Correlação cognitiva usa somente métricas governadas e não implica causalidade.</p>
+          <div><span className="eyebrow">{t("intel.evidence")}</span><h2>{t("intel.signals")}</h2></div>
+          <p>{t("intel.signalsNote")}</p>
         </div>
         <div className="metric-grid">
           {overview.signals.map((signal) => (
             <article className="metric-card" key={signal.metricId}>
               <span className="metric-label">{signal.displayName}</span>
-              <strong>{signal.value ? formatValue(signal.value.value, signal.value.unit, signal.value.currency) : "Indisponível"}</strong>
-              <small>{signal.status === "available" ? "FATO · fonte governada" : "DADO INDISPONÍVEL"}</small>
+              <strong>{signal.value ? formatValue(t, signal.value.value, signal.value.unit, signal.value.currency) : t("common.unavailable")}</strong>
+              <small>{signal.status === "available" ? t("intel.fact") : t("intel.noData")}</small>
               <small>
-                Variação: {signal.variation.status === "available"
-                  ? `${signal.variation.direction} · delta ${signal.variation.delta}`
-                  : "evidência histórica insuficiente"}
+                {t("intel.variation", {
+                  value:
+                    signal.variation.status === "available"
+                      ? t("intel.variationValue", { direction: signal.variation.direction ?? "", delta: signal.variation.delta ?? "" })
+                      : t("intel.variationNone"),
+                })}
               </small>
             </article>
           ))}
         </div>
       </section>
 
-      <section className="guardrail-grid" aria-label="Guardrails analíticos">
-        <article><span className="eyebrow">Correlação</span><strong>{overview.correlation.status === "evidence_ready" ? "Evidência disponível" : "Evidência insuficiente"}</strong><p>{overview.correlation.note}</p></article>
-        <article><span className="eyebrow">Anomalia</span><strong>Evidência insuficiente</strong><p>{overview.anomaly.reason}</p></article>
-        <article><span className="eyebrow">Risco</span><strong>Evidência insuficiente</strong><p>{overview.risk.reason}</p></article>
-        <article><span className="eyebrow">Previsão</span><strong>Evidência insuficiente</strong><p>{overview.forecast.reason}</p></article>
+      <section className="guardrail-grid" aria-label={t("intel.guardrailsAria")}>
+        <article><span className="eyebrow">{t("intel.correlation")}</span><strong>{overview.correlation.status === "evidence_ready" ? t("intel.evidenceReady") : t("intel.evidenceLacking")}</strong><p>{overview.correlation.note}</p></article>
+        <article><span className="eyebrow">{t("intel.anomaly")}</span><strong>{t("intel.evidenceLacking")}</strong><p>{overview.anomaly.reason}</p></article>
+        <article><span className="eyebrow">{t("intel.risk")}</span><strong>{t("intel.evidenceLacking")}</strong><p>{overview.risk.reason}</p></article>
+        <article><span className="eyebrow">{t("intel.forecast")}</span><strong>{t("intel.evidenceLacking")}</strong><p>{overview.forecast.reason}</p></article>
       </section>
 
       <CoreQueryForm />

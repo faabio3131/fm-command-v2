@@ -1,10 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { readUiSource } from "./helpers/ui-source";
 
 describe("F15 customer intelligence UI", () => {
   it("expõe somente agregados e não inventa score", () => {
-    const source = readFileSync(resolve(process.cwd(), "src/app/dashboard/customers/page.tsx"), "utf8");
+    const source = readUiSource("src/app/dashboard/customers/page.tsx");
     expect(source).toContain("somente agregados governados");
     expect(source).toContain("Nenhum score de risco ou experiência é inventado");
     expect(source).toContain("Semântica pendente");

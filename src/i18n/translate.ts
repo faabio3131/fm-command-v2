@@ -17,6 +17,8 @@ export function interpolate(template: string, params?: Params): string {
   return template.replace(/\{(\w+)\}/g, (whole, name: string) => (name in params ? String(params[name]) : whole));
 }
 
+export type Translate = (key: MessageKey, params?: Params) => string;
+
 export interface Translator {
   readonly locale: Locale;
   t(key: MessageKey, params?: Params): string;

@@ -2,36 +2,29 @@ import { companyLevelDenied, NoCompanyAccess } from "@/app/dashboard/no-company-
 import Link from "next/link";
 import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
+import { getRequestLocale } from "@/application/i18n/request-locale";
 import type { MetricView } from "@/application/metrics/metric-service";
 import { buildProductCockpitService } from "@/application/products/product-cockpit-composition";
 import { ProductNotFoundError } from "@/application/products/product-registry-service";
 import { resolveTenantContext } from "@/application/security/resolve-tenant-context";
-import { roleHasPermission } from "@/domain/security/permissions";
 import {
   AuthenticationRequiredError,
   TenantScopeRequiredError,
 } from "@/domain/security/tenant-context";
+import type { Locale } from "@/i18n/locales";
+import { createTranslator } from "@/i18n/translate";
+import { createLabels } from "@/presentation/labels";
 import { CoreQueryForm } from "../../core-query-form";
-import {
-  rotuloAtualidade,
-  rotuloAutoridadeFonte,
-  rotuloCategoriaProduto,
-  rotuloDirecaoCrescimento,
-  rotuloEstadoOcorrencia,
-  rotuloMetrica,
-  rotuloOperadorAlerta,
-  rotuloQualidade,
-  rotuloSeveridadeAlerta,
-  rotuloStatusProduto,
-} from "@/presentation/pt-br";
 
-function displayValue(value: MetricView | null) {
-  if (!value || value.value === null) return "Indisponível";
+type Translate = ReturnType<typeof createTranslator>["t"];
+
+function displayValue(t: Translate, locale: Locale, value: MetricView | null) {
+  if (!value || value.value === null) return t("common.unavailable");
   if (value.unit === "currency" && value.currency) {
     const numeric = Number(value.value);
     if (Number.isFinite(numeric)) {
       try {
-        return new Intl.NumberFormat("pt-BR", {
+        return new Intl.NumberFormat(locale, {
           style: "currency",
           currency: value.currency,
         }).format(numeric);
@@ -41,32 +34,6 @@ function displayValue(value: MetricView | null) {
     }
   }
   return value.value;
-}
-
-function healthLabel(
-  status: "operational" | "degraded" | "unavailable" | "unknown",
-) {
-  if (status === "operational") return "Operacional";
-  if (status === "degraded") return "Degradado";
-  if (status === "unavailable") return "Indisponível";
-  return "Desconhecido";
-}
-
-function metricStateLabel(
-  status: "available" | "unavailable" | "pending_semantics",
-  value: MetricView | null,
-) {
-  if (status === "pending_semantics") return "Semântica pendente";
-  return displayValue(value);
-}
-
-function sourceStatusLabel(
-  status: "configured" | "healthy" | "degraded" | "unavailable",
-) {
-  if (status === "healthy") return "Saudável";
-  if (status === "degraded") return "Degradada";
-  if (status === "unavailable") return "Indisponível";
-  return "Configurada";
 }
 
 export default async function ProductPage({
@@ -94,6 +61,13 @@ export default async function ProductPage({
     throw error;
   }
 
+  const locale = await getRequestLocale();
+  const { t } = createTranslator(locale);
+  const labels = createLabels(locale);
+  const healthLabel = (status: "operational" | "degraded" | "unavailable" | "unknown") => t(`home.health.${status}`);
+  const metricStateLabel = (status: "available" | "unavailable" | "pending_semantics", value: MetricView | null) =>
+    status === "pending_semantics" ? t("cockpit.pendingSemantics") : displayValue(t, locale, value);
+  const sourceStatusLabel = (status: "configured" | "healthy" | "degraded" | "unavailable") => t(`cockpit.source.${status}`);
   const hasHealth = cockpit.health.services.length > 0;
   const operatingResult = cockpit.finance.operatingResult;
 
@@ -101,86 +75,74 @@ export default async function ProductPage({
     <main className="dashboard-shell">
       <header className="dashboard-header">
         <div>
-          <span className="eyebrow">R5 · Product Cockpit</span>
+          <span className="eyebrow">{t("cockpit.eyebrow")}</span>
           <h1>{cockpit.product.name}</h1>
-          <p>
-            Produto governado: <code>{cockpit.product.slug}</code> ·{" "}
-            {rotuloStatusProduto(cockpit.product.status)}
-          </p>
+          <p>{t("cockpit.lead", { slug: cockpit.product.slug, status: labels.productStatus(cockpit.product.status) })}</p>
         </div>
         <div>
           <Link className="button" href="/dashboard">
-            Voltar
+            {t("cockpit.back")}
           </Link>
         </div>
       </header>
 
-      <section className="metric-grid" aria-label="Resumo executivo do produto">
+      <section className="metric-grid" aria-label={t("cockpit.summaryAria")}>
         <article className="metric-card">
-          <span className="metric-label">Cobertura factual</span>
+          <span className="metric-label">{t("cockpit.coverage")}</span>
           <strong>
             {cockpit.coverage.available}/{cockpit.coverage.total}
           </strong>
-          <small>
-            {cockpit.coverage.pendingSemantics} semânticas pendentes ·{" "}
-            {cockpit.coverage.unavailable} fontes indisponíveis
-          </small>
+          <small>{t("cockpit.coverageNote", { pending: cockpit.coverage.pendingSemantics, unavailable: cockpit.coverage.unavailable })}</small>
         </article>
 
         <article className="metric-card">
-          <span className="metric-label">Saúde operacional</span>
+          <span className="metric-label">{t("cockpit.health")}</span>
           <strong>
             {hasHealth
               ? `${cockpit.health.counts.operational}/${cockpit.health.services.length}`
-              : "Indisponível"}
+              : t("common.unavailable")}
           </strong>
           <small>
             {hasHealth
-              ? `${cockpit.health.counts.degraded} degradados · ${cockpit.health.counts.unavailable} indisponíveis · ${cockpit.health.counts.unknown} desconhecidos`
-              : "Nenhum serviço governado registrado para este produto"}
+              ? t("cockpit.healthNote", { degraded: cockpit.health.counts.degraded, unavailable: cockpit.health.counts.unavailable, unknown: cockpit.health.counts.unknown })
+              : t("cockpit.healthNone")}
           </small>
         </article>
 
         <article className="metric-card">
-          <span className="metric-label">Resultado operacional</span>
+          <span className="metric-label">{t("cockpit.result")}</span>
           <strong>
             {operatingResult.status === "available"
               ? `${operatingResult.value} ${operatingResult.currency}`
-              : "Indisponível"}
+              : t("common.unavailable")}
           </strong>
           <small>
             {operatingResult.status === "available"
-              ? "Derivado deterministicamente de caixa e custos compatíveis"
-              : "Exige caixa e custos governados na mesma moeda e período"}
+              ? t("cockpit.resultDerived")
+              : t("cockpit.resultNeeds")}
           </small>
         </article>
 
         <article className="metric-card">
-          <span className="metric-label">Alertas governados</span>
-          <strong>{cockpit.alerts.counts.enabledRules} regras ativas</strong>
-          <small>
-            {cockpit.alerts.counts.recentActive} ocorrências ativas recentes ·{" "}
-            {cockpit.alerts.counts.recentCriticalActive} críticas
-          </small>
+          <span className="metric-label">{t("cockpit.alerts")}</span>
+          <strong>{t("cockpit.alertsRules", { count: cockpit.alerts.counts.enabledRules })}</strong>
+          <small>{t("cockpit.alertsNote", { active: cockpit.alerts.counts.recentActive, critical: cockpit.alerts.counts.recentCriticalActive })}</small>
         </article>
       </section>
 
       <section className="executive-section">
         <div className="section-heading">
           <div>
-            <span className="eyebrow">F11 · Inteligência por Produto</span>
-            <h2>Matriz de cobertura factual</h2>
+            <span className="eyebrow">{t("cockpit.matrix.eyebrow")}</span>
+            <h2>{t("cockpit.matrix.title")}</h2>
           </div>
-          <p>
-            O cockpit preserva a leitura canônica de cada métrica, inclusive
-            categoria, atualidade, qualidade e proveniência.
-          </p>
+          <p>{t("cockpit.matrix.note")}</p>
         </div>
         <div className="metric-grid">
           {cockpit.intelligence.metrics.map(({ target, status, value }) => (
             <article className="metric-card" key={target.metricId}>
               <span className="metric-label">
-                {rotuloCategoriaProduto(target.category)} · {target.displayName}
+                {labels.productCategory(target.category)} · {target.displayName}
               </span>
               <strong
                 className={
@@ -194,19 +156,19 @@ export default async function ProductPage({
               <div className="metric-meta">
                 <span>
                   {value
-                    ? `Atualidade: ${rotuloAtualidade(value.freshnessStatus)}`
-                    : "Atualidade indisponível"}
+                    ? t("cockpit.freshness", { value: labels.freshness(value.freshnessStatus) })
+                    : t("cockpit.freshnessNone")}
                 </span>
                 <span>
                   {value
-                    ? `Qualidade: ${rotuloQualidade(value.qualityStatus)}`
-                    : "Qualidade indisponível"}
+                    ? t("cockpit.quality", { value: labels.quality(value.qualityStatus) })
+                    : t("cockpit.qualityNone")}
                 </span>
               </div>
               <small className="metric-provenance">
                 {value
-                  ? `Fonte: ${rotuloAutoridadeFonte(value.sourceAuthority)} · referências: ${value.provenanceRefs.length}`
-                  : "Sem proveniência factual disponível"}
+                  ? t("cockpit.sourceRefs", { source: labels.sourceAuthority(value.sourceAuthority), count: value.provenanceRefs.length })
+                  : t("cockpit.noProvenance")}
               </small>
             </article>
           ))}
@@ -216,13 +178,10 @@ export default async function ProductPage({
       <section className="executive-section">
         <div className="section-heading">
           <div>
-            <span className="eyebrow">Comercial</span>
-            <h2>Aquisição e crescimento</h2>
+            <span className="eyebrow">{t("cockpit.commercial.eyebrow")}</span>
+            <h2>{t("cockpit.commercial.title")}</h2>
           </div>
-          <p>
-            Métricas são sempre resolvidas no escopo deste produto; conversão e
-            atribuição permanecem fechadas quando a semântica não está aprovada.
-          </p>
+          <p>{t("cockpit.commercial.note")}</p>
         </div>
         <div className="metric-grid">
           {cockpit.commercial.metrics.map(({ target, status, value }) => (
@@ -231,10 +190,10 @@ export default async function ProductPage({
               <strong>{metricStateLabel(status, value)}</strong>
               <small>
                 {value
-                  ? `Fonte: ${rotuloAutoridadeFonte(value.sourceAuthority)} · ${rotuloAtualidade(value.freshnessStatus)}`
+                  ? t("cockpit.sourceFresh", { source: labels.sourceAuthority(value.sourceAuthority), fresh: labels.freshness(value.freshnessStatus) })
                   : status === "pending_semantics"
-                    ? "Regra de negócio ainda não aprovada"
-                    : "Fonte ainda não conectada"}
+                    ? t("cockpit.ruleNotApproved")
+                    : t("cockpit.notConnected")}
               </small>
             </article>
           ))}
@@ -248,14 +207,10 @@ export default async function ProductPage({
       <section className="executive-section">
         <div className="section-heading">
           <div>
-            <span className="eyebrow">Financeiro</span>
-            <h2>Receita, caixa e custos</h2>
+            <span className="eyebrow">{t("cockpit.finance.eyebrow")}</span>
+            <h2>{t("cockpit.finance.title")}</h2>
           </div>
-          <p>
-            Billing, caixa, inadimplência e custos permanecem conceitos
-            separados. O próximo bloco poderá adicionar controles de Billing sem
-            alterar esta autoridade de leitura.
-          </p>
+          <p>{t("cockpit.finance.note")}</p>
         </div>
         <div className="metric-grid">
           {cockpit.finance.metrics.map(({ target, status, value }) => (
@@ -264,29 +219,22 @@ export default async function ProductPage({
               <strong>{metricStateLabel(status, value)}</strong>
               <small>
                 {value
-                  ? `Fonte: ${rotuloAutoridadeFonte(value.sourceAuthority)} · qualidade: ${rotuloQualidade(value.qualityStatus)}`
+                  ? t("cockpit.sourceQuality", { source: labels.sourceAuthority(value.sourceAuthority), quality: labels.quality(value.qualityStatus) })
                   : status === "pending_semantics"
-                    ? "Semântica pendente"
-                    : "Fonte ainda não conectada"}
+                    ? t("cockpit.pendingSemantics")
+                    : t("cockpit.notConnected")}
               </small>
             </article>
           ))}
         </div>
         <div className="foundation-grid">
           <article>
-            <h3>Unit economics</h3>
-            <p>
-              CAC, LTV, payback, ARPU e margem permanecem indisponíveis até
-              numeradores, denominadores, população e período serem governados.
-            </p>
+            <h3>{t("cockpit.unit.title")}</h3>
+            <p>{t("cockpit.unit.text")}</p>
           </article>
           <article>
-            <h3>Billing & Recebimentos</h3>
-            <p>
-              Este cockpit não cria ledger, provider ou conta a receber paralela.
-              Até os blocos canônicos de Billing e Receivables serem integrados,
-              exibe somente métricas financeiras já governadas por produto.
-            </p>
+            <h3>{t("cockpit.billing.title")}</h3>
+            <p>{t("cockpit.billing.text")}</p>
           </article>
         </div>
       </section>
@@ -294,13 +242,10 @@ export default async function ProductPage({
       <section className="executive-section">
         <div className="section-heading">
           <div>
-            <span className="eyebrow">Clientes e uso</span>
-            <h2>Engajamento e suporte</h2>
+            <span className="eyebrow">{t("cockpit.customers.eyebrow")}</span>
+            <h2>{t("cockpit.customers.title")}</h2>
           </div>
-          <p>
-            A superfície expõe somente agregados governados e nunca PII ou fatos
-            brutos.
-          </p>
+          <p>{t("cockpit.customers.note")}</p>
         </div>
         <div className="metric-grid">
           {cockpit.customer.metrics.map(({ target, status, value }) => (
@@ -309,10 +254,10 @@ export default async function ProductPage({
               <strong>{metricStateLabel(status, value)}</strong>
               <small>
                 {value
-                  ? `Fonte: ${rotuloAutoridadeFonte(value.sourceAuthority)}`
+                  ? t("cockpit.sourceOnly", { source: labels.sourceAuthority(value.sourceAuthority) })
                   : status === "pending_semantics"
-                    ? "Semântica pendente"
-                    : "Fonte ainda não conectada"}
+                    ? t("cockpit.pendingSemantics")
+                    : t("cockpit.notConnected")}
               </small>
             </article>
           ))}
@@ -327,8 +272,8 @@ export default async function ProductPage({
       <section className="executive-section">
         <div className="section-heading">
           <div>
-            <span className="eyebrow">Operações</span>
-            <h2>Saúde e sinais operacionais</h2>
+            <span className="eyebrow">{t("cockpit.ops.eyebrow")}</span>
+            <h2>{t("cockpit.ops.title")}</h2>
           </div>
           <p>{cockpit.health.availability.reason}</p>
         </div>
@@ -340,10 +285,10 @@ export default async function ProductPage({
               <strong>{metricStateLabel(status, value)}</strong>
               <small>
                 {value
-                  ? `Fonte: ${rotuloAutoridadeFonte(value.sourceAuthority)}`
+                  ? t("cockpit.sourceOnly", { source: labels.sourceAuthority(value.sourceAuthority) })
                   : status === "pending_semantics"
-                    ? "Semântica pendente"
-                    : "Fonte ainda não conectada"}
+                    ? t("cockpit.pendingSemantics")
+                    : t("cockpit.notConnected")}
               </small>
             </article>
           ))}
@@ -356,20 +301,20 @@ export default async function ProductPage({
                 <article key={service.id}>
                   <strong>{service.name}</strong>
                   <span>
-                    {service.environment} · {healthLabel(effectiveStatus)}
+                    {t("cockpit.ops.service", { environment: service.environment, status: healthLabel(effectiveStatus) })}
                   </span>
                   <p>
                     {observation
-                      ? `Fonte: ${rotuloAutoridadeFonte(observation.sourceAuthority)} · evidências: ${observation.provenanceRefs.length}`
-                      : "Sem observação governada"}
+                      ? t("cockpit.ops.observation", { source: labels.sourceAuthority(observation.sourceAuthority), count: observation.provenanceRefs.length })
+                      : t("cockpit.ops.noObservation")}
                   </p>
                 </article>
               ),
             )
           ) : (
             <article>
-              <strong>Saúde por serviço indisponível</strong>
-              <p>Nenhum serviço monitorado foi registrado para este produto.</p>
+              <strong>{t("cockpit.ops.noneTitle")}</strong>
+              <p>{t("cockpit.ops.noneText")}</p>
             </article>
           )}
         </div>
@@ -378,8 +323,8 @@ export default async function ProductPage({
       <section className="executive-section">
         <div className="section-heading">
           <div>
-            <span className="eyebrow">Integrações</span>
-            <h2>Fontes atribuídas ao produto</h2>
+            <span className="eyebrow">{t("cockpit.integrations.eyebrow")}</span>
+            <h2>{t("cockpit.integrations.title")}</h2>
           </div>
           <p>{cockpit.integrations.scopeNote}</p>
         </div>
@@ -389,38 +334,28 @@ export default async function ProductPage({
               <article key={source.id}>
                 <strong>{source.name}</strong>
                 <span>
-                  {source.authoritativeDomain} · {sourceStatusLabel(source.status)}
+                  {t("cockpit.integrations.item", { domain: source.authoritativeDomain, status: sourceStatusLabel(source.status) })}
                 </span>
-                <p>
-                  Tipo: {source.sourceType} · sincronização: {source.syncMode} ·
-                  mapping {source.mappingVersion}
-                </p>
+                <p>{t("cockpit.integrations.detail", { type: source.sourceType, sync: source.syncMode, mapping: source.mappingVersion })}</p>
               </article>
             ))
           ) : (
             <article>
-              <strong>Nenhuma integração product-scoped registrada</strong>
-              <p>
-                O cockpit não presume que uma fonte global do tenant pertença a
-                este produto.
-              </p>
+              <strong>{t("cockpit.integrations.noneTitle")}</strong>
+              <p>{t("cockpit.integrations.noneText")}</p>
             </article>
           )}
         </div>
         {cockpit.integrations.sharedTenantSourceCount > 0 ? (
-          <p>
-            Existem {cockpit.integrations.sharedTenantSourceCount} fonte(s)
-            global(is) no tenant; elas não são atribuídas automaticamente a{" "}
-            {cockpit.product.name}.
-          </p>
+          <p>{t("cockpit.integrations.shared", { count: cockpit.integrations.sharedTenantSourceCount, name: cockpit.product.name })}</p>
         ) : null}
       </section>
 
       <section className="executive-section">
         <div className="section-heading">
           <div>
-            <span className="eyebrow">Alertas</span>
-            <h2>Atenção governada do produto</h2>
+            <span className="eyebrow">{t("cockpit.alerts.eyebrow")}</span>
+            <h2>{t("cockpit.alerts.title")}</h2>
           </div>
           <p>{cockpit.alerts.windowNote}</p>
         </div>
@@ -428,25 +363,17 @@ export default async function ProductPage({
           {cockpit.alerts.occurrences.length ? (
             cockpit.alerts.occurrences.slice(0, 8).map((occurrence) => (
               <article key={occurrence.id}>
-                <strong>{rotuloMetrica(occurrence.metricId)}</strong>
+                <strong>{labels.metric(occurrence.metricId)}</strong>
                 <span>
-                  {rotuloSeveridadeAlerta(occurrence.severity)} ·{" "}
-                  {rotuloEstadoOcorrencia(occurrence.status)}
+                  {t("cockpit.alerts.state", { severity: labels.alertSeverity(occurrence.severity), status: labels.occurrenceState(occurrence.status) })}
                 </span>
-                <p>
-                  Valor observado: {occurrence.observedValue} · limite:{" "}
-                  {rotuloOperadorAlerta(occurrence.operator)}{" "}
-                  {occurrence.threshold}
-                </p>
+                <p>{t("cockpit.alerts.detail", { value: occurrence.observedValue, limit: `${labels.alertOperator(occurrence.operator)} ${occurrence.threshold}` })}</p>
               </article>
             ))
           ) : (
             <article>
-              <strong>Nenhuma ocorrência recente</strong>
-              <p>
-                Ausência de ocorrência nesta janela não é convertida em garantia
-                de saúde ou uptime.
-              </p>
+              <strong>{t("cockpit.alerts.noneTitle")}</strong>
+              <p>{t("cockpit.alerts.noneText")}</p>
             </article>
           )}
         </div>
@@ -455,20 +382,15 @@ export default async function ProductPage({
       <section className="executive-section">
         <div className="section-heading">
           <div>
-            <span className="eyebrow">Crescimento</span>
-            <h2>Tendências governadas</h2>
+            <span className="eyebrow">{t("cockpit.growth.eyebrow")}</span>
+            <h2>{t("cockpit.growth.title")}</h2>
           </div>
-          <p>
-            Apenas duas observações comparáveis do mesmo produto e métrica podem
-            formar tendência.
-          </p>
+          <p>{t("cockpit.growth.note")}</p>
         </div>
         <div className="metric-grid">
           {cockpit.intelligence.growth.map((signal) => (
             <article className="metric-card" key={signal.metricId}>
-              <span className="metric-label">
-                {rotuloMetrica(signal.metricId)}
-              </span>
+              <span className="metric-label">{labels.metric(signal.metricId)}</span>
               <strong
                 className={
                   signal.status === "available"
@@ -477,10 +399,10 @@ export default async function ProductPage({
                 }
               >
                 {signal.status === "available"
-                  ? rotuloDirecaoCrescimento(signal.direction)
-                  : "Indisponível"}
+                  ? labels.growthDirection(signal.direction)
+                  : t("common.unavailable")}
               </strong>
-              <small>Nenhum índice composto é produzido.</small>
+              <small>{t("cockpit.growth.noIndex")}</small>
             </article>
           ))}
         </div>
@@ -489,13 +411,10 @@ export default async function ProductPage({
       <section className="executive-section">
         <div className="section-heading">
           <div>
-            <span className="eyebrow">Core contextual</span>
-            <h2>Inteligência governada deste produto</h2>
+            <span className="eyebrow">{t("cockpit.core.eyebrow")}</span>
+            <h2>{t("cockpit.core.title")}</h2>
           </div>
-          <p>
-            O escopo é validado server-side contra o Product Registry do tenant;
-            o modelo não pode ampliar silenciosamente o produto selecionado.
-          </p>
+          <p>{t("cockpit.core.note")}</p>
         </div>
         <CoreQueryForm
           productContext={{
@@ -506,17 +425,10 @@ export default async function ProductPage({
       </section>
 
       <section className="panel">
-        <h2>Governança e proveniência</h2>
-        <p>
-          Este cockpit compõe autoridades existentes. Produto, métricas,
-          financeiro, clientes, operações, saúde e alertas continuam sendo
-          governados por seus próprios serviços canônicos.
-        </p>
-        <p>
-          Sem fonte, semântica ou evidência suficiente, o estado permanece
-          indisponível ou pendente — nunca zero presumido.
-        </p>
-        <p>Sem proveniência factual disponível, o valor permanece indisponível.</p>
+        <h2>{t("cockpit.gov.title")}</h2>
+        <p>{t("cockpit.gov.p1")}</p>
+        <p>{t("cockpit.gov.p2")}</p>
+        <p>{t("cockpit.gov.p3")}</p>
       </section>
     </main>
   );

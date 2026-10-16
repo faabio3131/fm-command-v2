@@ -51,7 +51,7 @@ describe("interface pt-BR", () => {
     expect(product).not.toContain("Freshness:");
     expect(product).not.toContain("Growth");
     expect(product).not.toContain("score composto");
-    expect(product).toContain("rotuloCategoriaProduto(target.category)");
+    expect(product).toContain("labels.productCategory(target.category)");
     expect(product).toContain("Crescimento");
     expect(product).toContain("Sem proveniência factual disponível");
   });
