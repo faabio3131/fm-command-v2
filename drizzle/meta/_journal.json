@@ -120,6 +120,13 @@
       "when": 1792105092966,
       "tag": "0016_work_core_query",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1792108030802,
+      "tag": "0017_saas_subscription",
+      "breakpoints": true
     }
   ]
 }
