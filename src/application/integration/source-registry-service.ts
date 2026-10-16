@@ -42,33 +42,9 @@ export class SourceRegistryService {
     assertConfigContainsNoSecrets(input.config);
     if (!input.name.trim() || !input.sourceType.trim() || !input.authoritativeDomain.trim()) throw new Error("integration.source_definition_invalid");
     if (input.freshnessSeconds !== undefined && (!Number.isInteger(input.freshnessSeconds) || input.freshnessSeconds < 1)) throw new Error("integration.freshness_invalid");
-    const knownCommercial = {
-      "kordena-commercial-v1": {
-        slug: "kordena",
-        secretRef: "env:FMCC_KORDENA_CONTROL_PLANE_TOKEN",
-      },
-      "iron-commercial-v1": {
-        slug: "iron",
-        secretRef: "env:FMCC_IRON_CONTROL_PLANE_TOKEN",
-      },
-    } as const;
-    const binding = input.sourceType in knownCommercial
-      ? knownCommercial[input.sourceType as keyof typeof knownCommercial]
-      : null;
-    if (binding && !input.productId) throw new InvalidProductSourceBindingError();
     if (input.productId) {
       const product = await this.products?.findById(context.tenantId, input.productId);
       if (!product || product.status !== "active") throw new InvalidProductScopeError();
-      if (
-        binding &&
-        (product.slug !== binding.slug ||
-          input.secretRef !== binding.secretRef ||
-          input.mappingVersion !== input.sourceType ||
-          input.authoritativeDomain !== "commercial" ||
-          input.syncMode !== "pull")
-      ) {
-        throw new InvalidProductSourceBindingError();
-      }
     }
     return this.sources.create(context.tenantId, {
       ...input,
