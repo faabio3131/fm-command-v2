@@ -14,7 +14,7 @@
 | # | Etapa | Entrega | Prova (critério de verde) | Peso | Situação |
 |---|---|---|---|---|---|
 | 0 | Fundação | Repositório da V2, cópia isolada da V1, arquitetura, ADR-015 a 020, contratos do core e roteamento | PRs #1, #2 e #3, testes verdes | 8% | Em revisão |
-| 1 | Medir | Teste de carga no caminho da IA com provedor simulado | Relatório com limite real de requisições e tempo de resposta | 4% | Pendente |
+| 1 | Medir | Teste de carga no caminho da IA com provedor simulado | Relatório com limite real de requisições e tempo de resposta | 4% | Entregue em PR (parcial): `docs/medicoes/ETAPA-1-CARGA-IA.md`. Falta rota com banco e provedor real 🛑 |
 | 2 | Hierarquia de unidades | Matriz, regiões e filiais; unidade de origem em cada métrica; permissão por unidade (ADR-019) | Testes de isolamento entre unidades e entre empresas | 8% | Pendente |
 | 3 | Idiomas e perfil | Arquivos de tradução pt-BR e en-US, perfil da empresa (idioma, país, moeda, fuso), seletor de idioma por usuário | Teste que falha se houver texto fixo na interface; formatação por `Intl` | 7% | Pendente |
 | 4 | IA fora da operação | Rotas com IA em processo próprio (ADR-016) | Painel e alertas sem lentidão com a IA sob carga simulada | 6% | Pendente |
@@ -30,7 +30,7 @@
 | 14 | Pré-lançamento | Revisão de segurança, testes de ponta a ponta, documentação, homologação | Todos os testes verdes; checklist de lançamento fechado | 2% | Pendente |
 | — | Lançamento 🛑 | Mesclar em `main`, publicar, domínio, primeiro país, primeiros clientes | Aprovação expressa do Diretor Executivo | — | Sempre decisão sua |
 
-Soma dos pesos: 100%. Hoje, com a etapa 0 em revisão: 8% entregue em PR, 0% em produção.
+Soma dos pesos: 100%. Hoje: etapa 0 em revisão e etapa 1 entregue em PR (parcial), 12% em PR, 0% em produção.
 
 ## Base reaproveitada: Core Base
 

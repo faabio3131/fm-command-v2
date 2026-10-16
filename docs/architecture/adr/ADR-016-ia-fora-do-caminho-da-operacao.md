@@ -7,7 +7,7 @@
 
 ## Contexto
 
-Na V1, a rota `/api/core/query` faz duas chamadas seguidas ao modelo, o planejamento e a síntese, dentro de uma única requisição, com limite de 30 segundos, um só provedor e sem modelo reserva. A busca global tem limite de uso por minuto; a rota do core não tem. No Kordena (fm-ai-platform), as rotas com IA são assíncronas mas chamam funções que esperam a resposta bloqueando o processo, e o PDV, o KDS e essas rotas estão no mesmo aplicativo. Isso é leitura de código; nenhum teste de carga foi feito.
+Na V1, a rota `/api/core/query` faz duas chamadas seguidas ao modelo, o planejamento e a síntese, dentro de uma única requisição, com limite de 30 segundos, um só provedor e sem modelo reserva. A busca global tem limite de uso por minuto; a rota do core não tem. No Kordena (fm-ai-platform), as rotas com IA são assíncronas mas chamam funções que esperam a resposta bloqueando o processo, e o PDV, o KDS e essas rotas estão no mesmo aplicativo. Isso é leitura de código. A medição da etapa 1 (`docs/medicoes/ETAPA-1-CARGA-IA.md`) mostrou que o Command, em Node, não trava o processo com até 400 pedidos de IA simultâneos contra um provedor simulado; o limite é a cota do provedor, sem reserva nem repetição. O risco de bloqueio do processo vem do Kordena (Python) e ainda não foi medido. Rota com banco e provedor real também não foram medidos.
 
 ## Decisão
 
