@@ -1,0 +1,167 @@
+{
+  "geradoEm": "2026-10-15T21:38:33.436Z",
+  "ambiente": {
+    "node": "v22.22.0",
+    "cpus": 2,
+    "memMb": 8030
+  },
+  "hipoteses": "Provedor simulado (plano 800 ms, sintese 1500 ms). Tudo na mesma maquina de 2 CPUs: os processos e o gerador de carga disputam as mesmas CPUs.",
+  "primeiraRespostaDoCore": {
+    "status": 200,
+    "corpo": "{\"answer\":\"Os dados solicitados estão indisponíveis porque ainda não existem valores governados ou uma fonte autorizada disponível para esta consulta.\",\"evidence\":[{\"kind\":\"metric\",\"ref\":\"trial.starts"
+  },
+  "S1_umProcessoFazTudo": {
+    "rssMbDepois": 366,
+    "carga": {
+      "total": 1261,
+      "porStatus": {
+        "200": 1261
+      },
+      "ok": {
+        "p50": 1165.4,
+        "p95": 1823.3,
+        "p99": 2058.2
+      },
+      "naoOk": {
+        "p50": 0,
+        "p95": 0,
+        "max": 0
+      }
+    },
+    "sondaOperacao": {
+      "total": 204,
+      "porStatus": {
+        "200": 204
+      },
+      "ok": {
+        "p50": 5.5,
+        "p95": 118.9,
+        "p99": 147
+      },
+      "naoOk": {
+        "p50": 0,
+        "p95": 0,
+        "max": 0
+      }
+    }
+  },
+  "S2_doisProcessos": {
+    "rssMbOperacao": 353,
+    "rssMbIA": 295,
+    "carga": {
+      "total": 5406,
+      "porStatus": {
+        "200": 789,
+        "503": 4617
+      },
+      "ok": {
+        "p50": 1247.5,
+        "p95": 2444.2,
+        "p99": 2680.3
+      },
+      "naoOk": {
+        "p50": 77.9,
+        "p95": 180.4,
+        "max": 3021.5
+      }
+    },
+    "sondaOperacao": {
+      "total": 58,
+      "porStatus": {
+        "200": 58
+      },
+      "ok": {
+        "p50": 191.6,
+        "p95": 388.7,
+        "p99": 495.7
+      },
+      "naoOk": {
+        "p50": 0,
+        "p95": 0,
+        "max": 0
+      }
+    }
+  },
+  "S2_processoDeIaNaoServeOperacao": {
+    "status": 404
+  },
+  "S3_iaCaiEVolta": {
+    "eventos": {
+      "matouIAEmMs": 8012.3,
+      "religouIAEmMs": 20042,
+      "iaRespondendoEmMs": 21264.6
+    },
+    "carga": {
+      "total": 19477,
+      "porStatus": {
+        "200": 593,
+        "503": 18884
+      },
+      "ok": {
+        "p50": 1326.3,
+        "p95": 2293.7,
+        "p99": 2518.8
+      },
+      "naoOk": {
+        "p50": 124.4,
+        "p95": 186.8,
+        "max": 1409.6
+      }
+    },
+    "sondaOperacao": {
+      "total": 102,
+      "porStatus": {
+        "200": 102
+      },
+      "ok": {
+        "p50": 215.7,
+        "p95": 407.3,
+        "p99": 428.9
+      },
+      "naoOk": {
+        "p50": 0,
+        "p95": 0,
+        "max": 0
+      }
+    },
+    "primeiroErroDepoisDeMatarEmMs": 12.2,
+    "primeiroSucessoDepoisDeReligarEmMs": 3762.4,
+    "errosInstantaneosDepoisDeCair": 14174
+  },
+  "S4_provedorTravado": {
+    "rssMbOperacao": 378,
+    "rssMbIA": 149,
+    "carga": {
+      "total": 11476,
+      "porStatus": {
+        "503": 11476
+      },
+      "ok": {
+        "p50": 0,
+        "p95": 0,
+        "p99": 0
+      },
+      "naoOk": {
+        "p50": 146.6,
+        "p95": 246.4,
+        "max": 3440.1
+      }
+    },
+    "sondaOperacao": {
+      "total": 51,
+      "porStatus": {
+        "200": 51
+      },
+      "ok": {
+        "p50": 375.2,
+        "p95": 579.2,
+        "p99": 647.5
+      },
+      "naoOk": {
+        "p50": 0,
+        "p95": 0,
+        "max": 0
+      }
+    }
+  }
+}

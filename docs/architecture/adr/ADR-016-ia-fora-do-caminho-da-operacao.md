@@ -17,6 +17,9 @@ Painéis, alertas, cobrança e integrações da V2 não chamam a IA diretamente 
 
 Positivas: a operação continua mesmo com todos os provedores fora do ar. Negativas: respostas de IA passam a ser assíncronas para o usuário, com aviso de progresso.
 
+## Implementação da etapa 4 (15/10/2026)
+`FMCC_PROCESS_ROLE` = `all` | `operation` | `ai`. Em `operation`, `/api/core/query` é repassada ao processo de IA por uma ponte com limite de simultâneos (32), disjuntor (5 falhas, 15 s aberto, uma sonda em meia-abertura) e tempo máximo (35 s); só cookie, content-type, accept-language e x-correlation-id seguem; 4xx passam sem contar no disjuntor. Em `ai`, `src/proxy.ts` serve apenas `/api/core/*` e rotas de saúde. Prova em `docs/medicoes/ETAPA-4-ISOLAMENTO-IA.md`: operação sem falha com IA morta e com provedor travado. Limites: prova de disponibilidade e não de velocidade, 2 CPUs, provedor simulado, valores do limite não calibrados. A resposta continua síncrona nesta etapa; a assíncrona via fila vem na etapa 5 (ADR-018).
+
 ## Condições de revisão
 
 Revisar com os números da etapa de medição.

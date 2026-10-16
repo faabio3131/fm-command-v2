@@ -1,0 +1,72 @@
+name: Billing PostgreSQL Isolated Certification
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "src/infrastructure/db/**"
+      - "src/infrastructure/billing/**"
+      - "src/application/billing/**"
+      - "src/domain/billing/**"
+      - "tests/billing-*.test.ts"
+      - "tests/iron-asaas-atomic-reconciliation*.test.ts"
+      - "src/app/api/billing/products/**"
+      - "drizzle/**"
+      - "scripts/billing-postgres-certification.mjs"
+      - "scripts/iron-entitlement-outbox-pg-certification.mjs"
+      - "scripts/billing-production-pilot-pg-certification.mjs"
+      - ".github/workflows/billing-postgres-certification.yml"
+permissions:
+  contents: read
+concurrency:
+  group: billing-postgres-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  isolated-postgres:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: fmcc_restore_test
+          POSTGRES_PASSWORD: only-ephemeral-ci-password
+          POSTGRES_DB: fmcc_billing_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U fmcc_restore_test -d fmcc_billing_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://fmcc_restore_test:only-ephemeral-ci-password@localhost:5432/fmcc_billing_ci
+      NODE_ENV: test
+      FMCC_ASAAS_SANDBOX_API_KEY: ""
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+      - name: Install
+        run: npm ci
+      - name: Execute Drizzle migrations in disposable PostgreSQL
+        run: npm run db:migrate
+      - name: Certify migrated PostgreSQL 18 schema and rollback
+        run: node scripts/billing-postgres-certification.mjs
+      - name: Certify real Pix pilot persistent PostgreSQL claims
+        run: node scripts/billing-production-pilot-pg-certification.mjs
+      - name: Certify IRON outbox concurrency and replay in disposable PostgreSQL
+        run: node scripts/iron-entitlement-outbox-pg-certification.mjs
+      - name: Billing unit and route authorization tests
+        run: npx vitest run tests/billing-payment-attribution.test.ts tests/billing-secret-resolver.test.ts tests/billing-asaas-sandbox-client.test.ts tests/billing-canonical-service.test.ts tests/billing-sandbox-reconcile-route.test.ts tests/billing-asaas-production-pilot.test.ts tests/billing-asaas-production-readonly.test.ts
+      - name: D11 IRON atomic provider reconciliation in disposable PostgreSQL
+        run: npx vitest run tests/iron-asaas-atomic-reconciliation-postgres.test.ts
+        env:
+          FMCC_IRON_ASAAS_PG_TEST: "YES"
+      - name: Real PostgreSQL recovery and reconciliation certification
+        run: npx vitest run tests/billing-production-recovery-postgres.test.ts
+      - name: Certify production pilot read-only readiness guards
+        run: node --test tests/billing-production-pilot-readiness.test.mjs
+      - name: TypeScript
+        run: npm run typecheck

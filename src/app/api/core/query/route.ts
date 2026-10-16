@@ -14,6 +14,8 @@ import {
 } from "@/domain/security/tenant-context";
 import { CognitiveModelContractError, CognitiveModelUnavailableError } from "@/domain/core/cognitive-model";
 import { logEvent } from "@/infrastructure/observability/logger";
+import { aiServiceConfig, processRole } from "@/config/process-role";
+import { sharedAiBridge } from "@/infrastructure/core/ai-service-client";
 
 async function auditCoreQuery(context: TenantContext | null, result: "success" | "failure" | "denied", metadata: Record<string, unknown>) {
   if (!context) return;
@@ -23,6 +25,12 @@ async function auditCoreQuery(context: TenantContext | null, result: "success" |
 }
 
 export async function POST(request: Request) {
+  // Processo de operação nunca chama o modelo (ADR-016): encaminha ao processo de IA ou recusa.
+  if (processRole() === "operation") {
+    const config = aiServiceConfig();
+    if (!config) return NextResponse.json({ error: "core.ai_service_not_configured" }, { status: 503 });
+    return sharedAiBridge(config).forward(request);
+  }
   let context: TenantContext | null = null;
   try {
     context = await resolveTenantContext(await headers());

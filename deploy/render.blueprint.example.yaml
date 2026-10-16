@@ -12,6 +12,33 @@ services:
         sync: false
       - key: BETTER_AUTH_URL
         sync: false
+      - key: FMCC_PROCESS_ROLE
+        value: operation
+      - key: FMCC_AI_SERVICE_URL
+        sync: false
+      - key: RUN_MIGRATIONS_ON_STARTUP
+        value: "false"
+      - key: FMCC_COGNITIVE_MODEL_BASE_URL
+        sync: false
+      - key: FMCC_COGNITIVE_MODEL_API_KEY
+        sync: false
+      - key: FMCC_COGNITIVE_MODEL_ID
+        sync: false
+  # TARGET (ADR-016): processo de IA separado da operacao. Nao conectar sem aprovacao.
+  - type: web
+    name: fm-command-ai-preview
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/health
+    envVars:
+      - key: FMCC_PROCESS_ROLE
+        value: ai
+      - key: DATABASE_URL
+        sync: false
+      - key: BETTER_AUTH_SECRET
+        sync: false
+      - key: BETTER_AUTH_URL
+        sync: false
       - key: RUN_MIGRATIONS_ON_STARTUP
         value: "false"
       - key: FMCC_COGNITIVE_MODEL_BASE_URL

@@ -8,8 +8,9 @@ const pool=new pg.Pool({connectionString:process.env.DATABASE_URL,max:4,idleTime
 const ledger=new ProductionPilotLedger(pool);
 let invoiceId:string,gatewayAccountId:string;
 const binding=()=>({tenantId:tenant,invoiceId,gatewayAccountId});
-describe("Production payment recovery and reconciliation on real PostgreSQL",()=>{
- beforeAll(async()=>{
+// Mesma trava de antes, agora numa funcao: fora do banco isolado o teste e PULADO
+// (nunca roda contra outro banco); ele roda no CI de certificacao de cobranca.
+function isolatedDatabase(): boolean {
   const url = process.env.DATABASE_URL ? new URL(process.env.DATABASE_URL) : null;
   const localIsolated = !!url &&
     ["localhost", "127.0.0.1"].includes(url.hostname) &&
@@ -23,7 +24,12 @@ describe("Production payment recovery and reconciliation on real PostgreSQL",()=
     url.port === "5432" &&
     url.pathname === "/fmcc" &&
     url.username === "postgres";
-  if (!localIsolated && !githubIsolated)
+  return localIsolated || githubIsolated;
+}
+
+describe.skipIf(!isolatedDatabase())("Production payment recovery and reconciliation on real PostgreSQL",()=>{
+ beforeAll(async()=>{
+  if (!isolatedDatabase())
     throw Error("billing.test_requires_isolated_local_pg");
   const product=await pool.query("INSERT INTO fmcc_product_definition(tenant_id,slug,name) VALUES($1,$2,'Kordena') RETURNING id",[tenant,tenant]);
   const customer=await pool.query("INSERT INTO fmcc_billing_customer(tenant_id,external_customer_id) VALUES($1,'test-customer') RETURNING id",[tenant]);

@@ -46,7 +46,7 @@ Estes padrões valem para todo código novo da V2 e são verificados por testes 
 
 - Cerca de 770 textos fixos em português nas demais telas herdadas. Migram junto com cada tela refeita.
 - Não há tela para a empresa editar o perfil regional nem API para isso; só o repositório.
-- O inglês é rascunho assistido por máquina. Precisa de revisão por pessoa nativa antes de chegar a cliente pagante.
+- O inglês é rascunho assistido por máquina. Em 15/10/2026 o Diretor decidiu que a revisão será feita por Claude; isso é revisão por IA, não por pessoa nativa, e a revisão por nativo segue recomendada antes de cobrar clientes nos Estados Unidos.
 - E-mails, alertas e relatórios gerados ainda não usam os catálogos. A IA ainda não recebe o idioma da pessoa.
 - Os valores gerados pelo servidor (rótulos de métricas e de alertas em `src/presentation/pt-br.ts`) seguem só em português.
 - Raiz da aplicação lê cookie e cabeçalhos, então toda página é renderizada sob demanda (já era o caso de quase todas).
