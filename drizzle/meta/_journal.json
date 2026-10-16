@@ -169,6 +169,13 @@
       "when": 1792178336552,
       "tag": "0023_channels",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1792184452865,
+      "tag": "0024_reports",
+      "breakpoints": true
     }
   ]
 }

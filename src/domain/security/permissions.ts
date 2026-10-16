@@ -12,12 +12,12 @@ export type Permission =
   | "receivable:read"
   | "search:use"
   | "notification:use"
-  | "channel:read" | "channel:write";
+  | "channel:read" | "channel:write" | "report:read" | "report:write";
 
 const ROLE_PERMISSIONS: Record<FmccRole, ReadonlySet<Permission>> = {
-  owner: new Set(["channel:read","channel:write","tenant:manage","member:manage","source:read","source:write","metric:read","audit:read","integration:read","integration:write","product:read","product:write","alert:read","alert:write","action:prepare","commercial:read","commercial:write","billing:read","billing:write","receivable:read","search:use","notification:use"]),
-  admin: new Set(["channel:read","channel:write","member:manage","source:read","source:write","metric:read","audit:read","integration:read","integration:write","product:read","product:write","alert:read","alert:write","action:prepare","commercial:read","commercial:write","billing:read","billing:write","receivable:read","search:use","notification:use"]),
-  analyst: new Set(["channel:read","source:read","metric:read","audit:read","integration:read","product:read","alert:read","action:prepare","commercial:read","search:use","notification:use"]),
+  owner: new Set(["report:read","report:write","channel:read","channel:write","tenant:manage","member:manage","source:read","source:write","metric:read","audit:read","integration:read","integration:write","product:read","product:write","alert:read","alert:write","action:prepare","commercial:read","commercial:write","billing:read","billing:write","receivable:read","search:use","notification:use"]),
+  admin: new Set(["report:read","report:write","channel:read","channel:write","member:manage","source:read","source:write","metric:read","audit:read","integration:read","integration:write","product:read","product:write","alert:read","alert:write","action:prepare","commercial:read","commercial:write","billing:read","billing:write","receivable:read","search:use","notification:use"]),
+  analyst: new Set(["report:read","channel:read","source:read","metric:read","audit:read","integration:read","product:read","alert:read","action:prepare","commercial:read","search:use","notification:use"]),
   viewer: new Set(["metric:read","integration:read","product:read","alert:read","commercial:read","search:use","notification:use"]),
   member: new Set(["metric:read","integration:read","product:read","alert:read","commercial:read","search:use","notification:use"]),
 };

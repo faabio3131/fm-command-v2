@@ -1902,3 +1902,11 @@ form.card>label{margin-top:2px}
 /* Telas até 1500 px: só o ponto colorido; o texto continua para leitor de tela e na dica ao passar o mouse. */
 @media (max-width:1500px){.live-status-text{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}}
 @media (max-width:640px){.live-status{display:none}}
+
+/* Telas de Canais e Relatórios: caixas de marcar em linha, formulários empilhados, botões compactos. */
+.form-grid{display:grid;gap:12px;max-width:640px}
+.form-grid label{display:grid;gap:6px}
+.form-grid fieldset{display:grid;gap:8px;border:1px solid var(--line);border-radius:11px;padding:12px 14px}
+label:has(> input[type="checkbox"]){display:flex;align-items:center;gap:10px}
+input[type="checkbox"]{width:18px;min-height:18px;height:18px;padding:0;flex:none}
+.panel li{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:8px}
