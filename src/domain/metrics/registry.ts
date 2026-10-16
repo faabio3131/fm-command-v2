@@ -10,6 +10,10 @@ export interface MetricDefinition {
   readonly kind: MetricKind;
   readonly factType: string;
   readonly valueField?: string;
+  /** `minor`: o campo vem na menor unidade da moeda (centavos) e é convertido para decimal exato ao somar. */
+  readonly valueScale?: "minor";
+  /** Só entram os fatos com `payload.status` nesta lista (fatos sem status reconhecido ficam de fora, nunca contados). */
+  readonly statuses?: readonly string[];
   readonly unit: "count" | "currency" | "percent";
   readonly currencyField?: string;
   readonly grain: MetricGrain;
@@ -120,6 +124,30 @@ export const METRIC_REGISTRY: readonly MetricDefinition[] = [
     displayName: "Chamados de suporte abertos", description: "Chamados distintos abertos no período por fonte de suporte autorizada.",
     kind: "count", factType: "support.ticket.opened", unit: "count", grain: "period", dimensions: [],
     timeWindow: "bounded_period", freshnessPolicy: "source_governed", sourceAuthority: "configured_support_source",
+  },
+  {
+    metricId: "finance.receivable.open_amount", version: 1, calculationVersion: "v1",
+    displayName: "A receber em aberto", description: "Soma dos títulos a receber ainda não liquidados (em aberto ou vencidos) segundo o sistema de origem.",
+    kind: "sum", factType: "finance.receivable", valueField: "amountMinor", valueScale: "minor", statuses: ["open", "overdue"], unit: "currency", currencyField: "currency",
+    grain: "as_of", dimensions: ["currency"], timeWindow: "as_of", freshnessPolicy: "source_governed", sourceAuthority: "configured_erp_source",
+  },
+  {
+    metricId: "finance.receivable.overdue_amount", version: 1, calculationVersion: "v1",
+    displayName: "A receber vencido", description: "Soma dos títulos a receber que o sistema de origem marca como vencidos.",
+    kind: "sum", factType: "finance.receivable", valueField: "amountMinor", valueScale: "minor", statuses: ["overdue"], unit: "currency", currencyField: "currency",
+    grain: "as_of", dimensions: ["currency"], timeWindow: "as_of", freshnessPolicy: "source_governed", sourceAuthority: "configured_erp_source",
+  },
+  {
+    metricId: "finance.payable.open_amount", version: 1, calculationVersion: "v1",
+    displayName: "A pagar em aberto", description: "Soma dos títulos a pagar ainda não liquidados (em aberto ou vencidos) segundo o sistema de origem.",
+    kind: "sum", factType: "finance.payable", valueField: "amountMinor", valueScale: "minor", statuses: ["open", "overdue"], unit: "currency", currencyField: "currency",
+    grain: "as_of", dimensions: ["currency"], timeWindow: "as_of", freshnessPolicy: "source_governed", sourceAuthority: "configured_erp_source",
+  },
+  {
+    metricId: "finance.payable.overdue_amount", version: 1, calculationVersion: "v1",
+    displayName: "A pagar vencido", description: "Soma dos títulos a pagar que o sistema de origem marca como vencidos.",
+    kind: "sum", factType: "finance.payable", valueField: "amountMinor", valueScale: "minor", statuses: ["overdue"], unit: "currency", currencyField: "currency",
+    grain: "as_of", dimensions: ["currency"], timeWindow: "as_of", freshnessPolicy: "source_governed", sourceAuthority: "configured_erp_source",
   },
 ] as const;
 

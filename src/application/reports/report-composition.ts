@@ -1,6 +1,6 @@
 import { buildChannelService, channelAudit } from "@/application/channels/channel-composition";
 import { ReportService } from "@/application/reports/report-service";
-import { createMetricService } from "@/application/metrics/metric-composition";
+import { createMetricRecomputeService, createMetricService } from "@/application/metrics/metric-composition";
 import type { AlertMessageText } from "@/domain/channels/alert-message";
 import type { Locale } from "@/i18n/locales";
 import { DEFAULT_LOCALE } from "@/i18n/locales";
@@ -21,6 +21,7 @@ export function buildReportService(): ReportService {
   return new ReportService({
     repository: new PostgresReportRepository(), metrics: createMetricService(), channels: buildChannelService(),
     audit: channelAudit, tenantProfile,
+    refreshMetrics: (tenantId, correlationId) => createMetricRecomputeService().recomputeTenant(tenantId, correlationId),
   });
 }
 
