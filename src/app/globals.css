@@ -1910,3 +1910,43 @@ form.card>label{margin-top:2px}
 label:has(> input[type="checkbox"]){display:flex;align-items:center;gap:10px}
 input[type="checkbox"]{width:18px;min-height:18px;height:18px;padding:0;flex:none}
 .panel li{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:8px}
+
+/* Etapa 9H: tendência, rosca e variação no painel inicial */
+.insight-grid{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(280px,1fr))}
+.insight-card{display:grid;gap:12px;align-content:start;padding:18px;border-radius:16px;background:linear-gradient(180deg,var(--surface-strong),var(--surface));border:1px solid var(--line)}
+.insight-card h3{margin:0;font-size:.95rem;color:var(--text-secondary);font-weight:600}
+.insight-figure{display:flex;flex-wrap:wrap;align-items:baseline;gap:10px}
+.insight-figure strong{font-size:1.9rem;line-height:1.1;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.delta{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;font-size:.82rem;font-weight:600;border:1px solid var(--line);background:var(--surface-soft);color:var(--text-secondary)}
+.delta[data-direction="up"]{color:var(--success);border-color:currentColor}
+.delta[data-direction="down"]{color:var(--danger);border-color:currentColor}
+.delta[data-direction="none"]{color:var(--muted)}
+.line-chart{margin:0;display:grid;gap:6px}
+.line-chart svg{width:100%;height:150px;display:block;overflow:visible}
+.line-chart-base{stroke:var(--line);stroke-width:1;stroke-dasharray:3 4;vector-effect:non-scaling-stroke}
+.line-chart-path{fill:none;stroke:var(--info);stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke;stroke-dasharray:1000;stroke-dashoffset:0;animation:line-draw .9s ease-out both}
+.line-chart-open{stroke-dasharray:5 5;animation:none;opacity:.85}
+.line-chart-dot{fill:var(--bg-elevated);stroke:var(--info);stroke-width:2;vector-effect:non-scaling-stroke}
+.line-chart-dot[data-open="true"]{stroke-dasharray:2 2}
+.line-chart-months{display:flex;justify-content:space-between;color:var(--muted);font-size:.74rem;font-variant-numeric:tabular-nums}
+.line-chart-months [data-open="true"]{color:var(--text-secondary);font-weight:600}
+@keyframes line-draw{from{stroke-dashoffset:1000}to{stroke-dashoffset:0}}
+.donut-chart{display:grid;grid-template-columns:132px 1fr;gap:16px;align-items:center}
+.donut-chart svg{width:132px;height:132px;transform:rotate(-90deg)}
+.donut-track{fill:none;stroke:var(--surface-soft);stroke-width:5}
+.donut-slice{fill:none;stroke-width:5;transition:stroke-dasharray .6s ease}
+.donut-legend{list-style:none;margin:0;padding:0;display:grid;gap:8px;font-size:.88rem}
+.donut-legend li{display:grid;grid-template-columns:12px 1fr auto;gap:8px;align-items:center}
+.donut-legend i{width:10px;height:10px;border-radius:3px;background:var(--muted)}
+.donut-legend li[data-available="false"]{color:var(--muted)}
+.donut-legend li[data-available="false"] i{background:transparent;border:1px dashed var(--muted)}
+.donut-legend strong{font-variant-numeric:tabular-nums}
+.donut-slice[data-color="0"],.donut-legend i[data-color="0"]{stroke:var(--info);background:var(--info)}
+.donut-slice[data-color="1"],.donut-legend i[data-color="1"]{stroke:var(--success);background:var(--success)}
+.donut-slice[data-color="2"],.donut-legend i[data-color="2"]{stroke:var(--warning);background:var(--warning)}
+.donut-slice[data-color="3"],.donut-legend i[data-color="3"]{stroke:var(--danger);background:var(--danger)}
+.donut-slice[data-color="4"],.donut-legend i[data-color="4"]{stroke:var(--text-secondary);background:var(--text-secondary)}
+.donut-legend i[data-color="others"]{background:var(--muted)}
+.donut-slice{stroke:var(--info)}
+@media (max-width:520px){.donut-chart{grid-template-columns:1fr;justify-items:center}.donut-legend{width:100%}}
+@media (prefers-reduced-motion:reduce){.line-chart-path,.donut-slice{animation:none;transition:none}}

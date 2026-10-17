@@ -11,7 +11,11 @@ import { ProductRegistryService } from "@/application/products/product-registry-
 import { loadDashboardIdentity } from "@/application/security/dashboard-identity";
 import { resolveTenantContext } from "@/application/security/resolve-tenant-context";
 import { BarChart } from "@/app/dashboard/charts/bar-chart";
-import { buildBranchBars } from "@/app/dashboard/charts/branch-bars";
+import { DonutChart } from "@/app/dashboard/charts/donut-chart";
+import { LineChart } from "@/app/dashboard/charts/line-chart";
+import { lastClosedDelta, toTrendPoints } from "@/domain/metrics/series-view";
+import { formatMonthKey } from "@/i18n/format";
+import { buildBranchBars, formatBranchValue } from "@/app/dashboard/charts/branch-bars";
 import { buildSectorService } from "@/application/sectors/sector-composition";
 import { PERIOD_KINDS, parsePeriodKind } from "@/domain/metrics/period";
 import { EXECUTIVE_METRIC_TARGETS, METRIC_REGISTRY, getMetricDefinition } from "@/domain/metrics/registry";
@@ -90,11 +94,18 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   // Gráfico das filiais que mais contribuem: só aparece se a empresa tem filiais no escopo da pessoa. Mesma métrica da tela Filiais (a primeira de soma visível).
   const noMetrics: ReadonlySet<string> = new Set();
   const visibleMetrics = await buildSectorService().visibleMetricIds(context.tenantId).catch(() => noMetrics);
-  const rankingMetric = METRIC_REGISTRY.find((m) => visibleMetrics.has(m.metricId) && m.kind === "sum");
+  const rankingMetric = METRIC_REGISTRY.find((m) => visibleMetrics.has(m.metricId) && m.kind === "sum" && m.grain === "period") ?? METRIC_REGISTRY.find((m) => visibleMetrics.has(m.metricId) && m.kind === "sum");
   const branchView = rankingMetric
     ? await createUnitComparisonService().compare(context, { metricId: rankingMetric.metricId, periodKind }).catch(() => null)
     : null;
   const branchBars = branchView && rankingMetric && branchView.comparison.branches.length > 0 ? buildBranchBars(branchView.comparison, rankingMetric.unit, locale, 5) : null;
+  const SERIES_MONTHS = 6;
+  const monthlySeries = branchView && rankingMetric && branchView.comparison.branches.length > 0
+    ? await createUnitComparisonService().monthlySeries(context, { metricId: rankingMetric.metricId, months: SERIES_MONTHS, timeZone }).catch(() => null)
+    : null;
+  const trendPoints = monthlySeries ? toTrendPoints(monthlySeries.points.map((p) => ({ key: p.key, closed: p.closed, total: p.comparison.total }))) : null;
+  const trendDelta = trendPoints ? lastClosedDelta(trendPoints) : null;
+  const lastClosed = trendPoints ? [...trendPoints].reverse().find((p) => p.closed) ?? null : null;
   const governedAvailable = metrics.filter(({ value, target }) => (value?.value !== null && value) || consolidation.get(target.metricId)?.total.status === "available").length;
   const activeProducts = products.filter((product) => product.status === "active").length;
   const activeAlerts = alertOverview.occurrences.filter((occurrence) => occurrence.status === "active").length;
@@ -250,6 +261,61 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         {roleHasPermission(context.role, "source:read") ? <Link href="/dashboard/sources"><strong>{t("home.intel.sources")}</strong><span>{t("home.intel.sourcesNote")}</span></Link> : null}
       </section>
 
+      {branchView && rankingMetric && branchBars ? (
+        <section className="executive-section" aria-labelledby="branch-ranking-title" data-testid="home-branch-ranking">
+          <div className="section-heading">
+            <div><span className="eyebrow">{t("home.branches.eyebrow")}</span><h2 id="branch-ranking-title">{t("home.branches.title", { metric: labels.metricName(rankingMetric.metricId, rankingMetric.displayName) })}</h2></div>
+            <p>{t("home.branches.note")}</p>
+          </div>
+          <div className="insight-grid">
+            {trendPoints ? (
+              <article className="insight-card" data-testid="home-trend">
+                <h3>{t("home.trend.title")}</h3>
+                <div className="insight-figure">
+                  <strong>{lastClosed?.value ? formatBranchValue(lastClosed.value, rankingMetric.unit, lastClosed.currency, locale) : t("common.unavailable")}</strong>
+                  {trendDelta?.status === "available" ? (
+                    <span className="delta" data-direction={trendDelta.direction}>
+                      <span aria-hidden="true">{trendDelta.direction === "up" ? "▲" : trendDelta.direction === "down" ? "▼" : "■"}</span>
+                      {t("home.trend.delta", { percent: `${trendDelta.direction === "up" ? "+" : ""}${new Intl.NumberFormat(locale, { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(trendDelta.percent as unknown as number)}`, month: formatMonthKey(trendDelta.fromKey, locale) })}
+                    </span>
+                  ) : <span className="delta" data-direction="none">{t("home.trend.deltaUnavailable")}</span>}
+                </div>
+                <p className="metric-provenance">{lastClosed ? t("home.trend.lastClosed", { month: formatMonthKey(lastClosed.key, locale) }) : t("home.trend.noClosed")}</p>
+                <LineChart points={trendPoints} ariaLabel={t("home.trend.aria", { metric: labels.metricName(rankingMetric.metricId, rankingMetric.displayName), months: SERIES_MONTHS })}
+                  monthLabel={(key) => formatMonthKey(key, locale)} formatValue={(value, currency) => formatBranchValue(value, rankingMetric.unit, currency, locale)}
+                  unavailableText={t("common.unavailable")} openMonthText={t("home.trend.openMonth")} />
+                <p className="metric-provenance">{t("home.trend.note")}</p>
+              </article>
+            ) : null}
+            <article className="insight-card" data-testid="home-share">
+              <h3>{t("home.share.title")}</h3>
+              {branchView.comparison.rankingSuspended ? (
+                <p>{t("units.rankingSuspended")}</p>
+              ) : (
+                <DonutChart items={branchView.comparison.branches.map((b) => ({ id: b.unitId, label: b.name, valueText: b.value === null ? null : formatBranchValue(b.value, rankingMetric.unit, b.currency, locale), sharePercent: b.sharePercent }))}
+                  ariaLabel={t("home.share.aria", { metric: labels.metricName(rankingMetric.metricId, rankingMetric.displayName) })} unavailableText={t("common.unavailable")} othersLabel={(count) => t("home.share.others", { count })} formatPercent={(percent) => `${new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }).format(percent as unknown as number)}%`} />
+              )}
+            </article>
+            <article className="insight-card">
+              <h3>{t("home.branches.top")}</h3>
+              {branchView.comparison.rankingSuspended ? (
+                <p>{t("units.rankingSuspended")}</p>
+              ) : branchBars.items.length ? (
+                <BarChart items={branchBars.items} ariaLabel={t("home.branches.aria", { metric: labels.metricName(rankingMetric.metricId, rankingMetric.displayName) })} unavailableText={t("common.unavailable")} />
+              ) : (
+                <p>{t("units.total.reason.no_data")}</p>
+              )}
+              <p className="metric-provenance">
+                {t("home.branches.coverage", { reporting: branchView.comparison.branches.length - branchBars.unavailableCount, expected: branchView.comparison.branches.length })}
+                {branchBars.unavailableCount > 0 ? ` · ${t("home.branches.missing", { count: branchBars.unavailableCount })}` : ""}
+                {branchBars.hiddenCount > 0 ? ` · ${t("home.branches.hidden", { count: branchBars.hiddenCount })}` : ""}
+              </p>
+              <Link href={`/dashboard/units?metric=${encodeURIComponent(rankingMetric.metricId)}&period=${periodKind}`}>{t("home.branches.all")}</Link>
+            </article>
+          </div>
+        </section>
+      ) : null}
+
       <section className="executive-section" aria-labelledby="executive-overview-title">
         <div className="section-heading">
           <div><span className="eyebrow">{t("home.overview.eyebrow")}</span><h2 id="executive-overview-title">{t("home.overview.title")}</h2></div>
@@ -297,30 +363,6 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
           })}
         </div>
       </section>
-
-      {branchView && rankingMetric && branchBars ? (
-        <section className="executive-section" aria-labelledby="branch-ranking-title" data-testid="home-branch-ranking">
-          <div className="section-heading">
-            <div><span className="eyebrow">{t("home.branches.eyebrow")}</span><h2 id="branch-ranking-title">{t("home.branches.title", { metric: labels.metricName(rankingMetric.metricId, rankingMetric.displayName) })}</h2></div>
-            <p>{t("home.branches.note")}</p>
-          </div>
-          <div className="panel">
-            {branchView.comparison.rankingSuspended ? (
-              <p>{t("units.rankingSuspended")}</p>
-            ) : branchBars.items.length ? (
-              <BarChart items={branchBars.items} ariaLabel={t("home.branches.aria", { metric: labels.metricName(rankingMetric.metricId, rankingMetric.displayName) })} unavailableText={t("common.unavailable")} />
-            ) : (
-              <p>{t("units.total.reason.no_data")}</p>
-            )}
-            <p className="metric-provenance">
-              {t("home.branches.coverage", { reporting: branchView.comparison.branches.length - branchBars.unavailableCount, expected: branchView.comparison.branches.length })}
-              {branchBars.unavailableCount > 0 ? ` · ${t("home.branches.missing", { count: branchBars.unavailableCount })}` : ""}
-              {branchBars.hiddenCount > 0 ? ` · ${t("home.branches.hidden", { count: branchBars.hiddenCount })}` : ""}
-            </p>
-            <Link href={`/dashboard/units?metric=${encodeURIComponent(rankingMetric.metricId)}&period=${periodKind}`}>{t("home.branches.all")}</Link>
-          </div>
-        </section>
-      ) : null}
 
       <section className="executive-section" aria-labelledby="product-intelligence-title">
         <div className="section-heading">

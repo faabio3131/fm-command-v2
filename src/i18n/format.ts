@@ -14,3 +14,9 @@ export function formatDate(date: Date | string, locale: Locale, timeZone: string
 export function formatNumber(value: number, locale: Locale, options?: Intl.NumberFormatOptions): string {
   return new Intl.NumberFormat(locale, options).format(value);
 }
+
+/** Rótulo curto de um mês "AAAA-MM" (já no calendário da empresa), por exemplo "out. de 26". Sem fuso: a chave já é o mês local. */
+export function formatMonthKey(key: string, locale: Locale): string {
+  const [y, m] = key.split("-").map(Number);
+  return new Intl.DateTimeFormat(locale, { month: "short", year: "2-digit", timeZone: "UTC" }).format(new Date(Date.UTC(y, m - 1, 15)));
+}
