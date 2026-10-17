@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createUnitComparisonService } from "@/application/metrics/metric-composition";
 import type { MetricDefinition } from "@/domain/metrics/registry";
+import { deltaTone } from "@/domain/metrics/polarity";
 import { lastClosedDelta, toTrendPoints } from "@/domain/metrics/series-view";
 import type { PeriodKind } from "@/domain/metrics/period";
 import type { TenantContext } from "@/domain/security/tenant-context";
@@ -47,7 +48,7 @@ export async function BranchInsights({ context, definition: rankingMetric, perio
             <div className="insight-figure">
               <strong>{lastClosed?.value ? formatBranchValue(lastClosed.value, rankingMetric.unit, lastClosed.currency, locale) : t("common.unavailable")}</strong>
               {trendDelta?.status === "available" ? (
-                <span className="delta" data-direction={trendDelta.direction}>
+                <span className="delta" data-direction={trendDelta.direction} data-tone={deltaTone(rankingMetric.metricId, trendDelta.direction)}>
                   <span aria-hidden="true">{trendDelta.direction === "up" ? "▲" : trendDelta.direction === "down" ? "▼" : "■"}</span>
                   {t("home.trend.delta", { percent: `${trendDelta.direction === "up" ? "+" : ""}${new Intl.NumberFormat(locale, { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(trendDelta.percent as unknown as number)}`, month: formatMonthKey(trendDelta.fromKey, locale) })}
                 </span>
