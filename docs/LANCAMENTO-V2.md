@@ -72,6 +72,12 @@ Pedido do Fábio em 17/10/2026: o teste real parte de uma meta ("N empresas perg
 
 Critérios de aprovação: painel com p95 abaixo de 1 s durante o pico de IA; pergunta à IA concluída em até 30 s no p95; nenhuma tarefa perdida; acima da meta o sistema recusa rápido (503 com aviso) em vez de ficar lento ou perder dado; gasto de IA do teste dentro do teto definido pelo Fábio.
 
+Disponibilidade: meta de 99,9% ao mês (cerca de 43 minutos de queda por mês), o mínimo comumente citado para SaaS (fonte de benchmark sem estudo primário; confirmar antes de prometer em contrato).
+
+Referência de mercado (pesquisa de 17/10/2026): nenhum concorrente publica capacidade de usuários simultâneos. Publicam frequência de atualização (Power BI Pro até 8 por dia; Premium até 48 por dia; Databox limita a atualização manual a 1 vez por dia por usuário nos painéis) e a nossa consulta de 5 s é bem mais fresca. O número de "empresas ativas" deve vir da meta comercial do primeiro ano, não do mercado.
+
+Limite externo que pesa mais que o nosso servidor: a API do Omie (conforme a página de ajuda, que tem tabela inconsistente) limita a 960 requisições por minuto por IP, 240 por minuto por chave e método, 4 simultâneas e bloqueia por 30 minutos após 10 erros seguidos. Se os clientes sincronizarem pelo mesmo servidor, o limite por IP pode ser compartilhado. Medir na fase final; preferir webhook quando o ERP oferecer, guardar o resultado e espaçar consultas. Limites do Bling e da Conta Azul ainda não conferidos.
+
 Medir também: pool de conexões do banco, atraso do laço de eventos, uso de memória, e o que acontece quando a cota do provedor é atingida (hoje devolve erro; a fila com repetição precisa estar ligada). Com os resultados, dimensionar o número de instâncias do painel e do serviço de IA (ponto de partida: 2 de cada, sem ponto único de falha) e decidir sobre um segundo provedor de reserva.
 
 ## 8. Decisões do Fábio antes de lançar
