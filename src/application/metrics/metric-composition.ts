@@ -1,4 +1,5 @@
 import { MetricRecomputeService } from "@/application/metrics/metric-recompute-service";
+import { DimensionRankingService } from "@/application/metrics/dimension-ranking-service";
 import { MetricService } from "@/application/metrics/metric-service";
 import { UnitComparisonService } from "@/application/metrics/unit-comparison-service";
 import { createUnitScopeResolver } from "@/application/organization/unit-scope";
@@ -23,6 +24,13 @@ export function createUnitComparisonService(): UnitComparisonService {
     (tenantId) => repository.listUnits(tenantId),
     scope,
   );
+}
+
+/** Ranking por dimensão (ex.: produtos), pela mesma porta única do MetricService e com o mesmo escopo. */
+export function createDimensionRankingService(): DimensionRankingService {
+  const repository = new PostgresUnitRepository();
+  const scope = createUnitScopeResolver(repository);
+  return new DimensionRankingService(new MetricService(new PostgresMetricStore(), scope), (tenantId) => repository.listUnits(tenantId), scope);
 }
 
 /** Recálculo de métricas a partir dos fatos (depois de cada sincronização e por agendamento). */

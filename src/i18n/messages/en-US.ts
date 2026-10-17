@@ -1044,6 +1044,7 @@ export const enUS: Record<MessageKey, string> = {
   "label.metricName.finance.payable.open_amount": "Payables outstanding",
   "label.metricName.finance.payable.overdue_amount": "Payables overdue",
   "label.metricName.sales.orders.invoiced_amount": "Invoiced sales (orders)",
+  "label.metricName.sales.items.invoiced_amount": "Invoiced sales by product",
   "label.metricName.sales.orders.invoiced_count": "Invoiced orders",
   "label.metricName.inventory.below_minimum.count": "Items below minimum stock",
   "label.metricName.trial.starts.count": "Free trials started",
