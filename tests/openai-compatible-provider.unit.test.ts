@@ -13,6 +13,7 @@ beforeAll(async () => {
       if (mode === "redirect") return void res.writeHead(302, { location: "http://127.0.0.1:1/roubo" }).end();
       if (mode === "huge") return void res.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify({ choices: [{ message: { content: "x" } }], usage: { prompt_tokens: 9_000_000_000, completion_tokens: 1 } }));
       if (mode === "429") return void res.writeHead(429).end("limit");
+      if (mode === "quota") return void res.writeHead(429, { "content-type": "application/json" }).end(JSON.stringify({ error: { type: "insufficient_quota", code: "credit_balance_exhausted", message: "sem credito" } }));
       if (mode === "500") return void res.writeHead(500).end("boom");
       if (mode === "401") return void res.writeHead(401).end("no");
       if (mode === "400") return void res.writeHead(400).end("bad");
@@ -53,6 +54,10 @@ describe("adaptador compativel com OpenAI (contra servidor local)", () => {
     await expect(call("500")).rejects.toBeInstanceOf(ProviderTransientError);
     await expect(call("401")).rejects.toMatchObject({ name: "ProviderRejectedError", code: "ai.provider_http_401" });
     await expect(call("400")).rejects.toBeInstanceOf(ProviderBadRequestError);
+  });
+  it("429 por credito esgotado e rejeicao do provedor (vai ao reserva), nao nova tentativa; 429 comum segue transitorio", async () => {
+    await expect(call("quota")).rejects.toMatchObject({ name: "ProviderRejectedError", code: "ai.provider_quota_exhausted" });
+    await expect(call("429")).rejects.toMatchObject({ name: "ProviderTransientError", code: "ai.provider_http_429" });
   });
   it("resposta fora do contrato e rejeitada, nao aceita como texto", async () => {
     await expect(call("html")).rejects.toBeInstanceOf(ProviderRejectedError);
