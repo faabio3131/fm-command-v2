@@ -30,6 +30,8 @@ export interface AgentServiceDeps {
   readonly tenantProfile: (tenantId: string) => Promise<{ timeZone: string; locale: Locale }>;
   readonly audit: AgentAudit;
   readonly now?: () => Date;
+  /** Quanto um rascunho pode ficar sem tarefa anexada antes de ser dado como falho. Padrão 120 s; só os testes com relógio falso mudam. */
+  readonly staleDraftMs?: number;
 }
 
 const MICRO = 1_000_000;
@@ -106,7 +108,7 @@ export class AgentService {
     const tr = createTranslator(profile.locale);
     for (const draft of await this.deps.repository.generating(tenantId)) {
       if (!draft.workItemId) {
-        if (this.now().getTime() - draft.createdAt.getTime() > 120_000) await this.deps.repository.finishGeneration(tenantId, draft.id, { status: "failed", costMicroMinor: null, currency: null, errorCode: "agent.enqueue_failed" });
+        if (this.now().getTime() - draft.createdAt.getTime() > (this.deps.staleDraftMs ?? 120_000)) await this.deps.repository.finishGeneration(tenantId, draft.id, { status: "failed", costMicroMinor: null, currency: null, errorCode: "agent.enqueue_failed" });
         continue;
       }
       const r = await this.deps.work.read(tenantId, draft.workItemId);
