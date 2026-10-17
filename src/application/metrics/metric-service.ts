@@ -1,4 +1,4 @@
-import { computeMetric, type MetricFact } from "@/domain/metrics/metric-engine";
+import { computeMetric, MultiCurrencyAggregationError, type MetricFact } from "@/domain/metrics/metric-engine";
 import { DEFAULT_PERIOD_KIND, type PeriodKind } from "@/domain/metrics/period";
 import { EXECUTIVE_METRIC_TARGETS, getMetricDefinition } from "@/domain/metrics/registry";
 import { assertUnitAccess, canAccessUnit, type UnitScope } from "@/domain/organization/unit-hierarchy";
@@ -105,6 +105,28 @@ export class MetricService {
     const scope = await this.unitScope(context);
     for (const unitId of unitIds) assertUnitAccess(scope, unitId);
     return this.store.latestValuesByUnit(context.tenantId, metricId, unitIds, productId, periodKind);
+  }
+
+  /**
+   * Valor de cada unidade pedida em uma janela de datas, calculado agora a partir dos fatos e NÃO gravado (leitura pura, usada na série
+   * histórica). Unidade sem fato na janela, ou com moedas misturadas, volta com valor nulo: indisponível, nunca zero.
+   */
+  async measureUnitsInWindow(context: TenantContext, metricId: string, unitIds: readonly string[], window: { periodStart: Date; periodEnd: Date }): Promise<readonly { unitId: string; value: string | null; currency?: string }[]> {
+    requirePermission(context, "metric:read");
+    const definition = getMetricDefinition(metricId);
+    if (!definition) throw new Error(`metrics.definition_not_found:${metricId}`);
+    const scope = await this.unitScope(context);
+    for (const unitId of unitIds) assertUnitAccess(scope, unitId);
+    return Promise.all(unitIds.map(async (unitId) => {
+      const facts = await this.store.factsForMetric({ tenantId: context.tenantId, unitId, factType: definition.factType, periodStart: window.periodStart, periodEnd: window.periodEnd });
+      try {
+        const computed = computeMetric(definition, facts);
+        return computed.status === "available" ? { unitId, value: computed.value, currency: computed.currency } : { unitId, value: null };
+      } catch (error) {
+        if (error instanceof MultiCurrencyAggregationError) return { unitId, value: null };
+        throw error;
+      }
+    }));
   }
 
   async history(context: TenantContext, metricId: string, productId: string, limit = 2, unitId?: string): Promise<readonly MetricView[]> {

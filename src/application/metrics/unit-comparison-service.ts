@@ -1,5 +1,6 @@
 import type { MetricService, UnitScopeResolver } from "@/application/metrics/metric-service";
 import { DEFAULT_PERIOD_KIND, type PeriodKind } from "@/domain/metrics/period";
+import { MAX_SERIES_MONTHS, monthWindows } from "@/domain/metrics/monthly-series";
 import { getMetricDefinition } from "@/domain/metrics/registry";
 import { compareBranches, selectableRegions, selectBranches, type ConsolidatedTotal, type UnitComparison } from "@/domain/metrics/unit-comparison";
 import type { OrgUnit } from "@/domain/organization/unit-hierarchy";
@@ -9,6 +10,18 @@ export interface CompanyConsolidation {
   readonly total: ConsolidatedTotal;
   /** Verdadeiro quando a pessoa enxerga todas as filiais da empresa; falso = soma só do que o escopo dela alcança. */
   readonly fullCompany: boolean;
+}
+
+export interface MonthlySeriesPoint {
+  readonly key: string;
+  /** Falso no mês corrente, que ainda está em andamento. */
+  readonly closed: boolean;
+  readonly comparison: UnitComparison;
+}
+
+export interface MonthlySeries {
+  readonly metricId: string;
+  readonly points: readonly MonthlySeriesPoint[];
 }
 
 export interface UnitComparisonView {
@@ -64,5 +77,25 @@ export class UnitComparisonService {
       out.set(metricId, { total: compareBranches(branches, readings, null).total, fullCompany: branches.length === allBranches.length });
     }
     return out;
+  }
+  /**
+   * Série mensal da métrica somando as filiais que a pessoa enxerga, mês a mês, calculada dos fatos (não das fotos do recálculo).
+   * Mês sem dado em nenhuma filial fica indisponível, nunca zero. Métrica de posição (a receber em aberto, assinaturas ativas) não tem
+   * série: o passado não é recuperável do fato atual, então devolve null em vez de inventar. Fuso e calendário são os da empresa.
+   */
+  async monthlySeries(context: TenantContext, input: { metricId: string; months: number; timeZone: string; now?: Date }): Promise<MonthlySeries | null> {
+    requirePermission(context, "metric:read");
+    const definition = getMetricDefinition(input.metricId);
+    if (!definition) throw new Error(`metrics.definition_not_found:${input.metricId}`);
+    if (definition.grain === "as_of") return null;
+    if (input.months > MAX_SERIES_MONTHS) throw new Error("metrics.series_months_invalid");
+    const [units, scope] = await Promise.all([this.listUnits(context.tenantId), this.unitScope(context)]);
+    const branches = selectBranches(units, scope, null);
+    const windows = monthWindows(input.now ?? new Date(), input.timeZone, input.months);
+    const points = await Promise.all(windows.map(async (window) => {
+      const readings = await this.metrics.measureUnitsInWindow(context, input.metricId, branches.map((b) => b.id), window);
+      return { key: window.key, closed: window.closed, comparison: compareBranches(branches, readings, null) };
+    }));
+    return { metricId: input.metricId, points };
   }
 }
