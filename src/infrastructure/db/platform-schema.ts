@@ -1,4 +1,5 @@
-import { foreignKey, index, integer, jsonb, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
+import { check, foreignKey, index, integer, jsonb, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import { orgUnits } from "./unit-schema";
 
 export const productDefinitions = pgTable("fmcc_product_definition", {
@@ -121,6 +122,8 @@ export const metricValues = pgTable("fmcc_metric_value", {
   currency: text("currency"),
   periodStart: timestamp("period_start", { withTimezone: true }),
   periodEnd: timestamp("period_end", { withTimezone: true }),
+  /** Qual período o usuário escolhe nas telas (mês corrente, mês anterior, trimestre, ano). Valores antigos são "current". */
+  periodKind: text("period_kind").notNull().default("current"),
   asOf: timestamp("as_of", { withTimezone: true }),
   computedAt: timestamp("computed_at", { withTimezone: true }).notNull().defaultNow(),
   sourceTimestamp: timestamp("source_timestamp", { withTimezone: true }),
@@ -133,5 +136,7 @@ export const metricValues = pgTable("fmcc_metric_value", {
   index("fmcc_metric_tenant_product_metric_time_idx").on(t.tenantId, t.productId, t.metricId, t.computedAt),
   index("fmcc_metric_tenant_time_idx").on(t.tenantId, t.computedAt),
   index("fmcc_metric_tenant_unit_metric_time_idx").on(t.tenantId, t.unitId, t.metricId, t.computedAt),
+  index("fmcc_metric_tenant_unit_metric_kind_time_idx").on(t.tenantId, t.unitId, t.metricId, t.periodKind, t.computedAt),
+  check("fmcc_metric_period_kind_ck", sql`${t.periodKind} in ('current','previous','quarter','year')`),
   foreignKey({ columns: [t.tenantId, t.unitId], foreignColumns: [orgUnits.tenantId, orgUnits.id], name: "fmcc_metric_unit_fk" }),
 ]);

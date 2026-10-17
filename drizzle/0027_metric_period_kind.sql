@@ -1,0 +1,3 @@
+ALTER TABLE "fmcc_metric_value" ADD COLUMN "period_kind" text DEFAULT 'current' NOT NULL;--> statement-breakpoint
+CREATE INDEX "fmcc_metric_tenant_unit_metric_kind_time_idx" ON "fmcc_metric_value" USING btree ("tenant_id","unit_id","metric_id","period_kind","computed_at");--> statement-breakpoint
+ALTER TABLE "fmcc_metric_value" ADD CONSTRAINT "fmcc_metric_period_kind_ck" CHECK ("fmcc_metric_value"."period_kind" in ('current','previous','quarter','year'));

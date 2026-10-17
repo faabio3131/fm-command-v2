@@ -47,7 +47,7 @@ describe("FM Command deep completeness audit — internal findings", () => {
     expect(page).toContain("Semântica pendente");
     expect(loading).toContain('aria-busy="true"');
     expect(error).toContain('role="alert"');
-    expect(metricService).toContain("async overview(context: TenantContext, productId?: string, unitId?: string)");
+    expect(metricService).toContain("async overview(context: TenantContext, productId?: string, unitId?: string, periodKind: PeriodKind = DEFAULT_PERIOD_KIND)");
   });
 
   it("completa Assinaturas sem inventar novas assinaturas, MRR, ARR ou churn", () => {
