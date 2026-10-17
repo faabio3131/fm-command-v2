@@ -1,11 +1,17 @@
+import { BranchChartsSection } from "@/app/dashboard/charts/branch-charts-section";
+import { ConsolidatedMetricCard } from "@/app/dashboard/charts/consolidated-card";
 import { companyLevelDenied, NoCompanyAccess } from "@/app/dashboard/no-company-access";
 import Link from "next/link";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { createMetricService } from "@/application/metrics/metric-composition";
+import { createMetricService, createUnitComparisonService } from "@/application/metrics/metric-composition";
 import { OperationalHealthService } from "@/application/operations/operational-health-service";
 import { OperationsIntelligenceService } from "@/application/operations/operations-intelligence-service";
+import { getMetricDefinition } from "@/domain/metrics/registry";
 import { getRequestLocale } from "@/application/i18n/request-locale";
+import { getCompanyTimeZone } from "@/application/i18n/request-timezone";
+import { OPERATIONS_METRIC_TARGETS } from "@/domain/operations/intelligence";
+
 import { resolveTenantContext } from "@/application/security/resolve-tenant-context";
 import { AuthenticationRequiredError, TenantScopeRequiredError } from "@/domain/security/tenant-context";
 import { PostgresOperationalHealthRepository } from "@/infrastructure/operations/postgres-health-repository";
@@ -13,7 +19,7 @@ import { createTranslator } from "@/i18n/translate";
 import { createLabels } from "@/presentation/labels";
 import { PostgresProductRepository } from "@/infrastructure/products/postgres-product-repository";
 
-export default async function OperationsPage() {
+export default async function OperationsPage({ searchParams }: { searchParams: Promise<{ metric?: string; period?: string }> }) {
   let context;
   try {
     context = await resolveTenantContext(await headers());
@@ -37,11 +43,19 @@ export default async function OperationsPage() {
     ).overview(context),
   ]);
 
+  const params = await searchParams;
+  const timeZone = await getCompanyTimeZone(context.tenantId);
   const locale = await getRequestLocale();
   const { t } = createTranslator(locale);
   const labels = createLabels(locale);
   const statusLabel = (status: "operational" | "degraded" | "unavailable" | "unknown") => t(`home.health.${status}`);
   const hasMonitoredServices = health.services.length > 0;
+
+  // Empresa com filiais: o cartão sem valor próprio mostra a soma das filiais (mesma regra do painel inicial; valor próprio sempre vence).
+  const needsConsolidation = overview.metrics.filter((m) => m.status === "unavailable").map((m) => m.target.metricId);
+  const consolidation = needsConsolidation.length
+    ? await createUnitComparisonService().consolidate(context, { metricIds: needsConsolidation }).catch(() => new Map())
+    : new Map();
 
   return (
     <main className="dashboard-shell dashboard-shell-compact">
@@ -107,7 +121,11 @@ export default async function OperationsPage() {
       </section>
 
       <section className="metric-grid">
-        {overview.metrics.map(({ target, status, value }) => (
+        {overview.metrics.map(({ target, status, value }) => {
+          const consolidated = consolidation.get(target.metricId);
+          const definition = getMetricDefinition(target.metricId);
+          if (consolidated && definition) return <ConsolidatedMetricCard key={target.metricId} metricName={labels.metricName(target.metricId, target.displayName)} unit={definition.unit} consolidation={consolidated} locale={locale} />;
+          return (
           <article className="metric-card" key={target.metricId}>
             <span className="metric-label">{labels.metricName(target.metricId, target.displayName)}</span>
             <strong>
@@ -123,8 +141,11 @@ export default async function OperationsPage() {
                   : t("ops.telemetry")}
             </small>
           </article>
-        ))}
+          );
+        })}
       </section>
+
+      <BranchChartsSection context={context} action="/dashboard/operations" metricIds={OPERATIONS_METRIC_TARGETS.map((m) => m.metricId)} params={params} timeZone={timeZone} locale={locale} headingId="operations-branch-title" />
 
       <section className="panel">
         <h2>{t("ops.runtime")}</h2>
