@@ -30,7 +30,12 @@ const model: CognitiveModel = {
   async synthesize(input) { captured = { facts: input.facts, evidence: input.evidence }; return "ok"; },
 };
 const ask = (c: TenantContext, metrics: readonly string[] = [METRIC]) => { planMetrics = metrics; captured = null; return buildCoreGateway(model).ask(c, "Qual loja vendeu mais, a segunda, a terceira e a pior?"); };
-const ranking = () => (captured?.facts.find((f) => f.capabilityId === "units.branch_ranking")?.rankings as Array<Record<string, any>>)[0];
+type RankingFact = {
+  metricId: string; status: string; higherIsWorse: boolean; reporting: number; expected: number; partial: boolean; withoutValue: string[];
+  positions: Array<{ position: number; branches: Array<{ name: string; value: string; currency?: string }> }>;
+  lowest: Array<{ name: string }>;
+};
+const ranking = () => (captured?.facts.find((f) => f.capabilityId === "units.branch_ranking")?.rankings as RankingFact[])[0];
 const named = (positions: Array<{ position: number; branches: { name: string }[] }>) => positions.map((p) => [p.position, p.branches.map((b) => b.name)]);
 
 async function cleanup() {
