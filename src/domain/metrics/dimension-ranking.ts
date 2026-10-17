@@ -29,7 +29,12 @@ export interface DimensionRanking {
   readonly rankingSuspended: boolean;
   /** Fatos que bateram com a métrica mas não têm a dimensão: ficam de fora e são avisados. */
   readonly withoutDimension: number;
+  /** Origem dos valores que entraram na soma: ids dos fatos (até {@link MAX_PROVENANCE_REFS}) e o mais recente deles. */
+  readonly provenanceRefs: readonly string[];
+  readonly latestSourceTimestamp: Date | null;
 }
+
+export const MAX_PROVENANCE_REFS = 200;
 
 const keyOf = (fact: MetricFact, dimension: string): string | null => {
   const raw = fact.payload[dimension];
@@ -62,7 +67,7 @@ export function rankByDimension(definition: MetricDefinition, facts: readonly Me
     }
     const latest = [...list].sort((a, b) => b.sourceTimestamp.getTime() - a.sourceTimestamp.getTime())
       .map((f) => (typeof f.payload.description === "string" && f.payload.description.trim() !== "" ? f.payload.description.trim() : null)).find((d) => d !== null);
-    return { key, label: latest ?? key, value, currency, parsed: value === null ? null : parseDecimal(value), facts: new Set(list.map((f) => f.externalId)).size };
+    return { key, label: latest ?? key, value, currency, parsed: value === null ? null : parseDecimal(value), facts: new Set(list.map((f) => f.externalId)).size, list };
   });
 
   const reporting = computed.filter((row): row is typeof row & { parsed: DecimalValue } => row.parsed !== null);
@@ -80,9 +85,12 @@ export function rankByDimension(definition: MetricDefinition, facts: readonly Me
       rankOf.set(row.key, previous && compareDecimals(previous.parsed, row.parsed) === 0 ? (rankOf.get(previous.key) as number) : index + 1);
     });
   }
+  const used = reporting.flatMap((row) => row.list);
+  const latestSourceTimestamp = used.length === 0 ? null : new Date(Math.max(...used.map((f) => f.sourceTimestamp.getTime())));
   const unavailable = computed.filter((row) => row.parsed === null).sort((a, b) => a.key.localeCompare(b.key));
   return {
-    dimension, total, rankingSuspended: mixed, withoutDimension,
+    dimension, total, rankingSuspended: mixed, withoutDimension, latestSourceTimestamp,
+    provenanceRefs: used.map((f) => f.provenanceRef).slice(0, MAX_PROVENANCE_REFS),
     rows: [...sorted, ...unavailable].map((row) => ({
       key: row.key, label: row.label, value: row.value, ...(row.currency ? { currency: row.currency } : {}),
       rank: rankOf.get(row.key) ?? null,

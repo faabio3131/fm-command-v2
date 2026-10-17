@@ -1,6 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { randomBytes } from "node:crypto";
 import { inArray } from "drizzle-orm";
+import { buildCoreGateway } from "@/application/core/core-composition";
+import type { CognitiveModel } from "@/domain/core/cognitive-model";
 import { ConnectorRuntime } from "@/application/integration/connector-runtime";
 import { RateLimiter } from "@/application/integration/rate-limiter";
 import { createDimensionRankingService, createMetricService } from "@/application/metrics/metric-composition";
@@ -142,5 +144,32 @@ describe("ranking por produto até o número (ERP simulado)", () => {
     await expect(rank(ctx(A), { limit: 0 })).rejects.toThrow("metrics.ranking_limit_invalid");
     await expect(rank(ctx(A), { metricId: "inventory.below_minimum.count" })).rejects.toThrow("metrics.ranking_period_required");
     await expect(rank(ctx(A), { metricId: "nao.existe" })).rejects.toThrow("metrics.definition_not_found");
+  });
+});
+
+describe("pergunta sobre produtos mais vendidos pelo Core (banco real)", () => {
+  it("o plano escolhe a capacidade e a IA recebe só fatos do motor, com a evidência e a proveniência dos pedidos", async () => {
+    let captured: { facts: readonly Record<string, unknown>[]; evidence: readonly { ref: string; provenanceRefs?: readonly string[] }[] } | null = null;
+    const model: CognitiveModel = {
+      async plan() { return { metricIds: [], capabilityIds: ["sales.product_ranking"] }; },
+      async synthesize(input) { captured = { facts: input.facts, evidence: input.evidence }; return "ok"; },
+    };
+    const answer = await buildCoreGateway(model).ask(ctx(A), "Qual produto vendeu mais este mês e qual vendeu menos?");
+    expect(answer.factualStatus).toBe("grounded");
+    const fact = captured!.facts.find((f) => f.capabilityId === "sales.product_ranking") as { positions: { position: number; products: { productRef: string; value: string }[] }[]; lowest: { productRef: string }[]; total: { value: string }; linesWithoutProduct: number };
+    expect(fact.positions.map((p) => [p.position, p.products[0].productRef, p.products[0].value])).toEqual([[1, "301", "1400"], [2, "302", "400"], [3, "303", "100"]]);
+    expect(fact.lowest.map((x) => x.productRef)).toEqual(["303"]);
+    expect(fact).toMatchObject({ total: { value: "1900" }, linesWithoutProduct: 1 });
+    expect(captured!.evidence.find((e) => e.ref === "product-ranking")?.provenanceRefs?.length).toBeGreaterThan(0);
+  });
+
+  it("outra empresa recebe 'indisponível', nunca o ranking de quem tem dado", async () => {
+    let facts: readonly Record<string, unknown>[] = [];
+    const model: CognitiveModel = {
+      async plan() { return { metricIds: [], capabilityIds: ["sales.product_ranking"] }; },
+      async synthesize(input) { facts = input.facts; return "ok"; },
+    };
+    await buildCoreGateway(model).ask(ctx(B), "Qual produto vendeu mais este mês?");
+    expect(facts.find((f) => f.capabilityId === "sales.product_ranking")).toBeUndefined();
   });
 });
