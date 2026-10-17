@@ -1043,6 +1043,7 @@ export const ptBR = {
   "label.metricName.finance.payable.open_amount": "A pagar em aberto",
   "label.metricName.finance.payable.overdue_amount": "A pagar vencido",
   "label.metricName.sales.orders.invoiced_amount": "Vendas faturadas (pedidos)",
+  "label.metricName.sales.items.invoiced_amount": "Vendas faturadas por produto",
   "label.metricName.sales.orders.invoiced_count": "Pedidos faturados",
   "label.metricName.inventory.below_minimum.count": "Itens abaixo do estoque mínimo",
   "label.metricName.trial.starts.count": "Testes gratuitos iniciados",

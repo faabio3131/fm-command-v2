@@ -129,6 +129,20 @@ export class MetricService {
     }));
   }
 
+  /**
+   * Fatos de uma métrica em uma janela de datas, das unidades pedidas (cada uma passa pelo escopo; pedir uma de fora nega tudo).
+   * Leitura pura: serve a rankings por dimensão (ex.: produto), que agrupam os fatos em vez de somá-los num valor só.
+   */
+  async factsInWindow(context: TenantContext, metricId: string, unitIds: readonly string[], window: { periodStart: Date; periodEnd: Date }): Promise<readonly MetricFact[]> {
+    requirePermission(context, "metric:read");
+    const definition = getMetricDefinition(metricId);
+    if (!definition) throw new Error(`metrics.definition_not_found:${metricId}`);
+    const scope = await this.unitScope(context);
+    for (const unitId of unitIds) assertUnitAccess(scope, unitId);
+    const lists = await Promise.all(unitIds.map((unitId) => this.store.factsForMetric({ tenantId: context.tenantId, unitId, factType: definition.factType, periodStart: window.periodStart, periodEnd: window.periodEnd })));
+    return lists.flat();
+  }
+
   async history(context: TenantContext, metricId: string, productId: string, limit = 2, unitId?: string): Promise<readonly MetricView[]> {
     requirePermission(context, "metric:read");
     if (!getMetricDefinition(metricId)) throw new Error(`metrics.definition_not_found:${metricId}`);

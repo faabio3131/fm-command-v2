@@ -163,6 +163,12 @@ export const BASE_METRIC_REGISTRY: readonly MetricDefinition[] = [
     timeWindow: "bounded_period", freshnessPolicy: "source_governed", sourceAuthority: "configured_erp_source",
   },
   {
+    metricId: "sales.items.invoiced_amount", version: 1, calculationVersion: "v1",
+    displayName: "Vendas faturadas por produto", description: "Soma do valor das linhas dos pedidos faturados no período, agrupada por produto (linha de item). Serve para o ranking de produtos; o total é o mesmo das vendas faturadas por pedido. Linha sem código de produto fica de fora do ranking e é contada à parte.",
+    kind: "sum", factType: "sales.order_item", valueField: "amountMinor", valueScale: "minor", statuses: ["invoiced"], unit: "currency", currencyField: "currency",
+    grain: "period", dimensions: ["productRef"], timeWindow: "bounded_period", freshnessPolicy: "source_governed", sourceAuthority: "configured_erp_source",
+  },
+  {
     metricId: "inventory.below_minimum.count", version: 1, calculationVersion: "v1",
     displayName: "Itens abaixo do estoque mínimo", description: "Quantidade de produtos com saldo menor que o estoque mínimo cadastrado no sistema de origem. Produto sem mínimo cadastrado não entra.",
     kind: "count", factType: "inventory.position", statuses: ["below_minimum"], unit: "count", grain: "as_of", dimensions: [],
