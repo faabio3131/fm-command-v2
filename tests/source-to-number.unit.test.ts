@@ -76,12 +76,21 @@ describe("recálculo a partir dos fatos", () => {
       { factType: "lead.created", productId: null, unitId: null },
     ]);
     await service.recomputeTenant("t1", "c");
-    const byMetric = Object.fromEntries(recompute.mock.calls.map(([, i]) => [(i as { metricId: string }).metricId, i as Record<string, unknown>]));
+    const calls = recompute.mock.calls.map(([, i]) => i as Record<string, unknown>);
+    // Posição tem um valor só; período tem um por tipo de período. O mês corrente é o que as telas leem por padrão.
+    const byMetric = Object.fromEntries(calls.filter((i) => i.periodKind === undefined || i.periodKind === "current").map((i) => [i.metricId as string, i]));
     expect(byMetric["finance.receivable.open_amount"].asOf).toEqual(now);
     expect(byMetric["finance.receivable.open_amount"].periodStart).toBeUndefined();
     expect((byMetric["lead.created.count"].periodStart as Date).toISOString()).toBe("2026-10-01T03:00:00.000Z"); // 1º de outubro 00h em São Paulo
     expect(byMetric["lead.created.count"].periodEnd).toEqual(now);
     expect(byMetric["lead.created.count"].skipIfUnchanged).toBe(true);
+    expect(calls.filter((i) => i.metricId === "finance.receivable.open_amount")).toHaveLength(1);
+    const periods = Object.fromEntries(calls.filter((i) => i.metricId === "lead.created.count").map((i) => [i.periodKind as string, i]));
+    expect(Object.keys(periods).sort()).toEqual(["current", "previous", "quarter", "year"]);
+    const iso = (kind: string, key: "periodStart" | "periodEnd") => (periods[kind][key] as Date).toISOString();
+    expect([iso("previous", "periodStart"), iso("previous", "periodEnd")]).toEqual(["2026-09-01T03:00:00.000Z", "2026-10-01T03:00:00.000Z"]);
+    expect(iso("quarter", "periodStart")).toBe("2026-10-01T03:00:00.000Z");
+    expect(iso("year", "periodStart")).toBe("2026-01-01T03:00:00.000Z");
   });
   it("uma métrica que falha não impede as outras e a falha é contada; uma empresa com problema não impede as outras", async () => {
     const { service } = build([{ factType: "finance.receivable", productId: null, unitId: null }], "finance.receivable.open_amount");

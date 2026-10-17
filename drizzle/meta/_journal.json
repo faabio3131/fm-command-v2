@@ -190,6 +190,13 @@
       "when": 1792190663389,
       "tag": "0026_agent_pilot",
       "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1792196594741,
+      "tag": "0027_metric_period_kind",
+      "breakpoints": true
     }
   ]
 }

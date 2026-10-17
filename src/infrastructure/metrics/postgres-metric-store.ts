@@ -1,5 +1,6 @@
 import { and, desc, eq, gte, inArray, isNull, lte, sql } from "drizzle-orm";
 import type { MetricFreshnessStatus, MetricQualityStatus, MetricStore, MetricView } from "@/application/metrics/metric-service";
+import type { PeriodKind } from "@/domain/metrics/period";
 import { db } from "@/infrastructure/db/client";
 import { canonicalFacts, metricValues } from "@/infrastructure/db/platform-schema";
 
@@ -16,7 +17,7 @@ function mapMetric(row: typeof metricValues.$inferSelect): MetricView {
     productId: row.productId ?? undefined,
     unitId: row.unitId ?? undefined,
     metricId: row.metricId, metricVersion: row.metricVersion, value: row.value, unit: row.unit,
-    currency: row.currency ?? undefined, periodStart: row.periodStart ?? undefined, periodEnd: row.periodEnd ?? undefined,
+    currency: row.currency ?? undefined, periodStart: row.periodStart ?? undefined, periodEnd: row.periodEnd ?? undefined, periodKind: (row.periodKind as PeriodKind),
     asOf: row.asOf ?? undefined, computedAt: row.computedAt, sourceTimestamp: row.sourceTimestamp ?? undefined,
     freshnessStatus: normalizeFreshness(row.freshnessStatus), qualityStatus: normalizeQuality(row.qualityStatus),
     sourceAuthority: row.sourceAuthority, provenanceRefs: row.provenanceRefs,
@@ -55,40 +56,40 @@ export class PostgresMetricStore implements MetricStore {
 
   async saveValue(input: {
     tenantId: string; productId?: string; unitId?: string; metricId: string; metricVersion: number; value: string | null; unit: string; currency?: string;
-    periodStart?: Date; periodEnd?: Date; asOf?: Date; computedAt: Date; sourceTimestamp?: Date; freshnessStatus: MetricFreshnessStatus;
+    periodStart?: Date; periodEnd?: Date; periodKind?: PeriodKind; asOf?: Date; computedAt: Date; sourceTimestamp?: Date; freshnessStatus: MetricFreshnessStatus;
     qualityStatus: MetricQualityStatus; sourceAuthority: string; provenanceRefs: readonly string[];
   }) {
     await db.insert(metricValues).values({
       tenantId: input.tenantId, productId: input.productId, unitId: input.unitId, metricId: input.metricId, metricVersion: input.metricVersion, value: input.value,
-      unit: input.unit, currency: input.currency, periodStart: input.periodStart, periodEnd: input.periodEnd, asOf: input.asOf,
+      unit: input.unit, currency: input.currency, periodStart: input.periodStart, periodEnd: input.periodEnd, periodKind: input.periodKind ?? "current", asOf: input.asOf,
       computedAt: input.computedAt, sourceTimestamp: input.sourceTimestamp, freshnessStatus: input.freshnessStatus,
       qualityStatus: input.qualityStatus, sourceAuthority: input.sourceAuthority, provenanceRefs: [...input.provenanceRefs],
     });
   }
 
-  async latestValue(tenantId: string, metricId: string, productId?: string, unitId?: string): Promise<MetricView | null> {
+  async latestValue(tenantId: string, metricId: string, productId?: string, unitId?: string, periodKind: PeriodKind = "current"): Promise<MetricView | null> {
     const productClause = productId ? eq(metricValues.productId, productId) : isNull(metricValues.productId);
     const unitClause = unitId ? eq(metricValues.unitId, unitId) : isNull(metricValues.unitId);
     const rows = await db.select().from(metricValues).where(and(
-      eq(metricValues.tenantId, tenantId), eq(metricValues.metricId, metricId), productClause, unitClause,
+      eq(metricValues.tenantId, tenantId), eq(metricValues.metricId, metricId), productClause, unitClause, eq(metricValues.periodKind, periodKind),
     )).orderBy(desc(metricValues.computedAt)).limit(1);
     return rows[0] ? mapMetric(rows[0]) : null;
   }
 
   /** Último valor de cada unidade pedida, numa só consulta. Unidade sem valor simplesmente não aparece. */
-  async latestValuesByUnit(tenantId: string, metricId: string, unitIds: readonly string[], productId?: string): Promise<readonly MetricView[]> {
+  async latestValuesByUnit(tenantId: string, metricId: string, unitIds: readonly string[], productId?: string, periodKind: PeriodKind = "current"): Promise<readonly MetricView[]> {
     if (unitIds.length === 0) return [];
     const productClause = productId ? eq(metricValues.productId, productId) : isNull(metricValues.productId);
     const rows = await db.selectDistinctOn([metricValues.unitId]).from(metricValues).where(and(
-      eq(metricValues.tenantId, tenantId), eq(metricValues.metricId, metricId), productClause, inArray(metricValues.unitId, [...unitIds]),
+      eq(metricValues.tenantId, tenantId), eq(metricValues.metricId, metricId), productClause, inArray(metricValues.unitId, [...unitIds]), eq(metricValues.periodKind, periodKind),
     )).orderBy(metricValues.unitId, desc(metricValues.computedAt));
     return rows.map(mapMetric);
   }
 
-  async recentValues(tenantId: string, metricId: string, productId: string, limit: number, unitId?: string): Promise<readonly MetricView[]> {
+  async recentValues(tenantId: string, metricId: string, productId: string, limit: number, unitId?: string, periodKind: PeriodKind = "current"): Promise<readonly MetricView[]> {
     const unitClause = unitId ? eq(metricValues.unitId, unitId) : isNull(metricValues.unitId);
     const rows = await db.select().from(metricValues).where(and(
-      eq(metricValues.tenantId, tenantId), eq(metricValues.metricId, metricId), eq(metricValues.productId, productId), unitClause,
+      eq(metricValues.tenantId, tenantId), eq(metricValues.metricId, metricId), eq(metricValues.productId, productId), unitClause, eq(metricValues.periodKind, periodKind),
     )).orderBy(desc(metricValues.computedAt)).limit(limit);
     return rows.map(mapMetric);
   }

@@ -74,6 +74,17 @@ test("tela de Filiais: total, ranking, indisponível, filtro por região, inglê
   await expect(page.getByText("Total parcial")).toHaveCount(0);
   await shot(page, "units-02-regiao");
 
+  // Período: o mês anterior não tem dado nesta empresa de teste, então tudo fica "Indisponível" (nunca zero); voltar ao mês atual traz os valores.
+  await page.getByLabel("Período").selectOption("previous");
+  await page.getByRole("button", { name: "Aplicar" }).click();
+  await page.waitForURL(/period=previous/);
+  await expect(page.locator("table tbody tr").first()).toContainText("Indisponível");
+  await expect(page.getByText("R$ 4.000,75")).toHaveCount(0);
+  await page.getByLabel("Período").selectOption("current");
+  await page.getByRole("button", { name: "Aplicar" }).click();
+  await page.waitForURL(/period=current/);
+  await expect(page.getByText("R$ 4.000,75").first()).toBeVisible();
+
   // Região inventada: não derruba a tela, não revela nada, volta ao recorte geral.
   await page.goto(`/dashboard/units?metric=${METRIC}&region=00000000-0000-0000-0000-000000000000`);
   await expect(page.getByText("Esta região não está disponível para você.")).toBeVisible();

@@ -7,6 +7,7 @@ import { createUnitComparisonService } from "@/application/metrics/metric-compos
 import { buildSectorService } from "@/application/sectors/sector-composition";
 import { resolveTenantContext } from "@/application/security/resolve-tenant-context";
 import { barWidthPercent, compareDecimals, parseDecimal } from "@/domain/core/decimal";
+import { PERIOD_KINDS, parsePeriodKind } from "@/domain/metrics/period";
 import { METRIC_REGISTRY } from "@/domain/metrics/registry";
 import { RegionOutOfScopeError } from "@/domain/metrics/unit-comparison";
 import { AuthenticationRequiredError, TenantScopeRequiredError } from "@/domain/security/tenant-context";
@@ -22,7 +23,7 @@ function formatValue(value: string, unit: string, currency: string | undefined, 
   return new Intl.NumberFormat(locale).format(amount);
 }
 
-export default async function UnitsPage({ searchParams }: { searchParams: Promise<{ metric?: string; region?: string }> }) {
+export default async function UnitsPage({ searchParams }: { searchParams: Promise<{ metric?: string; region?: string; period?: string }> }) {
   let context;
   try { context = await resolveTenantContext(await headers()); }
   catch (error) {
@@ -40,15 +41,17 @@ export default async function UnitsPage({ searchParams }: { searchParams: Promis
   const definition = selectable.find((m) => m.metricId === params.metric) ?? selectable.find((m) => m.kind === "sum") ?? selectable[0];
   const metricName = labels.metricName(definition.metricId, definition.displayName);
   const service = createUnitComparisonService();
+  const periodKind = parsePeriodKind(params.period);
+  const periodApplies = definition.grain !== "as_of";
 
   let view = null;
   let regionDenied = false;
   try {
-    view = await service.compare(context, { metricId: definition.metricId, regionId: params.region || undefined });
+    view = await service.compare(context, { metricId: definition.metricId, regionId: params.region || undefined, periodKind });
   } catch (error) {
     if (!(error instanceof RegionOutOfScopeError)) throw error;
     regionDenied = true;
-    view = await service.compare(context, { metricId: definition.metricId });
+    view = await service.compare(context, { metricId: definition.metricId, periodKind });
   }
 
   const { comparison, regions } = view;
@@ -85,9 +88,15 @@ export default async function UnitsPage({ searchParams }: { searchParams: Promis
             {regions.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
           </select>
         </label>
+        <label>{t("units.filter.period")}
+          <select name="period" defaultValue={periodKind}>
+            {PERIOD_KINDS.map((k) => <option key={k} value={k}>{t(`units.period.${k}` as MessageKey)}</option>)}
+          </select>
+        </label>
         <button className="button primary" type="submit">{t("units.filter.apply")}</button>
       </form>
 
+      {periodApplies ? null : <p className="empty-state" role="note">{t("units.period.asOfNote")}</p>}
       {regionDenied ? <p className="empty-state" role="status">{t("units.region.unavailable")}</p> : null}
 
       {comparison.branches.length === 0 ? (
