@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/infrastructure/db/client";
 import { member, user } from "@/infrastructure/db/auth-schema";
+import { sourceDefinitions } from "@/infrastructure/db/platform-schema";
 import { orgUnits, unitGrants } from "@/infrastructure/db/unit-schema";
 import {
   resolveUnitScope, validateUnitChange, type OrgUnit, type UnitGrant, type UnitKind, type UnitScope,
@@ -96,6 +97,10 @@ export class PostgresUnitRepository {
       if (!current) throw new UnitNotFoundError();
       if (current.kind === "company") throw new UnitProtectedError();
       if (existing.some((u) => u.parentId === unitId)) throw new UnitInUseError();
+      // O mapa de filiais de uma fonte guarda o id da unidade dentro do JSON (sem chave no banco): se ainda aponta, a próxima sincronização falharia.
+      const mapped = await tx.select({ id: sourceDefinitions.id }).from(sourceDefinitions)
+        .where(and(eq(sourceDefinitions.tenantId, tenantId), sql`${sourceDefinitions.config}::text like ${"%" + unitId + "%"}`)).limit(1);
+      if (mapped.length > 0) throw new UnitInUseError();
       try {
         await tx.delete(orgUnits).where(and(eq(orgUnits.tenantId, tenantId), eq(orgUnits.id, unitId)));
       } catch (error) {

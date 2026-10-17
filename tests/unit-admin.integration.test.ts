@@ -6,7 +6,7 @@ import { PermissionDeniedError, type TenantContext } from "@/domain/security/ten
 import { db } from "@/infrastructure/db/client";
 import { member, organization, user } from "@/infrastructure/db/auth-schema";
 import { auditEvents } from "@/infrastructure/db/foundation-schema";
-import { metricValues } from "@/infrastructure/db/platform-schema";
+import { metricValues, sourceDefinitions } from "@/infrastructure/db/platform-schema";
 import { orgUnits, unitGrants } from "@/infrastructure/db/unit-schema";
 import { PostgresUnitRepository } from "@/infrastructure/organization/postgres-unit-repository";
 
@@ -19,6 +19,7 @@ const ctx = (tenantId: string, role: TenantContext["role"] = "owner", userId = `
 async function cleanup() {
   const t = [A, B];
   await db.delete(metricValues).where(inArray(metricValues.tenantId, t));
+  await db.delete(sourceDefinitions).where(inArray(sourceDefinitions.tenantId, t));
   await db.delete(auditEvents).where(inArray(auditEvents.tenantId, t));
   await db.delete(unitGrants).where(inArray(unitGrants.tenantId, t));
   await db.delete(orgUnits).where(inArray(orgUnits.tenantId, t));
@@ -84,6 +85,10 @@ describe("gestão da estrutura da empresa", () => {
     await db.insert(metricValues).values({ tenantId: A, unitId: branch, metricId: "x", metricVersion: 1, value: "1", unit: "count", freshnessStatus: "fresh", qualityStatus: "ok", sourceAuthority: "t" });
     await expect(service.remove(ctx(A), branch)).rejects.toBeInstanceOf(UnitInUseError);
     expect((await repo.listUnits(A)).some((u) => u.id === branch)).toBe(true);
+    // Fonte cujo mapa de filiais ainda aponta para a unidade: não sai (a sincronização falharia).
+    const [source] = await db.insert(sourceDefinitions).values({ tenantId: A, name: "ERP", sourceType: "omie", authoritativeDomain: "finance", syncMode: "pull", config: { unitMap: { F2: branch2 } } }).returning();
+    await expect(service.remove(ctx(A), branch2)).rejects.toBeInstanceOf(UnitInUseError);
+    await db.delete(sourceDefinitions).where(inArray(sourceDefinitions.id, [source.id]));
     await service.remove(ctx(A), branch2);
     expect((await repo.listUnits(A)).some((u) => u.id === branch2)).toBe(false);
   });
