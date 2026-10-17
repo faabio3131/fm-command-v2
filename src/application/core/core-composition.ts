@@ -1,9 +1,11 @@
 import { CoreGateway } from "@/application/core/core-gateway";
 import { BranchRankingCapability } from "@/application/core/branch-ranking-capability";
+import { ProductRankingCapability } from "@/application/core/product-ranking-capability";
 import { OperationalHealthCapability } from "@/application/core/operational-health-capability";
 import { FinancialIntelligenceService } from "@/application/finance/financial-intelligence-service";
 import { FmccVerticalCognitiveCore } from "@/application/core/fmcc-vertical-cognitive-core";
-import { createMetricService, createUnitComparisonService } from "@/application/metrics/metric-composition";
+import { createDimensionRankingService, createMetricService, createUnitComparisonService } from "@/application/metrics/metric-composition";
+import { PostgresProfileRepository } from "@/infrastructure/i18n/postgres-profile-repository";
 import { buildSectorService } from "@/application/sectors/sector-composition";
 import { OperationalHealthService } from "@/application/operations/operational-health-service";
 import { cognitiveEnv } from "@/config/env";
@@ -34,6 +36,11 @@ export function buildCoreGateway(model?: CognitiveModel): CoreGateway {
   const readCapabilities = [
     new OperationalHealthCapability(operationalHealth),
     new BranchRankingCapability(createUnitComparisonService(), (tenantId) => buildSectorService().visibleMetricIds(tenantId)),
+    new ProductRankingCapability(
+      createDimensionRankingService(),
+      async (tenantId) => (await new PostgresProfileRepository().getOrgProfile(tenantId))?.timezone ?? "UTC",
+      (tenantId) => buildSectorService().visibleMetricIds(tenantId),
+    ),
   ];
 
   return new CoreGateway(
