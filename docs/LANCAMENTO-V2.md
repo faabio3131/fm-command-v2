@@ -64,4 +64,4 @@ Legenda: ✅ fechado e provado por teste interno · 🔌 depende de terceiro (fa
 Domínio e ambiente (HSTS, `includeSubDomains`, agendador); modelo de preço e primeiro segmento; política de câmbio (soma de moedas diferentes hoje é erro, nunca soma errada); provedor e teto de gasto da IA; piloto da etapa 11; aprovar a arquitetura-alvo; coletor fiscal; limpezas pendentes (tabelas Iron, governança, ADR-019); **"pode publicar"** e **"pode ligar cobrança real"**.
 
 ## 9. Fora do escopo desta versão (para ninguém assumir que existe)
-Consolidação da empresa a partir das filiais (Fase 2); período diferente do mês corrente nas métricas; gráficos além da tela Filiais; PDF; empurrão do servidor (SSE/WebSocket); tela para criar filiais/regiões; rodízio da chave do cofre.
+Consolidação da empresa a partir das filiais (Fase 2); período diferente do mês corrente nas métricas; gráficos além da tela Filiais; PDF; empurrão do servidor (SSE/WebSocket); rodízio da chave do cofre.
