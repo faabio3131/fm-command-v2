@@ -1950,3 +1950,7 @@ input[type="checkbox"]{width:18px;min-height:18px;height:18px;padding:0;flex:non
 .donut-slice{stroke:var(--info)}
 @media (max-width:520px){.donut-chart{grid-template-columns:1fr;justify-items:center}.donut-legend{width:100%}}
 @media (prefers-reduced-motion:reduce){.line-chart-path,.donut-slice{animation:none;transition:none}}
+/* Barras dentro de cartão estreito: rótulo e valor em cima, barra embaixo (a trilha não some). */
+.insight-card .bar-chart-row{grid-template-columns:1fr auto;row-gap:6px}
+.insight-card .bar-chart-track{grid-column:1 / -1;order:3;height:10px}
+.line-chart-months span{white-space:nowrap}

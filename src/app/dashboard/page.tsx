@@ -282,7 +282,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                 </div>
                 <p className="metric-provenance">{lastClosed ? t("home.trend.lastClosed", { month: formatMonthKey(lastClosed.key, locale) }) : t("home.trend.noClosed")}</p>
                 <LineChart points={trendPoints} ariaLabel={t("home.trend.aria", { metric: labels.metricName(rankingMetric.metricId, rankingMetric.displayName), months: SERIES_MONTHS })}
-                  monthLabel={(key) => formatMonthKey(key, locale)} formatValue={(value, currency) => formatBranchValue(value, rankingMetric.unit, currency, locale)}
+                  monthLabel={(key) => formatMonthKey(key, locale, false)} formatValue={(value, currency) => formatBranchValue(value, rankingMetric.unit, currency, locale)}
                   unavailableText={t("common.unavailable")} openMonthText={t("home.trend.openMonth")} />
                 <p className="metric-provenance">{t("home.trend.note")}</p>
               </article>
