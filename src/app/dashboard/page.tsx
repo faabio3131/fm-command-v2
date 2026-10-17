@@ -5,18 +5,20 @@ import { buildActivityFeedService } from "@/application/activity/activity-feed-c
 import { buildAlertService } from "@/application/alerts/alert-composition";
 import { getRequestLocale } from "@/application/i18n/request-locale";
 import { getCompanyTimeZone } from "@/application/i18n/request-timezone";
-import { createMetricService } from "@/application/metrics/metric-composition";
+import { createMetricService, createUnitComparisonService } from "@/application/metrics/metric-composition";
 import { OperationalHealthService } from "@/application/operations/operational-health-service";
 import { ProductRegistryService } from "@/application/products/product-registry-service";
 import { loadDashboardIdentity } from "@/application/security/dashboard-identity";
 import { resolveTenantContext } from "@/application/security/resolve-tenant-context";
+import { PERIOD_KINDS, parsePeriodKind } from "@/domain/metrics/period";
+import { EXECUTIVE_METRIC_TARGETS, getMetricDefinition } from "@/domain/metrics/registry";
 import { roleHasPermission } from "@/domain/security/permissions";
 import { AuthenticationRequiredError, PermissionDeniedError, TenantScopeRequiredError } from "@/domain/security/tenant-context";
 import { PostgresOperationalHealthRepository } from "@/infrastructure/operations/postgres-health-repository";
 import { PostgresProductRepository } from "@/infrastructure/products/postgres-product-repository";
 import { formatDateTime } from "@/i18n/format";
 import type { Locale } from "@/i18n/locales";
-import { createTranslator } from "@/i18n/translate";
+import { createTranslator, type MessageKey } from "@/i18n/translate";
 import { createLabels } from "@/presentation/labels";
 import { CoreQueryForm } from "./core-query-form";
 import { ProductComparisonForm } from "./product-comparison-form";
@@ -41,7 +43,7 @@ function formatMetric(t: Translate, locale: Locale, value: string | null, unit: 
   return value;
 }
 
-export default async function DashboardPage() {
+export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ period?: string }> }) {
   let context;
   try { context = await resolveTenantContext(await headers()); }
   catch (error) {
@@ -50,6 +52,7 @@ export default async function DashboardPage() {
     throw error;
   }
 
+  const periodKind = parsePeriodKind((await searchParams).period);
   const locale = await getRequestLocale();
   const { t } = createTranslator(locale);
   const labels = createLabels(locale);
@@ -59,9 +62,10 @@ export default async function DashboardPage() {
   const productsRepository = new PostgresProductRepository();
   const canReadActivity = roleHasPermission(context.role, "audit:read");
   const [metrics, products, alertOverview, operationalHealth, activityFeed, identity] = await Promise.all([
-    metricService.overview(context).catch((error) => {
-      // Quem só enxerga unidades específicas não tem métrica do nível da empresa: o painel abre sem elas (ADR-019).
-      if (error instanceof PermissionDeniedError) return [];
+    metricService.overview(context, undefined, undefined, periodKind).catch((error) => {
+      // Quem só enxerga unidades específicas não tem métrica do nível da empresa (ADR-019): os cartões abrem sem valor
+      // próprio e, mais abaixo, recebem a soma das filiais que a pessoa enxerga.
+      if (error instanceof PermissionDeniedError) return EXECUTIVE_METRIC_TARGETS.map((target) => ({ target, definition: getMetricDefinition(target.metricId), value: null }));
       throw error;
     }),
     new ProductRegistryService(productsRepository).list(context),
@@ -75,7 +79,12 @@ export default async function DashboardPage() {
       : Promise.resolve(null),
     loadDashboardIdentity(context).catch(() => null),
   ]);
-  const governedAvailable = metrics.filter(({ value }) => value?.value !== null && value).length;
+  // Empresa com filiais: o cartão sem valor próprio da empresa mostra a soma das filiais (com a cobertura à vista). Valor próprio da empresa sempre vence.
+  const needsConsolidation = metrics.filter((m) => m.definition && (!m.value || m.value.value === null)).map((m) => m.target.metricId);
+  const consolidation = needsConsolidation.length
+    ? await createUnitComparisonService().consolidate(context, { metricIds: needsConsolidation, periodKind }).catch(() => new Map())
+    : new Map();
+  const governedAvailable = metrics.filter(({ value, target }) => (value?.value !== null && value) || consolidation.get(target.metricId)?.total.status === "available").length;
   const activeProducts = products.filter((product) => product.status === "active").length;
   const activeAlerts = alertOverview.occurrences.filter((occurrence) => occurrence.status === "active").length;
 
@@ -235,8 +244,32 @@ export default async function DashboardPage() {
           <div><span className="eyebrow">{t("home.overview.eyebrow")}</span><h2 id="executive-overview-title">{t("home.overview.title")}</h2></div>
           <p>{t("home.overview.note")}</p>
         </div>
+        <form className="panel units-filter" method="get" action="/dashboard">
+          <label>{t("units.filter.period")}
+            <select name="period" defaultValue={periodKind}>
+              {PERIOD_KINDS.map((k) => <option key={k} value={k}>{t(`units.period.${k}` as MessageKey)}</option>)}
+            </select>
+          </label>
+          <button className="button primary" type="submit">{t("units.filter.apply")}</button>
+        </form>
         <div className="metric-grid">
-          {metrics.map(({ target, definition, value }) => (
+          {metrics.map(({ target, definition, value }) => {
+            const consolidated = consolidation.get(target.metricId);
+            const total = consolidated?.total.status === "available" ? consolidated.total : null;
+            if (total && definition) {
+              return (
+                <article className="metric-card" key={target.metricId} data-consolidated="true">
+                  <span className="metric-label">{labels.metricName(target.metricId, target.displayName)}</span>
+                  <strong className="metric-value">{formatMetric(t, locale, total.value, definition.unit, total.currency)}</strong>
+                  <div className="metric-meta">
+                    <span>{t(consolidated?.fullCompany ? "home.metric.consolidated" : "home.metric.consolidatedScoped", { reporting: total.reporting, expected: total.expected })}</span>
+                    {total.partial ? <span>{t("home.metric.consolidatedPartial")}</span> : null}
+                  </div>
+                  <small className="metric-provenance">{t("home.metric.consolidatedNote")}</small>
+                </article>
+              );
+            }
+            return (
             <article className="metric-card" key={target.metricId}>
               <span className="metric-label">{labels.metricName(target.metricId, target.displayName)}</span>
               <strong className={value?.value === null || !value ? "metric-value unavailable" : "metric-value"}>
@@ -249,7 +282,8 @@ export default async function DashboardPage() {
               </div>
               <small className="metric-provenance">{value ? t("home.metric.source", { source: labels.sourceAuthority(value.sourceAuthority), version: value.metricVersion }) : t("home.metric.technicalId", { id: target.metricId, status: labels.definitionStatus(target.definitionStatus) })}</small>
             </article>
-          ))}
+            );
+          })}
         </div>
       </section>
 
