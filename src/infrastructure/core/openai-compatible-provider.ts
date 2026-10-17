@@ -57,7 +57,13 @@ export class OpenAiCompatibleProvider implements AiProvider {
       throw new ProviderTransientError(timeout.aborted ? "ai.provider_timeout" : signal.aborted ? "ai.provider_aborted" : "ai.provider_network_error");
     }
     const s = response.status;
-    if (s === 429 || s === 408 || s >= 500) { await response.body?.cancel().catch(() => undefined); throw new ProviderTransientError(`ai.provider_http_${s}`); }
+    if (s === 429) {
+      // 429 tambem e usado para conta sem credito/cota: repetir nao resolve, mas o reserva pode atender.
+      const raw = await response.text().then((t) => t.slice(0, 4096), () => "");
+      if (/insufficient_quota|credit_balance_exhausted/.test(raw)) throw new ProviderRejectedError("ai.provider_quota_exhausted");
+      throw new ProviderTransientError("ai.provider_http_429");
+    }
+    if (s === 408 || s >= 500) { await response.body?.cancel().catch(() => undefined); throw new ProviderTransientError(`ai.provider_http_${s}`); }
     if (s === 400 || s === 413 || s === 422) { await response.body?.cancel().catch(() => undefined); throw new ProviderBadRequestError(`ai.provider_http_${s}`); }
     if (!response.ok) { await response.body?.cancel().catch(() => undefined); throw new ProviderRejectedError(`ai.provider_http_${s}`); }
     let payload: ChatResponse;
