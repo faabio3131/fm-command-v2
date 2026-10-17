@@ -60,6 +60,26 @@ Legenda: ✅ fechado e provado por teste interno · 🔌 depende de terceiro (fa
 4. Revisão do inglês por pessoa nativa; pen test; PG de produção; medição de carga. 🔌
 5. Cron externo ligado (§4). 🛑 (ambiente aprovado)
 
+### 7.1 Meta de carga da fase final (PROPOSTA do agente, a confirmar pelo Diretor Executivo)
+Pedido do Fábio em 17/10/2026: o teste real parte de uma meta ("N empresas perguntando ao mesmo tempo"), e o dimensionamento sai da medição. Os números abaixo são uma sugestão de partida, não uma decisão; o Fábio troca por os dele.
+
+| Cenário | Meta proposta | Como é medido |
+|---|---|---|
+| Empresas ativas | 50 | volume de dados sintéticos por empresa (filiais, fatos, métricas) |
+| Empresas perguntando à IA ao mesmo tempo | 20 (pico), com 3 perguntas cada | provedor real, fila e limite por empresa ligados |
+| Pessoas com o painel aberto | 200 | consulta de atualização a cada 5 s ≈ 40 req/s só nessa rota |
+| Filiais por empresa | até 100, 24 meses de série | custo da série mensal (uma consulta por filial e mês) |
+
+Critérios de aprovação: painel com p95 abaixo de 1 s durante o pico de IA; pergunta à IA concluída em até 30 s no p95; nenhuma tarefa perdida; acima da meta o sistema recusa rápido (503 com aviso) em vez de ficar lento ou perder dado; gasto de IA do teste dentro do teto definido pelo Fábio.
+
+Disponibilidade: meta de 99,9% ao mês (cerca de 43 minutos de queda por mês), o mínimo comumente citado para SaaS (fonte de benchmark sem estudo primário; confirmar antes de prometer em contrato).
+
+Referência de mercado (pesquisa de 17/10/2026): nenhum concorrente publica capacidade de usuários simultâneos. Publicam frequência de atualização (Power BI Pro até 8 por dia; Premium até 48 por dia; Databox limita a atualização manual a 1 vez por dia por usuário nos painéis) e a nossa consulta de 5 s é bem mais fresca. O número de "empresas ativas" deve vir da meta comercial do primeiro ano, não do mercado.
+
+Limite externo que pesa mais que o nosso servidor: a API do Omie (conforme a página de ajuda, que tem tabela inconsistente) limita a 960 requisições por minuto por IP, 240 por minuto por chave e método, 4 simultâneas e bloqueia por 30 minutos após 10 erros seguidos. Se os clientes sincronizarem pelo mesmo servidor, o limite por IP pode ser compartilhado. Medir na fase final; preferir webhook quando o ERP oferecer, guardar o resultado e espaçar consultas. Limites do Bling e da Conta Azul ainda não conferidos.
+
+Medir também: pool de conexões do banco, atraso do laço de eventos, uso de memória, e o que acontece quando a cota do provedor é atingida (hoje devolve erro; a fila com repetição precisa estar ligada). Com os resultados, dimensionar o número de instâncias do painel e do serviço de IA (ponto de partida: 2 de cada, sem ponto único de falha) e decidir sobre um segundo provedor de reserva.
+
 ## 8. Decisões do Fábio antes de lançar
 Domínio e ambiente (HSTS, `includeSubDomains`, agendador); modelo de preço e primeiro segmento; política de câmbio (soma de moedas diferentes hoje é erro, nunca soma errada); provedor e teto de gasto da IA; piloto da etapa 11; aprovar a arquitetura-alvo; coletor fiscal; limpezas pendentes (tabelas Iron, governança, ADR-019); **"pode publicar"** e **"pode ligar cobrança real"**.
 
