@@ -54,11 +54,11 @@ function channels() {
 const sharedChannels = channels();
 
 const audits: string[] = [];
-function agent(now: () => Date = () => clock, numberLines: () => Promise<string[]> = async () => LINES) {
+function agent(now: () => Date = () => clock, numberLines: () => Promise<string[]> = async () => LINES, staleDraftMs?: number) {
   return new AgentService({
     repository, queue, work: workReader, channels: sharedChannels.service, numberLines,
     tenantProfile: async () => ({ timeZone: "America/Sao_Paulo", locale: "pt-BR" }),
-    audit: { async record(i) { audits.push(`${i.tenantId}:${i.action}`); } }, now,
+    audit: { async record(i) { audits.push(`${i.tenantId}:${i.action}`); } }, now, staleDraftMs,
   });
 }
 
@@ -170,8 +170,9 @@ describe("agente piloto: orçamento", () => {
 
   it("pedidos simultâneos nunca passam do teto: com espaço para 2 reservas, só 2 entram", async () => {
     await budget(A, { capMinor: 20, reserveMinor: 10 });
+    // Relógios falsos à frente do real faziam o `sync` de um pedido expirar o rascunho ainda em criação de outro (120 s sem tarefa), devolvendo espaço no teto: instável. Aqui a expiração fica desligada.
     const weeks = ["2026-10-05", "2026-10-12", "2026-10-19", "2026-10-26", "2026-10-07"]; // 4 semanas distintas + 1 repetida
-    const results = await Promise.allSettled(weeks.map((d) => agent(() => new Date(`${d}T15:00:00Z`)).requestDraft(ctx(A))));
+    const results = await Promise.allSettled(weeks.map((d) => agent(() => new Date(`${d}T15:00:00Z`), undefined, 3_600_000_000).requestDraft(ctx(A))));
     const ok = results.filter((r) => r.status === "fulfilled");
     const refused = results.filter((r) => r.status === "rejected");
     const created = ok.filter((r) => (r as PromiseFulfilledResult<{ created: boolean }>).value.created);
