@@ -11,6 +11,7 @@ import { ProductRegistryService } from "@/application/products/product-registry-
 import { loadDashboardIdentity } from "@/application/security/dashboard-identity";
 import { resolveTenantContext } from "@/application/security/resolve-tenant-context";
 import { BranchInsights } from "@/app/dashboard/charts/branch-insights";
+import { ProductRanking } from "@/app/dashboard/charts/product-ranking";
 import { buildSectorService } from "@/application/sectors/sector-composition";
 import { PERIOD_KINDS, parsePeriodKind } from "@/domain/metrics/period";
 import { EXECUTIVE_METRIC_TARGETS, METRIC_REGISTRY, getMetricDefinition } from "@/domain/metrics/registry";
@@ -246,6 +247,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       </section>
 
       {rankingMetric ? <BranchInsights context={context} definition={rankingMetric} periodKind={periodKind} timeZone={timeZone} locale={locale} /> : null}
+      <ProductRanking context={context} periodKind={periodKind} timeZone={timeZone} locale={locale} />
 
       <section className="executive-section" aria-labelledby="executive-overview-title">
         <div className="section-heading">

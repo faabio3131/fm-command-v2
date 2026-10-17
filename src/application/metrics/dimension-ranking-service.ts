@@ -1,5 +1,5 @@
 import type { MetricService } from "@/application/metrics/metric-service";
-import { rankByDimension, type DimensionRanking } from "@/domain/metrics/dimension-ranking";
+import { rankByDimension, type DimensionRankRow, type DimensionRanking } from "@/domain/metrics/dimension-ranking";
 import { DEFAULT_PERIOD_KIND, resolvePeriod, type PeriodKind } from "@/domain/metrics/period";
 import { getMetricDefinition } from "@/domain/metrics/registry";
 import { selectBranches } from "@/domain/metrics/unit-comparison";
@@ -11,6 +11,10 @@ export interface DimensionRankingView {
   readonly metricId: string;
   readonly dimension: string;
   readonly ranking: DimensionRanking;
+  /** Quantos grupos têm posição (valor disponível), antes do corte por `limit`. */
+  readonly rankedCount: number;
+  /** Grupos com o menor valor (do fim da lista inteira, antes do corte); nulo com menos de dois ou se todos empatam em primeiro. */
+  readonly lowest: readonly DimensionRankRow[] | null;
   readonly periodKind: PeriodKind;
   readonly periodStart: Date;
   readonly periodEnd: Date;
@@ -47,8 +51,11 @@ export class DimensionRankingService {
     const full = rankByDimension(definition, facts, input.dimension);
     // O limite corta só a lista mostrada; o total e a participação continuam sobre todos os produtos.
     const ranking: DimensionRanking = { ...full, rows: full.rows.slice(0, limit) };
+    const ranked = full.rows.filter((row) => row.rank !== null);
+    const lastRank = ranked.length ? Math.max(...ranked.map((row) => row.rank as number)) : 0;
+    const lowest = ranked.length >= 2 && lastRank > 1 ? ranked.filter((row) => row.rank === lastRank) : null;
     return {
-      metricId: input.metricId, dimension: input.dimension, ranking, periodKind,
+      metricId: input.metricId, dimension: input.dimension, ranking, rankedCount: ranked.length, lowest, periodKind,
       periodStart: period.periodStart, periodEnd: period.periodEnd, branchCount: branches.length,
       fullCompany: branches.length === units.filter((u) => u.kind === "branch").length,
     };
