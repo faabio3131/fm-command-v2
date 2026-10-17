@@ -45,7 +45,10 @@ describe("métricas de receber e pagar vindas dos fatos do ERP", () => {
   it("métricas antigas continuam iguais (sem status nem escala)", () => {
     const cash = getMetricDefinition("revenue.cash_collected")!;
     expect(computeMetric(cash, [fact("p", "payment.settled", { amount: "10.50", currency: "BRL" })])).toMatchObject({ value: "10.5" });
-    expect(BASE_METRIC_REGISTRY.filter((m) => m.valueScale === "minor")).toHaveLength(4);
+    // Só as métricas vindas de ERP (valor em centavos) usam a escala menor; as antigas não mudam.
+    expect(BASE_METRIC_REGISTRY.filter((m) => m.valueScale === "minor").map((m) => m.metricId).sort()).toEqual([
+      "finance.payable.open_amount", "finance.payable.overdue_amount", "finance.receivable.open_amount", "finance.receivable.overdue_amount", "sales.orders.invoiced_amount",
+    ]);
   });
 });
 
