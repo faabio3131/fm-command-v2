@@ -80,7 +80,7 @@ describe("WhatsApp Cloud API", () => {
   it("envia texto no formato da API e devolve o id", async () => {
     const { base, calls } = await http(() => ({ status: 200, json: { messages: [{ id: "wamid.ABC" }] } }));
     expect(await wa(base).send(wmsg, { from: "1234567890" }, { apiKey: "tok" })).toEqual({ providerMessageId: "wamid.ABC" });
-    expect(calls[0]).toMatchObject({ url: "/v21.0/1234567890/messages", auth: "Bearer tok", body: { messaging_product: "whatsapp", to: "5511999990000", type: "text", text: { body: "Corpo" } } });
+    expect(calls[0]).toMatchObject({ url: "/v21.0/1234567890/messages", auth: "Bearer tok", body: { messaging_product: "whatsapp", recipient_type: "individual", to: "5511999990000", type: "text", text: { body: "Corpo" } } });
   });
   it("mapeia respostas: 429/5xx transitório, 401 e erro 190 credencial, fora da janela recusa, limite de taxa transitório", async () => {
     const cases: [number, unknown, string][] = [

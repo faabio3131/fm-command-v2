@@ -1,7 +1,7 @@
 import { ChannelProviderError, type ChannelCredential, type ChannelMessage, type ChannelProvider, type ChannelSender } from "@/domain/channels/contracts";
 
 export interface WhatsappCloudConfig {
-  /** Ex.: https://graph.facebook.com/v21.0 (nos testes, um servidor local). */
+  /** Ex.: https://graph.facebook.com/v25.0 (nos testes, um servidor local). */
   readonly apiBase: string;
   readonly timeoutMs: number;
 }
@@ -28,7 +28,7 @@ export class WhatsappCloudProvider implements ChannelProvider {
       response = await fetch(url, {
         method: "POST",
         headers: { authorization: `Bearer ${credential.apiKey}`, "content-type": "application/json" },
-        body: JSON.stringify({ messaging_product: "whatsapp", to: message.to.replace(/^\+/, ""), type: "text", text: { body: message.body, preview_url: false } }),
+        body: JSON.stringify({ messaging_product: "whatsapp", recipient_type: "individual", to: message.to.replace(/^\+/, ""), type: "text", text: { body: message.body, preview_url: false } }),
         signal: controller.signal,
       });
     } catch (error) {
