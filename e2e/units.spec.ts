@@ -49,6 +49,15 @@ test("tela de Filiais: total, ranking, indisponível, filtro por região, inglê
   const tenantId = await signUpAndCreateOrganization(page);
   const { sul } = seed(tenantId);
 
+  // Painel inicial: a empresa não tem valor próprio, então o cartão mostra a soma das filiais com a cobertura à vista.
+  await page.goto("/dashboard");
+  const card = page.locator('[data-consolidated="true"]').filter({ hasText: "Caixa recebido" });
+  await expect(card).toContainText("R$ 4.000,75");
+  await expect(card).toContainText("Consolidado: 2 de 3 filiais com dado");
+  await expect(card).toContainText("Total parcial");
+  await page.goto("/dashboard?period=previous");
+  await expect(page.locator('[data-consolidated="true"]').filter({ hasText: "Caixa recebido" })).toHaveCount(0);
+
   await page.goto(`/dashboard/units?metric=${METRIC}`);
   await expect(page.getByRole("heading", { name: "Filiais" })).toBeVisible();
   // Total só das 2 filiais com dado: 1000,50 + 3000,25 = 4.000,75 (e Manaus fora, não contada como zero).
