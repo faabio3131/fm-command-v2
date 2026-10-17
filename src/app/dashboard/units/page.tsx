@@ -2,26 +2,17 @@ import Link from "next/link";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { BarChart } from "@/app/dashboard/charts/bar-chart";
+import { buildBranchBars, formatBranchValue as formatValue } from "@/app/dashboard/charts/branch-bars";
 import { getRequestLocale } from "@/application/i18n/request-locale";
 import { createUnitComparisonService } from "@/application/metrics/metric-composition";
 import { buildSectorService } from "@/application/sectors/sector-composition";
 import { resolveTenantContext } from "@/application/security/resolve-tenant-context";
-import { barWidthPercent, compareDecimals, parseDecimal } from "@/domain/core/decimal";
 import { PERIOD_KINDS, parsePeriodKind } from "@/domain/metrics/period";
 import { METRIC_REGISTRY } from "@/domain/metrics/registry";
 import { RegionOutOfScopeError } from "@/domain/metrics/unit-comparison";
 import { AuthenticationRequiredError, TenantScopeRequiredError } from "@/domain/security/tenant-context";
-import type { Locale } from "@/i18n/locales";
 import { createTranslator, type MessageKey } from "@/i18n/translate";
 import { createLabels } from "@/presentation/labels";
-
-function formatValue(value: string, unit: string, currency: string | undefined, locale: Locale): string {
-  // Só exibição: o cálculo é feito em decimais exatos no domínio. Intl aceita o texto decimal sem passar por ponto flutuante.
-  const amount = value as unknown as number;
-  if (unit === "currency" && currency) return new Intl.NumberFormat(locale, { style: "currency", currency }).format(amount);
-  if (unit === "percent") return `${new Intl.NumberFormat(locale).format(amount)}%`;
-  return new Intl.NumberFormat(locale).format(amount);
-}
 
 export default async function UnitsPage({ searchParams }: { searchParams: Promise<{ metric?: string; region?: string; period?: string }> }) {
   let context;
@@ -55,14 +46,7 @@ export default async function UnitsPage({ searchParams }: { searchParams: Promis
   }
 
   const { comparison, regions } = view;
-  const reporting = comparison.branches.filter((b) => b.value !== null);
-  const max = reporting.map((b) => parseDecimal(b.value)).filter((v) => v !== null).sort((a, b) => compareDecimals(b, a))[0];
-  const items = comparison.branches.map((b) => ({
-    id: b.unitId,
-    label: b.name,
-    valueText: b.value === null ? null : formatValue(b.value, definition.unit, b.currency, locale),
-    widthPercent: b.value === null || !max || comparison.rankingSuspended ? "0" : barWidthPercent(parseDecimal(b.value)!, max),
-  }));
+  const { items } = buildBranchBars(comparison, definition.unit, locale);
   const total = comparison.total;
 
   return (

@@ -10,8 +10,11 @@ import { OperationalHealthService } from "@/application/operations/operational-h
 import { ProductRegistryService } from "@/application/products/product-registry-service";
 import { loadDashboardIdentity } from "@/application/security/dashboard-identity";
 import { resolveTenantContext } from "@/application/security/resolve-tenant-context";
+import { BarChart } from "@/app/dashboard/charts/bar-chart";
+import { buildBranchBars } from "@/app/dashboard/charts/branch-bars";
+import { buildSectorService } from "@/application/sectors/sector-composition";
 import { PERIOD_KINDS, parsePeriodKind } from "@/domain/metrics/period";
-import { EXECUTIVE_METRIC_TARGETS, getMetricDefinition } from "@/domain/metrics/registry";
+import { EXECUTIVE_METRIC_TARGETS, METRIC_REGISTRY, getMetricDefinition } from "@/domain/metrics/registry";
 import { roleHasPermission } from "@/domain/security/permissions";
 import { AuthenticationRequiredError, PermissionDeniedError, TenantScopeRequiredError } from "@/domain/security/tenant-context";
 import { PostgresOperationalHealthRepository } from "@/infrastructure/operations/postgres-health-repository";
@@ -84,6 +87,14 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const consolidation = needsConsolidation.length
     ? await createUnitComparisonService().consolidate(context, { metricIds: needsConsolidation, periodKind }).catch(() => new Map())
     : new Map();
+  // Gráfico das filiais que mais contribuem: só aparece se a empresa tem filiais no escopo da pessoa. Mesma métrica da tela Filiais (a primeira de soma visível).
+  const noMetrics: ReadonlySet<string> = new Set();
+  const visibleMetrics = await buildSectorService().visibleMetricIds(context.tenantId).catch(() => noMetrics);
+  const rankingMetric = METRIC_REGISTRY.find((m) => visibleMetrics.has(m.metricId) && m.kind === "sum");
+  const branchView = rankingMetric
+    ? await createUnitComparisonService().compare(context, { metricId: rankingMetric.metricId, periodKind }).catch(() => null)
+    : null;
+  const branchBars = branchView && rankingMetric && branchView.comparison.branches.length > 0 ? buildBranchBars(branchView.comparison, rankingMetric.unit, locale, 5) : null;
   const governedAvailable = metrics.filter(({ value, target }) => (value?.value !== null && value) || consolidation.get(target.metricId)?.total.status === "available").length;
   const activeProducts = products.filter((product) => product.status === "active").length;
   const activeAlerts = alertOverview.occurrences.filter((occurrence) => occurrence.status === "active").length;
@@ -286,6 +297,30 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
           })}
         </div>
       </section>
+
+      {branchView && rankingMetric && branchBars ? (
+        <section className="executive-section" aria-labelledby="branch-ranking-title" data-testid="home-branch-ranking">
+          <div className="section-heading">
+            <div><span className="eyebrow">{t("home.branches.eyebrow")}</span><h2 id="branch-ranking-title">{t("home.branches.title", { metric: labels.metricName(rankingMetric.metricId, rankingMetric.displayName) })}</h2></div>
+            <p>{t("home.branches.note")}</p>
+          </div>
+          <div className="panel">
+            {branchView.comparison.rankingSuspended ? (
+              <p>{t("units.rankingSuspended")}</p>
+            ) : branchBars.items.length ? (
+              <BarChart items={branchBars.items} ariaLabel={t("home.branches.aria", { metric: labels.metricName(rankingMetric.metricId, rankingMetric.displayName) })} unavailableText={t("common.unavailable")} />
+            ) : (
+              <p>{t("units.total.reason.no_data")}</p>
+            )}
+            <p className="metric-provenance">
+              {t("home.branches.coverage", { reporting: branchView.comparison.branches.length - branchBars.unavailableCount, expected: branchView.comparison.branches.length })}
+              {branchBars.unavailableCount > 0 ? ` · ${t("home.branches.missing", { count: branchBars.unavailableCount })}` : ""}
+              {branchBars.hiddenCount > 0 ? ` · ${t("home.branches.hidden", { count: branchBars.hiddenCount })}` : ""}
+            </p>
+            <Link href={`/dashboard/units?metric=${encodeURIComponent(rankingMetric.metricId)}&period=${periodKind}`}>{t("home.branches.all")}</Link>
+          </div>
+        </section>
+      ) : null}
 
       <section className="executive-section" aria-labelledby="product-intelligence-title">
         <div className="section-heading">
