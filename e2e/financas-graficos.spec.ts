@@ -10,6 +10,10 @@ test("tela Finanças: gráficos por filial, troca de métrica e período, inglê
 
   await page.goto("/dashboard/finance");
   await expect(page.getByRole("heading", { name: "Inteligência financeira governada" }).first()).toBeVisible();
+  // Cartão do topo: sem valor próprio da empresa, soma as filiais com a cobertura à vista (mesma regra do painel inicial).
+  const card = page.locator('[data-consolidated="true"]').filter({ hasText: "Faturamento bruto emitido" });
+  await expect(card).toContainText("35000");
+  await expect(card).toContainText("Consolidado: 2 de 3 filiais com dado");
   const trend = page.getByTestId("home-trend");
   await expect(trend).toContainText("R$ 88.000,00");
   await expect(trend).toContainText("+25,7%");

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { FinancialIntelligenceService } from "@/application/finance/financial-intelligence-service";
-import { createMetricService } from "@/application/metrics/metric-composition";
+import { createMetricService, createUnitComparisonService } from "@/application/metrics/metric-composition";
 import { getRequestLocale } from "@/application/i18n/request-locale";
 import { getCompanyTimeZone } from "@/application/i18n/request-timezone";
 import { buildSectorService } from "@/application/sectors/sector-composition";
@@ -49,6 +49,12 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
     new PostgresProductRepository(),
   ).overview(context);
 
+  // Empresa com filiais: o cartão sem valor próprio da empresa mostra a soma das filiais (mesma regra do painel inicial; valor próprio sempre vence).
+  const needsConsolidation = overview.metrics.filter((m) => m.status === "unavailable").map((m) => m.target.metricId);
+  const consolidation = needsConsolidation.length
+    ? await createUnitComparisonService().consolidate(context, { metricIds: needsConsolidation }).catch(() => new Map())
+    : new Map();
+
   return (
     <main className="dashboard-shell dashboard-shell-compact">
       <header className="dashboard-header">
@@ -61,13 +67,27 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
       </header>
 
       <section className="metric-grid">
-        {overview.metrics.map(({ target, status, value }) => (
+        {overview.metrics.map(({ target, status, value }) => {
+          const consolidated = consolidation.get(target.metricId);
+          const total = consolidated?.total.status === "available" ? consolidated.total : null;
+          const definition = METRIC_REGISTRY.find((m) => m.metricId === target.metricId);
+          if (total && definition) {
+            return (
+              <article className="metric-card" key={target.metricId} data-consolidated="true">
+                <span className="metric-label">{labels.metricName(target.metricId, target.displayName)}</span>
+                <strong>{displayValue(t, total.value, definition.unit, total.currency)}</strong>
+                <small>{t(consolidated?.fullCompany ? "home.metric.consolidated" : "home.metric.consolidatedScoped", { reporting: total.reporting, expected: total.expected })}{total.partial ? ` · ${t("home.metric.consolidatedPartial")}` : ""}</small>
+              </article>
+            );
+          }
+          return (
           <article className="metric-card" key={target.metricId}>
             <span className="metric-label">{labels.metricName(target.metricId, target.displayName)}</span>
             <strong>{status === "pending_semantics" ? t("common.pendingSemantics") : value ? displayValue(t, value.value, value.unit, value.currency) : t("common.unavailable")}</strong>
             <small>{value ? t("common.sourceLine", { source: value.sourceAuthority }) : t("common.sourceNotConnected")}</small>
           </article>
-        ))}
+          );
+        })}
       </section>
 
       {chartMetric ? (
