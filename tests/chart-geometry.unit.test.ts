@@ -109,3 +109,23 @@ describe("geometria da rosca", () => {
     expect(g.slices).toEqual([]);
   });
 });
+
+import { deltaTone, higherIsWorse } from "@/domain/metrics/polarity";
+
+describe("cor da variação conforme o sentido da métrica", () => {
+  it("receita e leads: subir é bom, cair é ruim", () => {
+    expect(deltaTone("billing.gross_billed", "up")).toBe("good");
+    expect(deltaTone("lead.created.count", "down")).toBe("bad");
+  });
+  it("incidentes, falhas, custos e inadimplência: subir é ruim, cair é bom", () => {
+    for (const id of ["incident.count", "job.failure.count", "cost.operating.total", "receivable.delinquent_amount", "subscription.cancelled.count"]) {
+      expect(higherIsWorse(id)).toBe(true);
+      expect(deltaTone(id, "up")).toBe("bad");
+      expect(deltaTone(id, "down")).toBe("good");
+    }
+  });
+  it("sem variação não tem cor de bom nem de ruim", () => {
+    expect(deltaTone("incident.count", "flat")).toBe("flat");
+    expect(deltaTone("billing.gross_billed", "flat")).toBe("flat");
+  });
+});
