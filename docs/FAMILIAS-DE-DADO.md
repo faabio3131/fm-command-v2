@@ -9,8 +9,8 @@ Tese (Diretor, 17/10/2026): os dados existem nos ERPs; o que falta é o envio. N
 | Família | Exemplos de fato | Entregue hoje pelos conectores | Observação |
 | --- | --- | --- | --- |
 | Financeiro | contas a receber e a pagar, caixa, inadimplência | Sim (`finance.receivable`, `finance.payable`) em Omie, Bling, Conta Azul, só contra simulador | Nenhuma chamada a ERP real ainda |
-| Vendas | faturamento, pedidos, vendas por item | Não pelos conectores atuais (eles mapeiam só financeiro); a métrica de faturamento existe no motor, mas **vendas item a item não** | "Produto mais vendido" depende disso |
-| Estoque | saldo, giro, ruptura | Não | Não verificado em nenhuma API |
+| Vendas | faturamento, pedidos, vendas por item | Omie (opt-in, etapa 8I, só simulador): pedido faturado por período e linhas de item guardadas. Bling e Conta Azul: não | Ranking por produto ainda não existe (falta agrupar por item) |
+| Estoque | saldo, giro, ruptura | Omie (opt-in, etapa 8I, só simulador): posição por produto e itens abaixo do mínimo. Demais: não | Nomes dos métodos do Omie não conferidos |
 | Fiscal | notas emitidas e recebidas, impostos | Não | Coletor fiscal é decisão em aberto; ver 8G |
 | Pessoas | mão de obra, horas, folha | Não | Depende do sistema do cliente |
 | Operação | produção, entregas, incidentes por setor | Só nos pacotes de setor (transporte, indústria), com dado sintético | Sem TMS/MES real |

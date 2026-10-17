@@ -12,10 +12,9 @@ import {
 import type { CredentialStore } from "@/domain/integration/credentials";
 import { systemClock, type Clock, type RateLimiter } from "@/application/integration/rate-limiter";
 import { effectiveOmieLimits, OMIE_PAGE_SIZE, type OmieClient } from "./omie-client";
-import { mapOmieRecord, OMIE_STREAMS, type OmieStream } from "./omie-mapping";
+import { mapOmieFacts, OMIE_ALL_STREAMS, OMIE_DEFAULT_STREAMS, OMIE_STREAMS, type OmieStream } from "./omie-mapping";
 
 export const OMIE_SOURCE_TYPE = "omie";
-const STREAM_ORDER: readonly OmieStream[] = ["receivable", "payable"];
 const MAX_PAGE = 100_000;
 
 interface Cursor {
@@ -44,7 +43,7 @@ function parseCursor(raw: string | undefined): Cursor | undefined {
   const c = value as Partial<Cursor> | null;
   if (
     !c || typeof c !== "object" ||
-    !STREAM_ORDER.includes(c.s as OmieStream) ||
+    !OMIE_ALL_STREAMS.includes(c.s as OmieStream) ||
     !Number.isInteger(c.p) || (c.p as number) < 1 || (c.p as number) > MAX_PAGE ||
     (c.since !== undefined && !validDay(c.since)) ||
     (c.w !== undefined && !validDay(c.w))
@@ -69,6 +68,15 @@ function previousDay(isoDay: string): string {
   return d.toISOString().slice(0, 10);
 }
 
+/** Fluxos ligados na fonte. Padrão: só finanças; vendas e estoque precisam ser pedidos (e são lidos nesta ordem fixa). */
+function readStreams(config: Readonly<Record<string, unknown>>): readonly OmieStream[] {
+  if (config.streams === undefined) return OMIE_DEFAULT_STREAMS;
+  if (!Array.isArray(config.streams) || config.streams.length === 0) throw new ConnectorConfigError("integration.connector_streams_invalid");
+  const asked = new Set<unknown>(config.streams);
+  for (const item of asked) if (!OMIE_ALL_STREAMS.includes(item as OmieStream)) throw new ConnectorConfigError("integration.connector_streams_invalid");
+  return OMIE_ALL_STREAMS.filter((stream) => asked.has(stream));
+}
+
 function readConfig(config: Readonly<Record<string, unknown>>) {
   const currency = typeof config.currency === "string" ? config.currency : "BRL";
   if (!/^[A-Z]{3}$/.test(currency)) throw new ConnectorConfigError("integration.connector_currency_invalid");
@@ -76,15 +84,16 @@ function readConfig(config: Readonly<Record<string, unknown>>) {
   if (!Number.isInteger(offset) || offset < -720 || offset > 840) {
     throw new ConnectorConfigError("integration.connector_timezone_invalid");
   }
-  const unitRefField = typeof config.unitRefField === "string" && /^[a-z_][a-z0-9_]*$/i.test(config.unitRefField)
+  // Caminho com pontos para campo aninhado (ex.: "cabecalho.codigo_empresa").
+  const unitRefField = typeof config.unitRefField === "string" && /^[a-z_][a-z0-9_]*(\.[a-z_][a-z0-9_]*)*$/i.test(config.unitRefField)
     ? config.unitRefField
     : undefined;
-  return { currency, utcOffsetMinutes: offset, unitRefField, limits: effectiveOmieLimits(config) };
+  return { currency, utcOffsetMinutes: offset, unitRefField, streams: readStreams(config), limits: effectiveOmieLimits(config) };
 }
 
 export class OmieConnector implements Connector {
   readonly sourceType = OMIE_SOURCE_TYPE;
-  readonly capabilities = ["finance.receivable.read", "finance.payable.read"] as const;
+  readonly capabilities = ["finance.receivable.read", "finance.payable.read", "sales.order.read", "inventory.position.read"] as const;
 
   constructor(
     private readonly client: OmieClient,
@@ -124,18 +133,22 @@ export class OmieConnector implements Connector {
 
   async pull(context: ConnectorContext, source: SourceDefinition, rawCursor?: string): Promise<ConnectorPullResult> {
     const cfg = readConfig(source.config);
-    const cursor = parseCursor(rawCursor) ?? { s: STREAM_ORDER[0], p: 1 };
+    const parsed = parseCursor(rawCursor);
+    // Fluxo do cursor que a fonte desligou: recomeça pelo primeiro ligado (a leitura completa é segura).
+    const cursor = parsed && cfg.streams.includes(parsed.s) ? parsed : { s: cfg.streams[0], p: 1 };
     const now = new Date(this.clock.now());
     const cycleDay = cursor.w ?? dayInOmieZone(now, cfg.utcOffsetMinutes);
     const credential = await this.credentialFor(context, source);
     const stream = OMIE_STREAMS[cursor.s];
 
     const param: Record<string, unknown> = {
-      pagina: cursor.p,
-      registros_por_pagina: OMIE_PAGE_SIZE,
-      apenas_importado_api: "N",
+      [stream.pageParam]: cursor.p,
+      [stream.sizeParam]: OMIE_PAGE_SIZE,
+      ...stream.fixedParams,
     };
-    if (cursor.since) {
+    // Posição de estoque é uma foto de hoje, no fuso do Omie.
+    if (cursor.s === "stock") param.dDataPosicao = ddmmyyyy(dayInOmieZone(now, cfg.utcOffsetMinutes));
+    if (cursor.since && stream.incremental) {
       // Um dia de folga cobre a diferença de fuso; repetir registros é inofensivo (deduplicação).
       param.filtrar_apenas_alteracao = "S";
       param.filtrar_por_data_de = ddmmyyyy(previousDay(cursor.since));
@@ -160,16 +173,16 @@ export class OmieConnector implements Connector {
       if (!Array.isArray(list)) throw new ConnectorConfigError("integration.connector_response_invalid");
       const records = list;
       for (const record of records) {
-        const fact = mapOmieRecord(cursor.s, record, {
+        const mapped = mapOmieFacts(cursor.s, record, {
           currency: cfg.currency,
           utcOffsetMinutes: cfg.utcOffsetMinutes,
           unitRefField: cfg.unitRefField,
           retrievedAt: now,
         });
-        if (fact) facts.push(fact);
+        if (mapped.length) facts.push(...mapped);
         else skipped += 1;
       }
-      const pages = result.body.total_de_paginas;
+      const pages = result.body[stream.totalPagesKey];
       if (typeof pages === "number" && Number.isInteger(pages) && pages >= 1) totalPages = pages;
     }
 
@@ -177,10 +190,10 @@ export class OmieConnector implements Connector {
     if (cursor.p < totalPages && cursor.p < MAX_PAGE) {
       next = { s: cursor.s, p: cursor.p + 1, since: cursor.since, w: cycleDay };
     } else {
-      const index = STREAM_ORDER.indexOf(cursor.s);
-      next = index + 1 < STREAM_ORDER.length
-        ? { s: STREAM_ORDER[index + 1], p: 1, since: cursor.since, w: cycleDay }
-        : { s: STREAM_ORDER[0], p: 1, since: cycleDay }; // ciclo completo: o próximo é incremental
+      const index = cfg.streams.indexOf(cursor.s);
+      next = index + 1 < cfg.streams.length
+        ? { s: cfg.streams[index + 1], p: 1, since: cursor.since, w: cycleDay }
+        : { s: cfg.streams[0], p: 1, since: cycleDay }; // ciclo completo: o próximo é incremental
     }
     return { facts, nextCursor: JSON.stringify(next), skipped };
   }

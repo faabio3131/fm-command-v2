@@ -150,6 +150,24 @@ export const BASE_METRIC_REGISTRY: readonly MetricDefinition[] = [
     kind: "sum", factType: "finance.payable", valueField: "amountMinor", valueScale: "minor", statuses: ["overdue"], unit: "currency", currencyField: "currency",
     grain: "as_of", dimensions: ["currency"], timeWindow: "as_of", freshnessPolicy: "source_governed", sourceAuthority: "configured_erp_source",
   },
+  {
+    metricId: "sales.orders.invoiced_amount", version: 1, calculationVersion: "v1",
+    displayName: "Vendas faturadas (pedidos)", description: "Soma do valor dos pedidos de venda faturados no período, pela data de faturamento no sistema de origem. Orçamentos, pedidos em aberto e cancelados não entram.",
+    kind: "sum", factType: "sales.order", valueField: "amountMinor", valueScale: "minor", statuses: ["invoiced"], unit: "currency", currencyField: "currency",
+    grain: "period", dimensions: ["currency"], timeWindow: "bounded_period", freshnessPolicy: "source_governed", sourceAuthority: "configured_erp_source",
+  },
+  {
+    metricId: "sales.orders.invoiced_count", version: 1, calculationVersion: "v1",
+    displayName: "Pedidos faturados", description: "Quantidade de pedidos de venda faturados no período, pela data de faturamento no sistema de origem.",
+    kind: "count", factType: "sales.order", statuses: ["invoiced"], unit: "count", grain: "period", dimensions: [],
+    timeWindow: "bounded_period", freshnessPolicy: "source_governed", sourceAuthority: "configured_erp_source",
+  },
+  {
+    metricId: "inventory.below_minimum.count", version: 1, calculationVersion: "v1",
+    displayName: "Itens abaixo do estoque mínimo", description: "Quantidade de produtos com saldo menor que o estoque mínimo cadastrado no sistema de origem. Produto sem mínimo cadastrado não entra.",
+    kind: "count", factType: "inventory.position", statuses: ["below_minimum"], unit: "count", grain: "as_of", dimensions: [],
+    timeWindow: "as_of", freshnessPolicy: "source_governed", sourceAuthority: "configured_erp_source",
+  },
 ] as const;
 
 /** Métricas da plataforma + as dos pacotes por setor (o pacote que a empresa não ligou só não aparece nas telas dela). */

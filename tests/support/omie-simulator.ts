@@ -13,6 +13,10 @@ export interface SimAccount {
   appSecret: string;
   receivables: Record<string, unknown>[];
   payables: Record<string, unknown>[];
+  /** Pedidos de venda (etapa 8I). Estrutura segundo o artigo "Incluindo um pedido de venda via API"; a listagem não foi conferida. */
+  salesOrders?: Record<string, unknown>[];
+  /** Posições de estoque (etapa 8I). Nomes de campo não conferidos contra o Omie real. */
+  stock?: Record<string, unknown>[];
 }
 
 export class OmieSimulator implements JsonHttpTransport {
@@ -60,18 +64,20 @@ export class OmieSimulator implements JsonHttpTransport {
 
       const isReceivable = b.call === "ListarContasReceber" && url.endsWith("financeiro/contareceber/");
       const isPayable = b.call === "ListarContasPagar" && url.endsWith("financeiro/contapagar/");
-      if (!isReceivable && !isPayable) {
+      const isOrders = b.call === "ListarPedidos" && url.endsWith("produtos/pedido/");
+      const isStock = b.call === "ListarPosEstoque" && url.endsWith("estoque/consulta/");
+      if (!isReceivable && !isPayable && !isOrders && !isStock) {
         return { status: 500, body: { faultstring: "Método não encontrado" } };
       }
       const param = b.param?.[0] ?? {};
-      const page = Number(param.pagina ?? 1);
-      const size = Math.min(Number(param.registros_por_pagina ?? 100), 100);
-      let rows = isReceivable ? account.receivables : account.payables;
+      const page = Number(isStock ? param.nPagina ?? 1 : param.pagina ?? 1);
+      const size = Math.min(Number(isStock ? param.nRegPorPagina ?? 100 : param.registros_por_pagina ?? 100), 100);
+      let rows = isReceivable ? account.receivables : isPayable ? account.payables : isOrders ? account.salesOrders ?? [] : account.stock ?? [];
       if (param.filtrar_apenas_alteracao === "S" && typeof param.filtrar_por_data_de === "string") {
         const [d, m, y] = param.filtrar_por_data_de.split("/").map(Number);
         const from = Date.UTC(y, m - 1, d);
         rows = rows.filter((row) => {
-          const alt = (row.info as { dAlt?: string } | undefined)?.dAlt;
+          const alt = ((row.info ?? row.infoCadastro) as { dAlt?: string } | undefined)?.dAlt;
           if (!alt) return true;
           const [dd, mm, yy] = alt.split("/").map(Number);
           return Date.UTC(yy, mm - 1, dd) >= from;
@@ -82,6 +88,9 @@ export class OmieSimulator implements JsonHttpTransport {
         return { status: 500, body: { faultstring: `Não existem registros para a página [${page}]!` } };
       }
       const slice = rows.slice((page - 1) * size, page * size);
+      if (isStock) {
+        return { status: 200, body: { nPagina: page, nTotPaginas: totalPages, nRegistros: slice.length, nTotRegistros: rows.length, dDataPosicao: param.dDataPosicao, produtos: slice } };
+      }
       return {
         status: 200,
         body: {
@@ -89,7 +98,7 @@ export class OmieSimulator implements JsonHttpTransport {
           total_de_paginas: totalPages,
           registros: slice.length,
           total_de_registros: rows.length,
-          [isReceivable ? "conta_receber_cadastro" : "conta_pagar_cadastro"]: slice,
+          [isReceivable ? "conta_receber_cadastro" : isPayable ? "conta_pagar_cadastro" : "pedido_venda_produto"]: slice,
         },
       };
     } finally {
@@ -123,4 +132,24 @@ export function receivable(id: number, over: Record<string, unknown> = {}): Reco
     info: { dAlt: "05/10/2026", hAlt: "10:30:00" },
     ...over,
   };
+}
+
+export function salesOrder(id: number, over: { cabecalho?: Record<string, unknown>; infoCadastro?: Record<string, unknown>; total?: number; itens?: Record<string, unknown>[] } = {}): Record<string, unknown> {
+  return {
+    cabecalho: { codigo_pedido: id, codigo_cliente: 700 + id, numero_pedido: String(1000 + id), etapa: "60", quantidade_itens: (over.itens ?? [orderItem(1)]).length, ...over.cabecalho },
+    det: over.itens ?? [orderItem(1)],
+    total_pedido: { valor_total_pedido: over.total ?? 250 },
+    infoCadastro: { cFaturado: "S", cCancelado: "N", dInc: "02/10/2026", hInc: "09:00:00", dFat: "05/10/2026", hFat: "14:30:00", dAlt: "05/10/2026", hAlt: "14:31:00", ...over.infoCadastro },
+  };
+}
+
+export function orderItem(seq: number, over: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    ide: { codigo_item: 5000 + seq },
+    produto: { codigo_produto: 300 + seq, descricao: `Produto ${seq}`, quantidade: 2, valor_unitario: 125, valor_total: 250, ...over },
+  };
+}
+
+export function stockPosition(id: number, over: Record<string, unknown> = {}): Record<string, unknown> {
+  return { nCodProd: id, cCodigo: `P${id}`, cDescricao: `Produto ${id}`, nSaldo: 10, estoque_minimo: 5, nCMC: 12.5, ...over };
 }

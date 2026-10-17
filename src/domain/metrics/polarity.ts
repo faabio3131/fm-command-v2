@@ -14,6 +14,7 @@ const HIGHER_IS_WORSE: ReadonlySet<string> = new Set([
   "finance.receivable.overdue_amount",
   "finance.payable.overdue_amount",
   "finance.payable.open_amount",
+  "inventory.below_minimum.count",
   "cost.infrastructure.total",
   "cost.operating.total",
   "subscription.cancelled.count",

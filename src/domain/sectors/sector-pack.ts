@@ -51,7 +51,7 @@ export class SectorPackError extends Error {
 const ID = /^[a-z][a-z0-9_]{1,30}$/;
 const STATUSES: readonly CanonicalFactStatus[] = ["open", "overdue", "settled", "cancelled"];
 /** Tipos de fato que pertencem à plataforma: um pacote não pode se apropriar deles. */
-const RESERVED_FACT_PREFIXES = ["trial.", "subscription.", "billing.", "payment.", "revenue.", "receivable.", "finance.", "cost.", "lead.", "incident.", "job.", "integration.", "service.", "usage.", "support."];
+const RESERVED_FACT_PREFIXES = ["trial.", "subscription.", "billing.", "payment.", "revenue.", "receivable.", "finance.", "cost.", "lead.", "incident.", "job.", "integration.", "service.", "usage.", "support.", "sales.", "inventory."];
 
 const isObject = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 function fail(where: string, message: string): never { throw new SectorPackError(where, message); }
