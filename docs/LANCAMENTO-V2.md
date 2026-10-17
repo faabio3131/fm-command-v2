@@ -55,7 +55,7 @@ Legenda: ✅ fechado e provado por teste interno · 🔌 depende de terceiro (fa
 
 ## 7. Fase final: homologação com terceiros (tudo configurável, nada no código por cliente)
 1. App OAuth no Bling e na Conta Azul; conta de teste de cada ERP; chaves do Omie só no ambiente. 🔌
-2. SMTP real e WhatsApp real: adaptadores prontos e provados só contra servidores falsos locais (`FMCC_SMTP_*`, `FMCC_WHATSAPP_CLOUD_API_BASE`, ver `.env.example`); falta conta SMTP real, verificação da Meta e modelos aprovados por cliente (texto livre só dentro da janela de 24h). 🔌
+2. SMTP real e WhatsApp real: adaptadores prontos e provados só contra servidores falsos locais (`FMCC_SMTP_*`, `FMCC_WHATSAPP_CLOUD_API_BASE`, ver `.env.example`); formato do envio de texto, autenticação e resposta conferidos com a página oficial da API de Mensagens (v25.0, 17/10/2026); **não conferidos:** códigos de erro (usados 130429, 131056, 131047, 190) e a regra da janela de 24h, que a página não traz; falta conta SMTP real, verificação da Meta e modelos aprovados por cliente (texto livre só dentro da janela de 24h). 🔌
 3. Conectores reais de TMS (transporte) e MES/PCP (indústria) mapeando ao contrato dos pacotes. 🔌
 4. Revisão do inglês por pessoa nativa; pen test; PG de produção; medição de carga. 🔌
 5. Cron externo ligado (§4). 🛑 (ambiente aprovado)
