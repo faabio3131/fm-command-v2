@@ -23,7 +23,8 @@ export interface CoreReadCapability {
   readonly descriptor: CoreReadCapabilityDescriptor;
   read(
     context: TenantContext,
-    input: { readonly productSlugs: readonly string[] },
+    /** `metricIds`: as métricas que o plano da pergunta escolheu (a capacidade usa as que lhe servem). */
+    input: { readonly productSlugs: readonly string[]; readonly metricIds?: readonly string[] },
   ): Promise<CoreReadCapabilityResult>;
 }
 

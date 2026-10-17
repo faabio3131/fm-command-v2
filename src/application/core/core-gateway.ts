@@ -279,6 +279,7 @@ export class CoreGateway {
         try {
           const result = await capability.read(context, {
             productSlugs: effectiveProductSlugs,
+            metricIds: plan.metricIds,
           });
           return {
             capabilityId: capability.descriptor.id,

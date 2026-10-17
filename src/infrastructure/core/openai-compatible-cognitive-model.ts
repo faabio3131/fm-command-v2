@@ -127,6 +127,7 @@ export abstract class LlmCognitiveModel implements CognitiveModel {
         "Não declare anomalia, risco classificado ou previsão numérica sem sinal determinístico/contrato governado recebido nos facts.",
         "Quando a evidência for insuficiente, declare a insuficiência em vez de completar a lacuna.",
         "Contexto operacional é memória de continuidade, não fonte de verdade.",
+        "Em fatos de ranking de filiais, cite só as filiais e valores recebidos, na posição recebida: empate divide a posição (uma posição pode não existir), 'lowest' é o menor valor e, quando higherIsWorse for verdadeiro, o maior valor é o que preocupa. Filial em withoutValue não tem dado no período: diga isso, nunca trate como zero.",
       ].join(" ") },
       { role: "user", content: JSON.stringify(input) },
     ], 1024, "synthesize");
