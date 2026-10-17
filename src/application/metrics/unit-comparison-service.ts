@@ -1,4 +1,4 @@
-import type { MetricService, UnitScopeResolver } from "@/application/metrics/metric-service";
+import type { MetricFreshnessStatus, MetricQualityStatus, MetricService, MetricView, UnitScopeResolver } from "@/application/metrics/metric-service";
 import { DEFAULT_PERIOD_KIND, type PeriodKind } from "@/domain/metrics/period";
 import { MAX_SERIES_MONTHS, monthWindows } from "@/domain/metrics/monthly-series";
 import { getMetricDefinition } from "@/domain/metrics/registry";
@@ -24,9 +24,42 @@ export interface MonthlySeries {
   readonly points: readonly MonthlySeriesPoint[];
 }
 
+/** Origem dos valores comparados, resumida para virar evidência (só das filiais que têm valor). */
+export interface ComparisonSource {
+  readonly sourceAuthority: string;
+  readonly freshnessStatus: MetricFreshnessStatus;
+  readonly qualityStatus: MetricQualityStatus;
+  readonly provenanceRefs: readonly string[];
+  readonly periodStart?: Date;
+  readonly periodEnd?: Date;
+}
+
+// Do melhor para o pior: o resumo assume o pior estado entre as filiais, para a evidência nunca parecer mais fresca ou confiável que o dado.
+const FRESHNESS_ORDER: readonly MetricFreshnessStatus[] = ["fresh", "delayed", "unknown", "stale", "unavailable"];
+const QUALITY_ORDER: readonly MetricQualityStatus[] = ["verified", "reconciled", "partial", "estimated", "unknown", "missing"];
+const worst = <T extends string>(order: readonly T[], values: readonly T[]): T => values.reduce((a, b) => (order.indexOf(b) > order.indexOf(a) ? b : a));
+
+export function summarizeSource(views: readonly MetricView[]): ComparisonSource | null {
+  const withValue = views.filter((v) => v.value !== null);
+  if (withValue.length === 0) return null;
+  const authorities = [...new Set(withValue.map((v) => v.sourceAuthority))];
+  const starts = withValue.flatMap((v) => (v.periodStart ? [v.periodStart.getTime()] : []));
+  const ends = withValue.flatMap((v) => (v.periodEnd ? [v.periodEnd.getTime()] : []));
+  return {
+    sourceAuthority: authorities.length === 1 ? authorities[0] : "fmcc_metric_engine",
+    freshnessStatus: worst(FRESHNESS_ORDER, withValue.map((v) => v.freshnessStatus)),
+    qualityStatus: worst(QUALITY_ORDER, withValue.map((v) => v.qualityStatus)),
+    provenanceRefs: [...new Set(withValue.flatMap((v) => v.provenanceRefs))],
+    ...(starts.length ? { periodStart: new Date(Math.min(...starts)) } : {}),
+    ...(ends.length ? { periodEnd: new Date(Math.max(...ends)) } : {}),
+  };
+}
+
 export interface UnitComparisonView {
   readonly metricId: string;
   readonly comparison: UnitComparison;
+  /** Nulo quando nenhuma filial tem valor. */
+  readonly source: ComparisonSource | null;
   readonly regions: readonly { readonly id: string; readonly name: string }[];
 }
 
@@ -54,6 +87,7 @@ export class UnitComparisonService {
     return {
       metricId: input.metricId,
       comparison: compareBranches(branches, readings, input.regionId ?? null),
+      source: summarizeSource(views),
       regions: selectableRegions(units, scope).map((r) => ({ id: r.id, name: r.name })),
     };
   }
