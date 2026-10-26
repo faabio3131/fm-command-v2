@@ -59,9 +59,9 @@ export default function SignInPage() {
     <main className="command-auth-shell">
       <section className="command-auth-experience" aria-labelledby="command-auth-title">
         <header className="command-auth-brandbar">
-          <div className="command-auth-brand-lockup" aria-label="FM Tecnologia · FM Command">
+          <div className="command-auth-brand-lockup" aria-label="FM Tecnologia IA · FM Command">
             <strong>FM</strong>
-            <span>FM Tecnologia</span>
+            <span>FM Tecnologia IA</span>
             <i aria-hidden="true" />
             <b>COMMAND</b>
           </div>
