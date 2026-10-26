@@ -363,7 +363,7 @@ input:focus,select:focus,textarea:focus{
   box-shadow:0 12px 34px rgba(0,0,0,.18);
 }
 .command-brand{
-  min-width:max-content;
+  min-width:0;
   display:flex;
   align-items:center;
   gap:12px;
@@ -379,7 +379,7 @@ input:focus,select:focus,textarea:focus{
   color:transparent;
   filter:drop-shadow(0 0 12px rgba(31,122,255,.28));
 }
-.command-brand-company{font-size:.96rem;font-weight:750}
+.command-brand-company{font-size:.96rem;font-weight:750;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .command-brand-divider{width:1px;height:26px;background:rgba(49,111,221,.42)}
 .command-brand strong{
   letter-spacing:.38em;
