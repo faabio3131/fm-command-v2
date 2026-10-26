@@ -1272,7 +1272,7 @@ export const enUS: Record<MessageKey, string> = {
   "onboarding.create": "Create organization",
   "onboarding.createFailed": "Could not create the organization.",
   "onboarding.enterFailed": "Could not join the organization.",
-  "landing.eyebrow": "FM Tecnologia · Intelligence Control Plane",
+  "landing.eyebrow": "FM Tecnologia IA · Intelligence Control Plane",
   "landing.lead": "Governed executive center for metrics, products, operations, alerts and decisions assisted by the FM Cognitive Vertical Core.",
   "landing.signIn": "Sign in securely",
   "landing.open": "Open FM Command",

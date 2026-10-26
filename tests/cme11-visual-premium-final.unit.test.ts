@@ -13,7 +13,7 @@ describe("CME-11 Visual Premium Final", () => {
     expect(shell).toContain('href="/dashboard/search"');
     expect(shell).toContain('t("shell.search.placeholder")');
     expect(ptBR["shell.search.placeholder"]).toBe("Buscar no COMMAND...");
-    expect(shell).toContain("FM Tecnologia");
+    expect(shell).toContain("FM Tecnologia IA");
     expect(shell).toContain("<strong>COMMAND</strong>");
     expect(shell).toContain("environmentLabel");
   });

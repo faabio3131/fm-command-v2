@@ -114,7 +114,7 @@ describe("F18 premium UX/UI", () => {
     const css = source("src/app/globals.css");
 
     expect(layout).toContain("notifications={notifications}");
-    expect(shell).toContain("FM Tecnologia");
+    expect(shell).toContain("FM Tecnologia IA");
     expect(shell).toContain("COMMAND");
     expect(shell).toContain("commandNavigationForRole(role)");
     expect(navigation).toContain("Visão Geral");

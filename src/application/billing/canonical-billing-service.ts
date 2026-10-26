@@ -29,7 +29,7 @@ export class CanonicalBillingService {
       value: binding.amountMinor / 100,
       dueDate,
       externalReference: binding.invoiceId,
-      description: "FM Tecnologia - " + binding.productId + " - " + binding.invoiceId,
+      description: "FM Tecnologia IA - " + binding.productId + " - " + binding.invoiceId,
     });
     await this.repository.recordPayment({binding, externalPaymentId:charge.id,status:charge.status});
     return charge;

@@ -7,7 +7,7 @@ function source(path: string) {
 
 describe("FM Command commercial naming", () => {
   it("apresenta FM Command nas superfícies comerciais principais", () => {
-    expect(source("src/app/layout.tsx")).toContain('title: "FM Command | FM Tecnologia"');
+    expect(source("src/app/layout.tsx")).toContain('title: "FM Command | FM Tecnologia IA"');
     expect(source("src/app/page.tsx")).toContain("<h1>FM Command</h1>");
     expect(source("src/app/page.tsx")).toContain("Abrir FM Command");
     expect(source("src/app/dashboard/page.tsx")).toContain("<h1>FM Command</h1>");

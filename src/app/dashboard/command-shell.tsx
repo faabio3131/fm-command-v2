@@ -66,7 +66,7 @@ export function CommandShell({
       <header className="command-topbar">
         <Link href="/dashboard" className="command-brand" aria-label={t("shell.brand.aria")}>
           <span className="command-brand-mark" aria-hidden="true">FM</span>
-          <span className="command-brand-company">FM Tecnologia</span>
+          <span className="command-brand-company">FM Tecnologia IA</span>
           <span className="command-brand-divider" aria-hidden="true" />
           <strong>COMMAND</strong>
         </Link>

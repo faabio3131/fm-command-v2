@@ -1271,7 +1271,7 @@ export const ptBR = {
   "onboarding.create": "Criar organização",
   "onboarding.createFailed": "Não foi possível criar a organização.",
   "onboarding.enterFailed": "Não foi possível entrar na organização.",
-  "landing.eyebrow": "FM Tecnologia · Intelligence Control Plane",
+  "landing.eyebrow": "FM Tecnologia IA · Intelligence Control Plane",
   "landing.lead": "Centro executivo governado para métricas, produtos, operações, alertas e decisões assistidas pelo FM Cognitive Vertical Core.",
   "landing.signIn": "Entrar com segurança",
   "landing.open": "Abrir FM Command",

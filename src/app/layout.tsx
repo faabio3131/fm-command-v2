@@ -7,7 +7,7 @@ import "./command-auth-premium.css";
 
 export async function generateMetadata(): Promise<Metadata> {
   const { t } = createTranslator(await getRequestLocale());
-  return { title: "FM Command | FM Tecnologia", description: t("meta.description") };
+  return { title: "FM Command | FM Tecnologia IA", description: t("meta.description") };
 }
 
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
