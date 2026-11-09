@@ -87,6 +87,8 @@ export const billingSubscriptions = pgTable("fmcc_billing_subscription", {
   customerId: uuid("customer_id").notNull(),
   planCode: text("plan_code").notNull(),
   status: text("status").notNull().default("pending"),
+  /** Canonical paid-license end. Null means no confirmed paid cycle. */
+  paidThrough: timestamp("paid_through", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, t => [
   uniqueIndex("fmcc_billing_subscription_scope_uq").on(t.tenantId, t.id, t.productId, t.customerId),
