@@ -1,4 +1,4 @@
-import { createHash, timingSafeEqual } from "node:crypto";
+import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
 import { CaktoIronProductBilling } from "@/application/billing/cakto-iron-product-billing";
 import { PostgresProductBillingAuthorityRepository } from "@/infrastructure/billing/postgres-product-billing-authority-repository";
 
@@ -47,7 +47,7 @@ export class IronCommerceProvisioning {
     try {
       const response = await this.transport(url, {
         method: "GET", redirect: "error", cache: "no-store", signal: controller.signal,
-        headers: { authorization: "Bearer " + token, "x-correlation-id": "checkout-preflight-" + cryptoRandomCorrelation() },
+        headers: { authorization: "Bearer " + token, "x-correlation-id": "checkout-preflight-" + randomUUID() },
       });
       if (!response.ok) throw new Error("iron.commerce_control_plane_unavailable");
       return await response.json();
@@ -93,4 +93,3 @@ export class IronCommerceProvisioning {
     return { checkoutUrl, invoiceId: invoice.invoiceId, productCode: "IRON_FIT_CORE" };
   }
 }
-function cryptoRandomCorrelation() { return Math.random().toString(36).slice(2, 12); }
