@@ -4,6 +4,18 @@ import { IronCommerceProvisioning, verifyIronCommerceBearer } from "@/applicatio
 
 export const dynamic = "force-dynamic";
 
+/** Public-to-tenant offer catalog goes through an authenticated IRON backend proxy. */
+export async function GET(request: Request) {
+  if (!verifyIronCommerceBearer(request.headers.get("authorization"), process.env.FMCC_IRON_COMMERCE_S2S_TOKEN))
+    return NextResponse.json({ error: "iron.commerce_unauthorized" }, { status: 401 });
+  try {
+    const plans = await new IronCommerceProvisioning().offers();
+    return NextResponse.json({ plans }, { headers: { "cache-control": "no-store" } });
+  } catch {
+    return NextResponse.json({ error: "iron.commerce_offers_unavailable" }, { status: 503 });
+  }
+}
+
 /** IRON backend only: gym owner has already passed session, OWNER, tenant and step-up gates. */
 export async function POST(request: Request) {
   if (!verifyIronCommerceBearer(request.headers.get("authorization"), process.env.FMCC_IRON_COMMERCE_S2S_TOKEN))
