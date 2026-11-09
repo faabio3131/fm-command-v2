@@ -37,6 +37,10 @@ export class CaktoPaymentProvider implements PaymentProvider {
     if (new Set(this.offers.map(x => x.offerId)).size !== this.offers.length) throw new Error("cakto.checkout_config_duplicate");
   }
 
+  hasExactlyOneOffer(amountMinor: number, interval: "month" | "year"): boolean {
+    return this.offers.filter(x => x.amountMinor === amountMinor && x.interval === interval).length === 1;
+  }
+
   async createCustomer(input: CustomerInput): Promise<{ customerRef: string }> {
     if (!REF.test(input.externalReference)) throw new PaymentProviderError("cakto.reference_invalid", "rejected");
     // Customer details are collected by Cakto's hosted checkout; never send PAN/CPF to Command.
