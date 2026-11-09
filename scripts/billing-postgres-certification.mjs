@@ -12,6 +12,17 @@ try {
   // Esperado = migrações do diário do repositório (a lista cresce a cada etapa; um número fixo ficava velho).
   const expectedMigrations = JSON.parse(readFileSync(new URL("../drizzle/meta/_journal.json", import.meta.url), "utf8")).entries.length;
   assert.equal(migrations.rows[0].n, expectedMigrations, `Expected ${expectedMigrations} migrations from the journal`);
+  for (const [table, column] of [
+    ["fmcc_billing_subscription", "paid_through"],
+    ["fmcc_billing_invoice", "period_end"],
+  ]) {
+    const q = await client.query(
+      "SELECT data_type FROM information_schema.columns WHERE table_name=$1 AND column_name=$2",
+      [table, column],
+    );
+    assert.equal(q.rowCount, 1, "Missing canonical paid-cycle field " + table + "." + column);
+    assert.equal(q.rows[0].data_type, "timestamp with time zone");
+  }
   const idx = await client.query("SELECT indexname FROM pg_indexes WHERE tablename='fmcc_billing_provider_payment' AND indexname='fmcc_billing_provider_invoice_uq'");
   assert.equal(idx.rowCount, 1, "Missing one-payment-per-invoice index");
   for (const [tableName,indexName] of [
