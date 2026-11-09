@@ -136,7 +136,41 @@ export class IronEntitlementOutboxWorker {
     const b = await this.binding(job);
     if (!UUID.test(b.gym_id)) throw new Error("iron.delivery_invalid_gym");
     const snap = await (await this.remote(cfg.base + "/snapshot", cfg.token)).json() as unknown;
-    const ironSubId = selectIronSubscription(snap, b.gym_id, b.plan_code);
+    let ironSubId: string;
+    try {
+      ironSubId = selectIronSubscription(snap, b.gym_id, b.plan_code);
+    } catch {
+      if (job.event_type !== "LICENSE_ACTIVATE") throw new Error("iron.subscription_not_unique_or_missing");
+      const records = (snap as { subscriptions?: unknown })?.subscriptions;
+      if (!Array.isArray(records)) throw new Error("iron.snapshot_invalid");
+      const active = records.filter((v: unknown) => {
+        if (!v || typeof v !== "object" || Array.isArray(v)) return false;
+        const item = v as Record<string, unknown>;
+        return item.tenant_id === b.gym_id && item.status === "ACTIVE" && UUID.test(String(item.external_id ?? ""));
+      }) as Array<{external_id: string; plan_code: string}>;
+      if (active.length !== 1 || active[0].plan_code === b.plan_code)
+        throw new Error("iron.subscription_not_unique_or_missing");
+      const catalog = await (await this.remote(cfg.base + "/plan-versions", cfg.token)).json() as {
+        plans?: Array<{ plan_code: string; version: number }>;
+      };
+      const targets = Array.isArray(catalog?.plans) ? catalog.plans.filter((p) =>
+        p.plan_code === b.plan_code && Number.isSafeInteger(p.version) && p.version > 0) : [];
+      if (targets.length !== 1) throw new Error("iron.plan_version_not_unique");
+      const transition = {
+        action: "subscription.plan.transition", gymId: b.gym_id,
+        expectedSubscriptionId: active[0].external_id,
+        planCode: b.plan_code, planVersion: targets[0].version, transitionKind: "PLAN_CHANGE",
+        commercialStatus: "active",
+        reason: "FM Command verified paid plan invoice " + job.invoice_id,
+      };
+      const change = await (await this.remote(cfg.base + "/subscription/commands", cfg.token, {
+        method: "POST", headers: { "content-type": "application/json", "idempotency-key": "fmcc-cakto-plan-" + job.id },
+        body: JSON.stringify(transition),
+      })).json() as { result?: { subscription?: { id?: unknown } } };
+      const created = change?.result?.subscription?.id;
+      if (!UUID.test(String(created ?? ""))) throw new Error("iron.plan_transition_unconfirmed");
+      ironSubId = created as string;
+    }
     const command = ironLicenseCommand(job.event_type, b.gym_id, ironSubId, job.invoice_id);
     if (job.event_type === "LICENSE_ACTIVATE") command.paidThrough = b.paid_through!.toISOString();
     // Outbox ID is a persistent delivery idempotency key: never issue a new command for retries.
@@ -160,7 +194,7 @@ export class IronEntitlementOutboxWorker {
       return (res.rowCount ?? 0) === 1 ? "delivered" : "retry";
     } catch (e) {
       const code = e instanceof Error ? e.message : "iron.delivery_unknown_error";
-      const permanent = /^iron\.(delivery_(host_invalid|config_missing|binding_missing|invoice_not_paid|invoice_state_invalid|invalid_gym)|subscription_not_unique_or_missing|snapshot_invalid|command_.*)/.test(code)
+      const permanent = /^iron\.(delivery_(host_invalid|config_missing|binding_missing|invoice_not_paid|invoice_state_invalid|invalid_gym)|subscription_not_unique_or_missing|plan_version_not_unique|plan_transition_unconfirmed|snapshot_invalid|command_.*)/.test(code)
         || /^iron\.s2s_http_40[0134]$/.test(code);
       const blocked = permanent || job.attempts >= 12;
       const backoffSeconds = Math.min(1800, 10 * 2 ** Math.min(job.attempts, 8));
