@@ -77,8 +77,8 @@ export class CaktoIronProductBilling {
   /** Authenticates raw signed notification, reconciles one invoice/cycle and enqueues license changes atomically. */
   async handleWebhook(headers: Headers, raw: string): Promise<"applied" | "duplicate" | "ignored" | "unmatched"> {
     const event = this.provider.verifyWebhook(headers, raw);
-    if (!event || !event.paymentRef || !/^[A-Za-z0-9_-]{6,128}$/.test(paymentRef)) return "ignored";
-    const paymentRef: string = event.paymentRef;
+    const paymentRef = event?.paymentRef;
+    if (!event || !paymentRef || !/^[A-Za-z0-9_-]{6,128}$/.test(paymentRef)) return "ignored";
     // Provider-specific event remains inside the verified provider boundary.
     const sourceEvent = (JSON.parse(raw) as { event?: string }).event;
     const accepted = ["purchase_approved", "subscription_renewed", "refund", "chargeback",
