@@ -67,11 +67,10 @@ export class IronCommerceProvisioning {
       .map((v: unknown) => (v as { plan_code?: unknown }).plan_code)
       .filter((v: unknown): v is string => typeof v === "string"));
     // Construction validates the Cakto seller's hosted offer URLs and IDs at startup.
-    const allOffers = (new CaktoPaymentProvider(this.env) as unknown as {offers: Array<{amountMinor:number;interval:string}>}).offers;
+    const provider = new CaktoPaymentProvider(this.env);
     const plans = await this.provider.listPlans(conf.tenantId, conf.productId);
     return plans.filter(p => p.status === "active" && published.has(p.planCode) &&
-      allOffers.filter(offer => offer.amountMinor === p.amountMinor &&
-        offer.interval === (p.interval === "monthly" ? "month" : "year")).length === 1)
+      provider.hasExactlyOneOffer(p.amountMinor, p.interval === "monthly" ? "month" : "year"))
       .map(p => ({ planCode:p.planCode, name:p.name, interval:p.interval,
         amountMinor:p.amountMinor, currency: "BRL" as const }));
   }
