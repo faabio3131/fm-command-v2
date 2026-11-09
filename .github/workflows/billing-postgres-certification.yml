@@ -8,6 +8,8 @@ on:
       - "src/application/billing/**"
       - "src/domain/billing/**"
       - "tests/billing-*.test.ts"
+      - "tests/cakto-*.test.ts"
+      - "tests/iron-entitlement-outbox-worker.test.ts"
       - "src/app/api/billing/products/**"
       - "drizzle/**"
       - "scripts/billing-postgres-certification.mjs"
@@ -53,5 +55,9 @@ jobs:
         run: node scripts/billing-postgres-certification.mjs
       - name: Billing unit and route authorization tests
         run: npx vitest run tests/billing-payment-attribution.test.ts tests/billing-secret-resolver.test.ts tests/billing-asaas-sandbox-client.test.ts tests/billing-canonical-service.test.ts tests/billing-sandbox-reconcile-route.test.ts tests/billing-asaas-production-readonly.test.ts
+      - name: Certify Cakto recurring lifecycle and entitlement outbox on disposable PostgreSQL
+        env:
+          FMCC_CAKTO_DB_CERTIFICATION: "1"
+        run: npx vitest run tests/cakto-iron-product-billing.integration.test.ts
       - name: TypeScript
         run: npm run typecheck
