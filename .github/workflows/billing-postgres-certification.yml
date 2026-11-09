@@ -58,6 +58,7 @@ jobs:
       - name: Certify Cakto recurring lifecycle and entitlement outbox on disposable PostgreSQL
         env:
           FMCC_CAKTO_DB_CERTIFICATION: "1"
+          BETTER_AUTH_SECRET: "ci-ephemeral-auth-secret-not-for-prod-20261109"
         run: npx vitest run tests/cakto-iron-product-billing.integration.test.ts
       - name: TypeScript
         run: npm run typecheck
