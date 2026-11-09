@@ -6,7 +6,7 @@ const REF = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * Cakto hosted-checkout adapter. The checkout is created in the seller's account.
- * The opaque Command subscription UUID travels as ?callback= and is returned in
+ * The opaque Command subscription UUID travels as ?sck= and is returned in
  * signed webhooks. No customer payment information is trusted for tenant scope.
  *
  * A provider-side recurring cancellation needs its own documented/API-controlled
@@ -31,7 +31,7 @@ export class CaktoPaymentProvider implements PaymentProvider {
       let url: URL;
       try { url = new URL(a.checkoutUrl); } catch { throw new Error("cakto.checkout_config_invalid"); }
       if (url.protocol !== "https:" || url.hostname !== "pay.cakto.com.br" || url.username || url.password ||
-          url.searchParams.has("callback") || url.hash) throw new Error("cakto.checkout_config_invalid");
+          url.searchParams.has("sck") || url.hash) throw new Error("cakto.checkout_config_invalid");
       return {offerId: a.offerId, productId: a.productId, amountMinor: a.amountMinor!, interval: a.interval!, checkoutUrl: url.toString()};
     });
     if (new Set(this.offers.map(x => x.offerId)).size !== this.offers.length) throw new Error("cakto.checkout_config_duplicate");
@@ -48,7 +48,7 @@ export class CaktoPaymentProvider implements PaymentProvider {
     const matches = this.offers.filter(x => x.amountMinor === input.price.amountMinor && x.interval === input.interval);
     if (matches.length !== 1) throw new PaymentProviderError("cakto.offer_not_configured_or_ambiguous", "rejected");
     const url = new URL(matches[0].checkoutUrl);
-    url.searchParams.set("callback", input.externalReference);
+    url.searchParams.set("sck", input.externalReference);
     // Idempotent: no provider mutation; reissuing an identical checkout URL is safe.
     return { subscriptionRef: input.externalReference, checkoutUrl: url.toString() };
   }
@@ -84,7 +84,7 @@ export class CaktoPaymentProvider implements PaymentProvider {
     const order = records[0];
     if (!order || typeof order !== "object" || Array.isArray(order)) return null;
     const data = order as Record<string, unknown>;
-    if (data.offer_type !== "main" || !REF.test(String(data.callback ?? "")) ||
+    if (data.offer_type !== "main" || !REF.test(String(data.sck ?? "")) ||
         typeof data.id !== "string" || !/^[A-Za-z0-9_-]{6,128}$/.test(data.id)) return null;
     const offer = data.offer as { id?: unknown } | undefined;
     const product = data.product as { id?: unknown } | undefined;
@@ -106,7 +106,7 @@ export class CaktoPaymentProvider implements PaymentProvider {
     const occurredAt = typeof dateStr === "string" && Number.isFinite(Date.parse(dateStr)) ? new Date(dateStr) : this.now();
     // Two payment-success events for the same order are one cycle, never two.
     const tag = type === "payment_confirmed" ? "pay" : type === "payment_overdue" ? "late" : type === "payment_refunded" ? "refund" : "cancel";
-    return {eventId: tag + ":" + data.id, type, subscriptionRef: data.callback as string,
+    return {eventId: tag + ":" + data.id, type, subscriptionRef: data.sck as string,
       paymentRef: data.id, amount: type === "payment_confirmed" ? { amountMinor: monetary!, currency: "BRL" } : null, occurredAt};
   }
 }
