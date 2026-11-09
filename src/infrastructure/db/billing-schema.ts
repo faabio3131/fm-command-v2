@@ -106,6 +106,8 @@ export const billingInvoices = pgTable("fmcc_billing_invoice", {
   gatewayAccountId: uuid("gateway_account_id").notNull(),
   currency: text("currency").notNull().default("BRL"),
   amountMinor: bigint("amount_minor", { mode: "number" }).notNull(),
+  /** Exact end of the verified paid cycle, retained per invoice for refunds and audit. */
+  periodEnd: timestamp("period_end", { withTimezone: true }),
   status: text("status").notNull().default("pending"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, t => [
