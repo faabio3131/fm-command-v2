@@ -1,5 +1,6 @@
 import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
 import { CaktoIronProductBilling } from "@/application/billing/cakto-iron-product-billing";
+import { CaktoPaymentProvider } from "@/infrastructure/subscription/cakto-payment-provider";
 import { PostgresProductBillingAuthorityRepository } from "@/infrastructure/billing/postgres-product-billing-authority-repository";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -52,6 +53,27 @@ export class IronCommerceProvisioning {
       if (!response.ok) throw new Error("iron.commerce_control_plane_unavailable");
       return await response.json();
     } finally { clearTimeout(timer); }
+  }
+
+  async offers(): Promise<Array<{planCode: string; name: string; interval: "monthly" | "yearly"; amountMinor: number; currency: "BRL"}>> {
+    const conf = this.config();
+    const route = await this.provider.getRoute(conf.tenantId, conf.productId);
+    if (!route || route.status !== "enabled" || route.provider !== "cakto" ||
+      route.environment !== "production") return [];
+    const catalog = await this.fetchControl(conf.base + "/plan-versions", conf.token) as { plans?: unknown };
+    if (!Array.isArray(catalog?.plans)) throw new Error("iron.commerce_plan_catalog_invalid");
+    const published = new Set(catalog.plans
+      .filter((v: unknown) => v && typeof v === "object" && !Array.isArray(v))
+      .map((v: unknown) => (v as { plan_code?: unknown }).plan_code)
+      .filter((v: unknown): v is string => typeof v === "string"));
+    // Construction validates the Cakto seller's hosted offer URLs and IDs at startup.
+    const allOffers = (new CaktoPaymentProvider(this.env) as unknown as {offers: Array<{amountMinor:number;interval:string}>}).offers;
+    const plans = await this.provider.listPlans(conf.tenantId, conf.productId);
+    return plans.filter(p => p.status === "active" && published.has(p.planCode) &&
+      allOffers.filter(offer => offer.amountMinor === p.amountMinor &&
+        offer.interval === (p.interval === "monthly" ? "month" : "year")).length === 1)
+      .map(p => ({ planCode:p.planCode, name:p.name, interval:p.interval,
+        amountMinor:p.amountMinor, currency: "BRL" as const }));
   }
 
   async prepare(input: IronCommerceRequest): Promise<{ checkoutUrl: string; invoiceId: string; productCode: "IRON_FIT_CORE" }> {
