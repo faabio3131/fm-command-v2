@@ -69,7 +69,7 @@ export class CaktoPaymentProvider implements PaymentProvider {
     if (!secret || secret.length < 24) throw new WebhookRejectedError("webhook.not_configured");
     const timestamp = headers.get("x-cakto-timestamp") ?? "";
     const signature = headers.get("x-cakto-signature") ?? "";
-    if (!/^\\d{10}$/.test(timestamp) || !/^v1=[0-9a-f]{64}$/i.test(signature) ||
+    if (!/^\d{10}$/.test(timestamp) || !/^v1=[0-9a-f]{64}$/i.test(signature) ||
         Math.abs(this.now().getTime() / 1000 - Number(timestamp)) > 300) throw new WebhookRejectedError("webhook.signature_invalid");
     const expected = "v1=" + createHmac("sha256", secret).update(timestamp + ".").update(rawBody).digest("hex");
     if (!timingSafeEqual(Buffer.from(signature.toLowerCase()), Buffer.from(expected))) throw new WebhookRejectedError("webhook.signature_invalid");
