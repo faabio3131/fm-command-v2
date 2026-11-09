@@ -77,7 +77,8 @@ export class CaktoIronProductBilling {
   /** Authenticates raw signed notification, reconciles one invoice/cycle and enqueues license changes atomically. */
   async handleWebhook(headers: Headers, raw: string): Promise<"applied" | "duplicate" | "ignored" | "unmatched"> {
     const event = this.provider.verifyWebhook(headers, raw);
-    if (!event || !event.paymentRef || !/^[A-Za-z0-9_-]{6,128}$/.test(event.paymentRef)) return "ignored";
+    if (!event || !event.paymentRef || !/^[A-Za-z0-9_-]{6,128}$/.test(paymentRef)) return "ignored";
+    const paymentRef: string = event.paymentRef;
     // Provider-specific event remains inside the verified provider boundary.
     const sourceEvent = (JSON.parse(raw) as { event?: string }).event;
     const accepted = ["purchase_approved", "subscription_renewed", "refund", "chargeback",
@@ -122,8 +123,8 @@ export class CaktoIronProductBilling {
       // The gateway event is immutable and scoped to FM-owned account, no raw payload or PII.
       const [receipt] = await tx.insert(billingGatewayEvents).values({
         tenantId: this.tenantId, gatewayAccountId: binding.gateway.id,
-        externalEventId: "cakto:" + event.type + ":" + event.paymentRef,
-        status: "processed", eventType: event.type, externalPaymentId: event.paymentRef,
+        externalEventId: "cakto:" + event.type + ":" + paymentRef,
+        status: "processed", eventType: event.type, externalPaymentId: paymentRef,
         externalReference: event.subscriptionRef,
         payloadFingerprint: createHash("sha256").update(raw).digest("hex"),
         processedAt: new Date(),
@@ -143,7 +144,7 @@ export class CaktoIronProductBilling {
           }).returning({ id: billingInvoices.id }))[0].id;
         const [payment] = await tx.insert(billingProviderPayments).values({
           tenantId: this.tenantId, invoiceId,
-          gatewayAccountId: binding.gateway.id, externalPaymentId: event.paymentRef,
+          gatewayAccountId: binding.gateway.id, externalPaymentId: paymentRef,
           status: "received",
         }).onConflictDoNothing().returning({ id: billingProviderPayments.id });
         if (!payment) throw new Error("cakto.payment_identity_conflict");
@@ -156,7 +157,7 @@ export class CaktoIronProductBilling {
         await tx.insert(billingIronEntitlementOutbox).values({
           tenantId: this.tenantId, productId: this.productId, invoiceId,
           subscriptionId: subscription.id, eventType: "LICENSE_ACTIVATE",
-          idempotencyKey: "cakto:paid:" + event.paymentRef, status: "pending",
+          idempotencyKey: "cakto:paid:" + paymentRef, status: "pending",
         }).onConflictDoNothing();
         return "applied" as const;
       }
@@ -166,7 +167,7 @@ export class CaktoIronProductBilling {
         const [payment] = await tx.select().from(billingProviderPayments).where(and(
           eq(billingProviderPayments.tenantId, this.tenantId),
           eq(billingProviderPayments.gatewayAccountId, binding.gateway.id),
-          eq(billingProviderPayments.externalPaymentId, event.paymentRef),
+          eq(billingProviderPayments.externalPaymentId, paymentRef),
         )).for("update").limit(1);
         if (!payment || payment.status !== "received") throw new Error("cakto.refund_payment_not_found");
         const [affected] = await tx.select().from(billingInvoices).where(and(
@@ -185,7 +186,7 @@ export class CaktoIronProductBilling {
           await tx.insert(billingIronEntitlementOutbox).values({
             tenantId: this.tenantId, productId: this.productId,
             invoiceId: affected.id, subscriptionId: subscription.id,
-            eventType: "LICENSE_SUSPEND", idempotencyKey: "cakto:refund:" + event.paymentRef,
+            eventType: "LICENSE_SUSPEND", idempotencyKey: "cakto:refund:" + paymentRef,
           }).onConflictDoNothing();
         }
         return "applied" as const;
@@ -207,7 +208,7 @@ export class CaktoIronProductBilling {
           tenantId: this.tenantId, productId: this.productId,
           invoiceId: latestPaid.id, subscriptionId: subscription.id,
           eventType: "LICENSE_SUSPEND",
-          idempotencyKey: "cakto:overdue:" + event.paymentRef,
+          idempotencyKey: "cakto:overdue:" + paymentRef,
           availableAt: new Date(Math.max(Date.now(), limit + graceDays * 86_400_000)),
         }).onConflictDoNothing();
         return "applied" as const;
@@ -219,7 +220,7 @@ export class CaktoIronProductBilling {
           tenantId: this.tenantId, productId: this.productId,
           invoiceId: latestPaid.id, subscriptionId: subscription.id,
           eventType: "LICENSE_CANCEL",
-          idempotencyKey: "cakto:cancel:" + event.paymentRef,
+          idempotencyKey: "cakto:cancel:" + paymentRef,
           availableAt: new Date(Math.max(Date.now(), subscription.paidThrough?.getTime() ?? Date.now())),
         }).onConflictDoNothing();
         return "applied" as const;
