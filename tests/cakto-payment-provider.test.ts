@@ -21,7 +21,7 @@ const webhook = (data: Record<string, unknown>, event = "purchase_approved") => 
   return { body, headers: new Headers({ "x-cakto-timestamp": ts, "x-cakto-signature": sig }) };
 };
 const order = (changes: Record<string, unknown> = {}) => ({
-  id: "purchase_000001", offer_type: "main", callback: ID, status: "paid",
+  id: "purchase_000001", offer_type: "main", sck: ID, status: "paid",
   amount: 269, currency: "BRL", paidAt: now.toISOString(),
   offer: { id: "offer_month" }, product: { id: "iron_product" }, ...changes,
 });
@@ -35,7 +35,7 @@ describe("Cakto hosted checkout and authenticated webhook", () => {
     expect(await p.createCustomer({ name: "Maria", email: "maria@example.com", taxId: null, externalReference: ID })).toEqual({ customerRef: ID });
     const r = await p.createSubscription({ customerRef: ID, externalReference: ID,
       price: { amountMinor: 26900, currency: "BRL" }, interval: "month", description: "IRON", firstDueDate: "2026-11-09" });
-    expect(r).toEqual({ subscriptionRef: ID, checkoutUrl: "https://pay.cakto.com.br/offer_month?callback=" + ID });
+    expect(r).toEqual({ subscriptionRef: ID, checkoutUrl: "https://pay.cakto.com.br/offer_month?sck=" + ID });
     await expect(p.findSubscriptionByReference(ID)).resolves.toBeNull();
     await expect(p.cancelSubscription(ID)).rejects.toThrow("cakto.cancel_requires_provider_confirmation");
   });
@@ -46,7 +46,7 @@ describe("Cakto hosted checkout and authenticated webhook", () => {
     });
     const tampered = x.body.replace("269", "1");
     expect(() => p.verifyWebhook(x.headers, tampered)).toThrow("webhook.signature_invalid");
-    for (const changes of [{ amount: 1 }, { product: { id: "other" } }, { offer: { id: "offer_year" } }, { callback: null }, { offer_type: "orderbump" }, { status: "waiting_payment" }]) {
+    for (const changes of [{ amount: 1 }, { product: { id: "other" } }, { offer: { id: "offer_year" } }, { sck: null }, { offer_type: "orderbump" }, { status: "waiting_payment" }]) {
       const y = webhook(order(changes)); expect(p.verifyWebhook(y.headers, y.body)).toBeNull();
     }
   });
