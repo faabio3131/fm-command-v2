@@ -9,6 +9,7 @@ export type IronLicenseSyncCommand = {
   commercialStatus: "active" | "suspended" | "cancelled";
   entitlementStatus: "ACTIVE" | "SUSPENDED" | "CANCELED";
   reason: string;
+  paidThrough?: string;
 };
 
 type SnapshotSubscription = {
@@ -52,7 +53,7 @@ type Pending = {
   id: string; tenant_id: string; product_id: string; invoice_id: string;
   subscription_id: string; event_type: IronLicenseEvent; attempts: number; claim_token: string;
 };
-type Binding = { gym_id: string; plan_code: string; invoice_status: string; subscription_status: string };
+type Binding = { gym_id: string; plan_code: string; invoice_status: string; subscription_status: string; paid_through: Date | null; invoice_period_end: Date | null };
 export type WorkerResult = "idle" | "delivered" | "retry" | "blocked";
 
 export class IronEntitlementOutboxWorker {
@@ -92,7 +93,8 @@ export class IronEntitlementOutboxWorker {
   private async binding(job: Pending): Promise<Binding> {
     const result = await this.pool.query(`
       SELECT b.external_tenant_id AS gym_id, s.plan_code,
-             i.status AS invoice_status, s.status AS subscription_status
+             i.status AS invoice_status, s.status AS subscription_status,
+             s.paid_through, i.period_end AS invoice_period_end
       FROM fmcc_billing_iron_entitlement_outbox o
       JOIN fmcc_billing_invoice i ON i.id=o.invoice_id AND i.tenant_id=o.tenant_id
                                   AND i.product_id=o.product_id AND i.subscription_id=o.subscription_id
@@ -107,7 +109,9 @@ export class IronEntitlementOutboxWorker {
     if (result.rows.length !== 1) throw new Error("iron.delivery_binding_missing");
     const b = result.rows[0] as Binding;
     const paid = job.event_type === "LICENSE_ACTIVATE";
-    if (paid && (b.invoice_status !== "paid" || b.subscription_status !== "active"))
+    if (paid && (b.invoice_status !== "paid" || !["active", "cancelled"].includes(b.subscription_status) ||
+        !b.paid_through || !b.invoice_period_end ||
+        b.paid_through < b.invoice_period_end || b.paid_through.getTime() <= Date.now()))
       throw new Error("iron.delivery_invoice_not_paid");
     if (!paid && !["refunded", "paid"].includes(b.invoice_status))
       throw new Error("iron.delivery_invoice_state_invalid");
@@ -134,6 +138,7 @@ export class IronEntitlementOutboxWorker {
     const snap = await (await this.remote(cfg.base + "/snapshot", cfg.token)).json() as unknown;
     const ironSubId = selectIronSubscription(snap, b.gym_id, b.plan_code);
     const command = ironLicenseCommand(job.event_type, b.gym_id, ironSubId, job.invoice_id);
+    if (job.event_type === "LICENSE_ACTIVATE") command.paidThrough = b.paid_through!.toISOString();
     // Outbox ID is a persistent delivery idempotency key: never issue a new command for retries.
     await this.remote(cfg.base + "/subscription/commands", cfg.token, {
       method: "POST", headers: { "content-type": "application/json", "idempotency-key": "fmcc-cakto-license-" + job.id },
