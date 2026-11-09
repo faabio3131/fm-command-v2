@@ -36,7 +36,7 @@ describe("IRON canonical entitlement delivery contract", () => {
     const pool = { query: async (sql: string, _params?: unknown[]) => {
       sqls.push(sql);
       if (sql.includes("RETURNING id, tenant_id")) return { rows: [{ id: outbox, tenant_id: "fm-tenant", product_id: "iron-product", invoice_id: invoice, subscription_id: "billing-sub", event_type: "LICENSE_ACTIVATE", attempts: 1, claim_token: "lease" }] };
-      if (sql.includes("SELECT b.external_tenant_id")) return { rows: [{ gym_id: gym, plan_code: "IRON_PRO", invoice_status: "paid", subscription_status: "active" }] };
+      if (sql.includes("SELECT b.external_tenant_id")) return { rows: [{ gym_id: gym, plan_code: "IRON_PRO", invoice_status: "paid", subscription_status: "active", paid_through: new Date(Date.now() + 30 * 86_400_000), invoice_period_end: new Date(Date.now() + 29 * 86_400_000) }] };
       return { rows: [], rowCount: 1 };
     }} as unknown as Pick<Pool, "query">;
     const http: Array<{ url: string; init?: RequestInit }> = [];
@@ -52,7 +52,7 @@ describe("IRON canonical entitlement delivery contract", () => {
     expect(http).toHaveLength(2);
     const posted = http[1].init!;
     expect(posted.method).toBe("POST");
-    expect(JSON.parse(posted.body as string)).toMatchObject({ gymId: gym, expectedSubscriptionId: ironSubscription, entitlementStatus: "ACTIVE" });
+    expect(JSON.parse(posted.body as string)).toMatchObject({ gymId: gym, expectedSubscriptionId: ironSubscription, entitlementStatus: "ACTIVE", paidThrough: expect.any(String) });
     const h = new Headers(posted.headers);
     expect(h.get("idempotency-key")).toBe("fmcc-cakto-license-" + outbox);
     expect(h.get("authorization")).toBe("Bearer " + token);
@@ -64,7 +64,7 @@ describe("IRON canonical entitlement delivery contract", () => {
     const pool = { query: async (sql: string, params?: unknown[]) => {
       queries.push({ sql, params });
       if (sql.includes("RETURNING id, tenant_id")) return { rows: [{ id: outbox, tenant_id: "fm-tenant", product_id: "iron-product", invoice_id: invoice, subscription_id: "billing-sub", event_type: "LICENSE_ACTIVATE", attempts: 1, claim_token: "lease" }] };
-      if (sql.includes("SELECT b.external_tenant_id")) return { rows: [{ gym_id: gym, plan_code: "IRON_PRO", invoice_status: "paid", subscription_status: "active" }] };
+      if (sql.includes("SELECT b.external_tenant_id")) return { rows: [{ gym_id: gym, plan_code: "IRON_PRO", invoice_status: "paid", subscription_status: "active", paid_through: new Date(Date.now() + 30 * 86_400_000), invoice_period_end: new Date(Date.now() + 29 * 86_400_000) }] };
       return { rows: [], rowCount: 1 };
     }} as unknown as Pick<Pool, "query">;
     const failingFetch = (async () => new Response("unavailable", { status: 503 })) as typeof fetch;
@@ -76,7 +76,7 @@ describe("IRON canonical entitlement delivery contract", () => {
   it("does not deliver a license for unpaid or missing canonical invoice binding", async () => {
     const pool = { query: async (sql: string, _params?: unknown[]) => {
       if (sql.includes("RETURNING id, tenant_id")) return { rows: [{ id: outbox, tenant_id: "fm-tenant", product_id: "iron-product", invoice_id: invoice, subscription_id: "billing-sub", event_type: "LICENSE_ACTIVATE", attempts: 1, claim_token: "lease" }] };
-      if (sql.includes("SELECT b.external_tenant_id")) return { rows: [{ gym_id: gym, plan_code: "IRON_PRO", invoice_status: "pending", subscription_status: "pending" }] };
+      if (sql.includes("SELECT b.external_tenant_id")) return { rows: [{ gym_id: gym, plan_code: "IRON_PRO", invoice_status: "pending", subscription_status: "pending", paid_through: null, invoice_period_end: null }] };
       return { rows: [], rowCount: 1 };
     }} as unknown as Pick<Pool, "query">;
     let called = false;
