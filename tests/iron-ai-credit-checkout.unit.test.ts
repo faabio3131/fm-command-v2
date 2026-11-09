@@ -1,5 +1,6 @@
 import { createHmac } from "node:crypto";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+vi.mock("@/infrastructure/db/client", () => ({ pool: {} }));
 import { CaktoPaymentProvider } from "@/infrastructure/subscription/cakto-payment-provider";
 import { ironAiPack, IRON_AI_WORKOUT_PACKS } from "@/application/billing/iron-ai-credit-billing";
 
