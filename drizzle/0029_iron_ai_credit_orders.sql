@@ -34,6 +34,7 @@ CREATE TABLE fmcc_iron_ai_credit_order (
   CONSTRAINT fmcc_iron_ai_order_gateway_fk FOREIGN KEY (tenant_id,gateway_account_id)
     REFERENCES fmcc_billing_gateway_account(tenant_id,id)
 );
+--> statement-breakpoint
 CREATE INDEX fmcc_iron_ai_order_gym_status_idx ON fmcc_iron_ai_credit_order(gym_id,status,created_at);
 
 CREATE TABLE fmcc_iron_ai_credit_outbox (
@@ -54,6 +55,7 @@ CREATE TABLE fmcc_iron_ai_credit_outbox (
   CONSTRAINT fmcc_iron_ai_outbox_once UNIQUE (order_id,event_type),
   CONSTRAINT fmcc_iron_ai_outbox_attempts CHECK(attempts BETWEEN 0 AND 12)
 );
+--> statement-breakpoint
 CREATE INDEX fmcc_iron_ai_outbox_ready_idx ON fmcc_iron_ai_credit_outbox(status,available_at);
 
 CREATE TABLE fmcc_iron_ai_credit_provider_event (
