@@ -270,3 +270,65 @@ export const billingIronCustomerEnrollments = pgTable("fmcc_billing_iron_custome
   foreignKey({name:"fmcc_iron_payer_gateway_fk",columns:[t.tenantId,t.gatewayAccountId],foreignColumns:[billingGatewayAccounts.tenantId,billingGatewayAccounts.id]}),
   check("fmcc_iron_payer_status_ck",sql`${t.status} in ('reserved','uncertain','enrolled','blocked')`),
 ]);
+
+
+/** One-time IRON Intelligence add-on invoices, owned only by FM Command. */
+export const billingIronAiCreditOrders = pgTable("fmcc_iron_ai_credit_order", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  tenantId: text("tenant_id").notNull(),
+  productId: uuid("product_id").notNull(),
+  gymId: uuid("gym_id").notNull(),
+  customerId: uuid("customer_id").notNull(),
+  subscriptionId: uuid("subscription_id").notNull(),
+  gatewayAccountId: uuid("gateway_account_id").notNull(),
+  packageCode: text("package_code").notNull(),
+  units: integer("units").notNull(),
+  amountMinor: integer("amount_minor").notNull(),
+  currency: text("currency").notNull().default("BRL"),
+  status: text("status").notNull().default("pending"),
+  idempotencyKey: text("idempotency_key").notNull(),
+  paymentRef: text("payment_ref"),
+  createdAt: timestamp("created_at",{withTimezone:true}).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at",{withTimezone:true}).notNull().defaultNow(),
+}, t => [
+  uniqueIndex("fmcc_iron_ai_order_idempotency").on(t.tenantId,t.productId,t.gymId,t.idempotencyKey),
+  uniqueIndex("fmcc_iron_ai_order_payment_unique").on(t.tenantId,t.gatewayAccountId,t.paymentRef),
+  index("fmcc_iron_ai_order_gym_status_idx").on(t.gymId,t.status,t.createdAt),
+  foreignKey({name:"fmcc_iron_ai_order_product_fk",columns:[t.tenantId,t.productId],foreignColumns:[productDefinitions.tenantId,productDefinitions.id]}),
+  foreignKey({name:"fmcc_iron_ai_order_subscription_fk",columns:[t.tenantId,t.subscriptionId,t.productId,t.customerId],foreignColumns:[billingSubscriptions.tenantId,billingSubscriptions.id,billingSubscriptions.productId,billingSubscriptions.customerId]}),
+  foreignKey({name:"fmcc_iron_ai_order_gateway_fk",columns:[t.tenantId,t.gatewayAccountId],foreignColumns:[billingGatewayAccounts.tenantId,billingGatewayAccounts.id]}),
+  check("fmcc_iron_ai_order_units",sql`${t.units} IN (100,300,1000)`),
+  check("fmcc_iron_ai_order_price",sql`(${t.packageCode}='IRON_AI_WORKOUT_100' AND ${t.units}=100 AND ${t.amountMinor}=1990) OR (${t.packageCode}='IRON_AI_WORKOUT_300' AND ${t.units}=300 AND ${t.amountMinor}=4990) OR (${t.packageCode}='IRON_AI_WORKOUT_1000' AND ${t.units}=1000 AND ${t.amountMinor}=12990)`),
+  check("fmcc_iron_ai_order_currency",sql`${t.currency}='BRL'`),
+  check("fmcc_iron_ai_order_status",sql`${t.status} IN ('pending','paid','refunded')`),
+]);
+
+export const billingIronAiCreditOutbox = pgTable("fmcc_iron_ai_credit_outbox", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  orderId: uuid("order_id").notNull().references(() => billingIronAiCreditOrders.id,{onDelete:"restrict"}),
+  eventType: text("event_type").notNull(),
+  status: text("status").notNull().default("pending"),
+  attempts: integer("attempts").notNull().default(0),
+  availableAt: timestamp("available_at",{withTimezone:true}).notNull().defaultNow(),
+  leaseUntil: timestamp("lease_until",{withTimezone:true}),
+  claimToken: uuid("claim_token"),
+  lastErrorCode: text("last_error_code"),
+  createdAt: timestamp("created_at",{withTimezone:true}).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at",{withTimezone:true}).notNull().defaultNow(),
+  deliveredAt: timestamp("delivered_at",{withTimezone:true}),
+}, t => [
+  uniqueIndex("fmcc_iron_ai_outbox_once").on(t.orderId,t.eventType),
+  index("fmcc_iron_ai_outbox_ready_idx").on(t.status,t.availableAt),
+  check("fmcc_iron_ai_outbox_event",sql`${t.eventType} IN ('GRANT','REVOKE')`),
+  check("fmcc_iron_ai_outbox_status",sql`${t.status} IN ('pending','processing','retry','delivered','blocked')`),
+  check("fmcc_iron_ai_outbox_attempts",sql`${t.attempts} BETWEEN 0 AND 12`),
+]);
+
+export const billingIronAiCreditProviderEvents = pgTable("fmcc_iron_ai_credit_provider_event", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  orderId: uuid("order_id").notNull().references(() => billingIronAiCreditOrders.id,{onDelete:"restrict"}),
+  paymentRef: text("payment_ref").notNull(),
+  eventType: text("event_type").notNull(),
+  fingerprint: text("fingerprint").notNull(),
+  createdAt: timestamp("created_at",{withTimezone:true}).notNull().defaultNow(),
+}, t => [uniqueIndex("fmcc_iron_ai_provider_event_once").on(t.orderId,t.eventType,t.paymentRef)]);

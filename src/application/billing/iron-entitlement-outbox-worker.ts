@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { Pool } from "pg";
+import { resolveIronPublishedPlanVersion } from "./iron-plan-version-selection";
 
 export type IronLicenseEvent = "LICENSE_ACTIVATE" | "LICENSE_SUSPEND" | "LICENSE_CANCEL";
 export type IronLicenseSyncCommand = {
@@ -153,13 +154,15 @@ export class IronEntitlementOutboxWorker {
       const catalog = await (await this.remote(cfg.base + "/plan-versions", cfg.token)).json() as {
         plans?: Array<{ plan_code: string; version: number }>;
       };
-      const targets = Array.isArray(catalog?.plans) ? catalog.plans.filter((p) =>
-        p.plan_code === b.plan_code && Number.isSafeInteger(p.version) && p.version > 0) : [];
-      if (targets.length !== 1) throw new Error("iron.plan_version_not_unique");
+      const planVersion = resolveIronPublishedPlanVersion(
+        Array.isArray(catalog?.plans) ? catalog.plans : [],
+        b.plan_code,
+        this.env.FMCC_IRON_PLAN_VERSIONS_JSON,
+      );
       const transition = {
         action: "subscription.plan.transition", gymId: b.gym_id,
         expectedSubscriptionId: active[0].external_id,
-        planCode: b.plan_code, planVersion: targets[0].version, transitionKind: "PLAN_CHANGE",
+        planCode: b.plan_code, planVersion, transitionKind: "PLAN_CHANGE",
         commercialStatus: "active",
         reason: "FM Command verified paid plan invoice " + job.invoice_id,
       };

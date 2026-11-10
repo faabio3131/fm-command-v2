@@ -59,6 +59,8 @@ export class CaktoIronProductBilling {
 
   /** Only an authenticated/prepared canonical invoice may enter a real Cakto checkout. */
   async checkoutUrl(invoiceId: string): Promise<string> {
+    if (this.env.FMCC_IRON_COMMERCIAL_SALES_ENABLED !== "true")
+      throw new Error("cakto.iron_sales_not_authorized");
     const r = await this.boundInvoice(invoiceId);
     if (r.invoice.status !== "pending" || r.subscription.status !== "pending")
       throw new Error("cakto.invoice_not_pending");
@@ -89,6 +91,10 @@ export class CaktoIronProductBilling {
     catch { return "unmatched"; } // No trust in email/CPF/redirect/unknown invoice.
     if (event.type === "payment_confirmed" && (!event.amount ||
       event.amount.currency !== "BRL" || event.amount.amountMinor !== binding.invoice.amountMinor)) return "ignored";
+    const interval = binding.plan.interval === "monthly" ? "month" :
+      binding.plan.interval === "yearly" ? "year" : null;
+    if (!interval || !this.provider.matchesRecurringOffer(raw, binding.invoice.amountMinor, interval))
+      return "ignored";
 
     return db.transaction(async (tx) => {
       // Anchor is the FIRST, pre-authorized checkout invoice ID from Cakto's sck.

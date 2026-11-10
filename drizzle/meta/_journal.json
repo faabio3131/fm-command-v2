@@ -204,6 +204,13 @@
       "when": 1794229200000,
       "tag": "0028_iron_cakto_paid_period",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1794261600000,
+      "tag": "0029_iron_ai_credit_orders",
+      "breakpoints": true
     }
   ]
 }
