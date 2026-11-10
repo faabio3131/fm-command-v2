@@ -1,6 +1,6 @@
 # IRON FIT CORE — 8 ofertas Cakto e afiliados
 
-**Estado (2026-11-09):** Capas e textos aprovados. O catálogo em `config/commercial/iron-cakto-eight-products-2026.candidate.json` foi gerado e validado por CI. Os **IDs, links e checkouts reais ainda NÃO foram cadastrados/confirmados**, porque não há sessão de produtor Cakto autenticada nem credencial Cakto API vinculada neste executor.
+**Estado auditado (2026-11-10):** Os 8 produtos e suas capas existem na Cakto e aparecem **INATIVOS**. Há IDs reais de 7 produtos e links de checkout publicamente identificados para 5 no catálogo `config/commercial/iron-cakto-eight-products-2026.candidate.json`. Os links que foram conferidos estão desativados. O Cakto `offer.id` do webhook ainda não foi obtido de fonte oficial: **não inferir offerId a partir da URL pública**. A integração live e a comissão na primeira parcela continuam não homologadas; vendas não autorizadas.
 
 ## Matriz comercial (centavos BRL)
 
@@ -35,6 +35,14 @@ Após criação **real** e verificada, extrair do painel/API `product.id`, `offe
 Recorrência, pagamentos e estornos: manter `FMCC_IRON_BILLING_TENANT_ID`, `FMCC_IRON_PRODUCT_ID`, webhook assinado Cakto no backend Command, assinatura ativa e licença canônica por academia. Não confundir webhook de assinatura com add-on de créditos avulsos. Validar explicitamente comissões primeiro pagamento vs renovação no ambiente oficial antes da comercialização.
 
 **Autoridade final de licenças e cotas:** `ProductPlanVersion` publicado do backend IRON + FM Command para faturas e acordos. Quatro tiers ainda constam no manifesto de proposta (`CANDIDATE_NOT_PUBLISHED`) e precisam de transição governada e teste antes de habilitar oito checkouts.
+
+## GATES DE PUBLICAÇÃO COMERCIAL (bloqueio padrão)
+
+O FM Command agora só permite emissão de checkout de novas assinaturas e packs IA quando `FMCC_IRON_COMMERCIAL_SALES_ENABLED=true` estiver explicitamente configurado. O padrão **sem variável é vendas bloqueadas**; não desabilita os webhooks de assinaturas já pagas. Não configurar em produção enquanto houver produto ou link de checkout ativo indevidamente, mapeamento de Cakto/IRON pendente ou falta de certificação.
+
+A página real de afiliados da Cakto (IRON START Anual) foi inspecionada em 10/11/2026: existe campo **Comissão (%)**, atribuição por clique, cookies e toggle de programa, mas **não apareceu controle de comissão exclusivamente na primeira cobrança**. A configuração permaneceu sem salvar e o programa continuou inativo. NÃO colocar 10% ou 50% sem prova da restrição no primeiro pagamento, pois o split de renovações seria irreversível do ponto de vista financeiro. A regra da FM Tecnologia é primeira cobrança 50% mensal / 10% anual e 0% renovações; registrar uma prova de suporte/API/painel antes de certificar.
+
+`src/application/billing/iron-cakto-offer-binding.ts` é o contrato fail-closed que valida as 8 correspondências, preços, frequências e confirmação das comissões. Seu resultado atual é **NOT READY**, o que é esperado. Quando houver `product.id`, `offer.id` e links oficiais completos, obtenha os bindings através de `buildIronCaktoCheckoutBindings` e só então injete `FMCC_CAKTO_CHECKOUTS_JSON` via secrets no ambiente real. Nunca compartilhar segredos no GitHub.
 
 ## Evidências exigidas para fechar o cadastro
 
