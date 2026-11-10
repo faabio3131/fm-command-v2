@@ -1,0 +1,51 @@
+name: IRON Governed License and Credit Delivery
+# Separate from FM Command alerts and reports: never enable other automation by accident.
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fmcc-iron-commercial-outbox
+  cancel-in-progress: false
+
+jobs:
+  drain:
+    # Omitted GitHub variable is false. Production activation is a separate operator gate.
+    if: ${{ vars.FMCC_IRON_OUTBOX_AUTOMATION_ENABLED == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      FMCC_AUTOMATION_BASE_URL: ${{ vars.FMCC_AUTOMATION_BASE_URL }}
+      FMCC_ALERT_AUTOMATION_SCHEDULER_SECRET: ${{ secrets.FMCC_ALERT_AUTOMATION_SCHEDULER_SECRET }}
+    steps:
+      - name: Enforce official HTTPS endpoint and configured secret
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$FMCC_AUTOMATION_BASE_URL" in
+            https://app.fmcommand.com.br|https://app.fmcommand.com.br/) ;;
+            *) echo "::error::IRON outbox scheduler requires official FM Command HTTPS host"; exit 1 ;;
+          esac
+          test "${#FMCC_ALERT_AUTOMATION_SCHEDULER_SECRET}" -ge 32 || {
+            echo "::error::IRON outbox scheduler secret not configured"; exit 1;
+          }
+          echo "::add-mask::$FMCC_ALERT_AUTOMATION_SCHEDULER_SECRET"
+
+      - name: Deliver licensing and AI credits through existing durable S2S outboxes
+        shell: bash
+        run: |
+          set -euo pipefail
+          run_id="gha-iron-outbox-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          for path in iron/entitlements/drain iron/ai-credits/drain; do
+            curl --fail-with-body --silent --show-error --retry 2 --retry-all-errors --max-time 45 \
+              --request POST \
+              --header "Authorization: Bearer $FMCC_ALERT_AUTOMATION_SCHEDULER_SECRET" \
+              --header "Idempotency-Key: ${run_id}-${path//\//-}" \
+              --header "X-Correlation-ID: $run_id" \
+              "https://app.fmcommand.com.br/api/internal/automation/$path"
+            echo
+          done
