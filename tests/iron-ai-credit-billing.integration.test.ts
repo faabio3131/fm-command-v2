@@ -93,6 +93,16 @@ beforeEach(()=>{
   store.commits=0;store.rollbacks=0;store.invalidScope=false;
 });
 describe("IRON credit purchase commercial ledger and signed settlement",()=>{
+  it("never issues a new checkout before explicit commercial go-live",async()=>{
+    const {FMCC_IRON_COMMERCIAL_SALES_ENABLED: _sales, ...restricted}=env;
+    const app=new IronAiCreditBilling(restricted);
+    await expect(app.prepareCheckout(gym,"IRON_AI_WORKOUT_100","blocked-request-0001"))
+      .rejects.toThrow("iron.credits_sales_not_authorized");
+    expect(store.orders.size).toBe(0);
+    const invalid=new IronAiCreditBilling({...env,FMCC_IRON_COMMERCIAL_SALES_ENABLED:"false"});
+    await expect(invalid.prepareCheckout(gym,"IRON_AI_WORKOUT_100","blocked-request-0002"))
+      .rejects.toThrow("iron.credits_sales_not_authorized");
+  });
   it("prepares one bound order and replays same idempotency without new invoice",async()=>{
     const app=new IronAiCreditBilling(env);
     const a=await app.prepareCheckout(gym,"IRON_AI_WORKOUT_100","same-request-000001");
