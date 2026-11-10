@@ -69,6 +69,7 @@ const product="ab046dd7-626a-4296-9af0-c44144bb8d65";
 const gym="00d4727a-03d4-4d5a-915f-b2a3e45f6dc0";
 const secret="test-credit-webhook-private-secret-123456";
 const env={
+  FMCC_IRON_COMMERCIAL_SALES_ENABLED:"true",
   FMCC_IRON_BILLING_TENANT_ID:tenant,
   FMCC_IRON_PRODUCT_ID:product,
   FMCC_CAKTO_WEBHOOK_SECRET:secret,
