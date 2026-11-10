@@ -36,7 +36,7 @@ describe("IRON canonical entitlement delivery contract", () => {
     const pool = { query: async (sql: string, _params?: unknown[]) => {
       sqls.push(sql);
       if (sql.includes("RETURNING id, tenant_id")) return { rows: [{ id: outbox, tenant_id: "fm-tenant", product_id: "iron-product", invoice_id: invoice, subscription_id: "billing-sub", event_type: "LICENSE_ACTIVATE", attempts: 1, claim_token: "lease" }] };
-      if (sql.includes("SELECT b.external_tenant_id")) return { rows: [{ gym_id: gym, plan_code: "IRON_PRO", invoice_status: "paid", subscription_status: "active", paid_through: new Date(Date.now() + 30 * 86_400_000), invoice_period_end: new Date(Date.now() + 29 * 86_400_000) }] };
+      if (sql.includes("SELECT b.external_tenant_id")) return { rows: [{ gym_id: gym, plan_code: "IRON_PRO", plan_interval: "monthly", invoice_status: "paid", subscription_status: "active", paid_through: new Date(Date.now() + 30 * 86_400_000), invoice_period_end: new Date(Date.now() + 29 * 86_400_000) }] };
       return { rows: [], rowCount: 1 };
     }} as unknown as Pick<Pool, "query">;
     const http: Array<{ url: string; init?: RequestInit }> = [];
@@ -59,12 +59,55 @@ describe("IRON canonical entitlement delivery contract", () => {
     expect(sqls.some(x => x.includes("status='delivered'"))).toBe(true);
   });
 
+  it("maps an annual Cakto enterprise SKU to the canonical IRON_ENTERPRISE entitlement", async () => {
+    const sqls: string[] = [];
+    const pool = { query: async (sql: string) => {
+      sqls.push(sql);
+      if (sql.includes("RETURNING id, tenant_id"))
+        return {rows:[{id:outbox,tenant_id:"fm-tenant",product_id:"iron-product",
+          invoice_id:invoice,subscription_id:"billing-sub",event_type:"LICENSE_ACTIVATE",attempts:1,claim_token:"lease"}]};
+      if (sql.includes("SELECT b.external_tenant_id"))
+        return {rows:[{gym_id:gym,plan_code:"IRON_ENTERPRISE_Y_2026",plan_interval:"yearly",
+          invoice_status:"paid",subscription_status:"active",
+          paid_through:new Date(Date.now()+360*86_400_000),
+          invoice_period_end:new Date(Date.now()+359*86_400_000)}]};
+      return {rows:[],rowCount:1};
+    }} as unknown as Pick<Pool,"query">;
+    const mockFetch=(async (url:string | URL | Request) => {
+      if (String(url).endsWith("/snapshot")) return new Response(JSON.stringify({
+        subscriptions:[{tenant_id:gym,plan_code:"IRON_ENTERPRISE",external_id:ironSubscription,status:"ACTIVE"}],
+      }),{status:200});
+      return new Response(JSON.stringify({result:{status:"ACTIVE"}}),{status:200});
+    }) as typeof fetch;
+    expect(await new IronEntitlementOutboxWorker(pool,env,mockFetch).processOne()).toBe("delivered");
+    expect(sqls.some(q=>q.includes("JOIN fmcc_billing_product_plan"))).toBe(true);
+  });
+
+  it("rejects an annual commercial SKU bound to a monthly Command invoice", async () => {
+    const requests:string[]=[];
+    const pool={query:async (sql:string,params?:unknown[])=>{
+      if(sql.includes("RETURNING id, tenant_id"))
+        return {rows:[{id:outbox,tenant_id:"fm-tenant",product_id:"iron-product",
+          invoice_id:invoice,subscription_id:"billing-sub",event_type:"LICENSE_ACTIVATE",attempts:1,claim_token:"lease"}]};
+      if(sql.includes("SELECT b.external_tenant_id"))
+        return {rows:[{gym_id:gym,plan_code:"IRON_ENTERPRISE_Y_2026",plan_interval:"monthly",
+          invoice_status:"paid",subscription_status:"active",
+          paid_through:new Date(Date.now()+60*86_400_000),
+          invoice_period_end:new Date(Date.now()+59*86_400_000)}]};
+      requests.push(sql);
+      return {rows:[],rowCount:1};
+    }} as unknown as Pick<Pool,"query">;
+    const http=(async()=>{requests.push("NETWORK");throw Error("must not call")}) as typeof fetch;
+    expect(await new IronEntitlementOutboxWorker(pool,env,http).processOne()).toBe("retry");
+    expect(requests).not.toContain("NETWORK");
+  });
+
   it("retains a retryable DB job on transient S2S failure, without marking it delivered", async () => {
     const queries: Array<{ sql: string; params: unknown[] | undefined }> = [];
     const pool = { query: async (sql: string, params?: unknown[]) => {
       queries.push({ sql, params });
       if (sql.includes("RETURNING id, tenant_id")) return { rows: [{ id: outbox, tenant_id: "fm-tenant", product_id: "iron-product", invoice_id: invoice, subscription_id: "billing-sub", event_type: "LICENSE_ACTIVATE", attempts: 1, claim_token: "lease" }] };
-      if (sql.includes("SELECT b.external_tenant_id")) return { rows: [{ gym_id: gym, plan_code: "IRON_PRO", invoice_status: "paid", subscription_status: "active", paid_through: new Date(Date.now() + 30 * 86_400_000), invoice_period_end: new Date(Date.now() + 29 * 86_400_000) }] };
+      if (sql.includes("SELECT b.external_tenant_id")) return { rows: [{ gym_id: gym, plan_code: "IRON_PRO", plan_interval: "monthly", invoice_status: "paid", subscription_status: "active", paid_through: new Date(Date.now() + 30 * 86_400_000), invoice_period_end: new Date(Date.now() + 29 * 86_400_000) }] };
       return { rows: [], rowCount: 1 };
     }} as unknown as Pick<Pool, "query">;
     const failingFetch = (async () => new Response("unavailable", { status: 503 })) as typeof fetch;
@@ -76,7 +119,7 @@ describe("IRON canonical entitlement delivery contract", () => {
   it("does not deliver a license for unpaid or missing canonical invoice binding", async () => {
     const pool = { query: async (sql: string, _params?: unknown[]) => {
       if (sql.includes("RETURNING id, tenant_id")) return { rows: [{ id: outbox, tenant_id: "fm-tenant", product_id: "iron-product", invoice_id: invoice, subscription_id: "billing-sub", event_type: "LICENSE_ACTIVATE", attempts: 1, claim_token: "lease" }] };
-      if (sql.includes("SELECT b.external_tenant_id")) return { rows: [{ gym_id: gym, plan_code: "IRON_PRO", invoice_status: "pending", subscription_status: "pending", paid_through: null, invoice_period_end: null }] };
+      if (sql.includes("SELECT b.external_tenant_id")) return { rows: [{ gym_id: gym, plan_code: "IRON_PRO", plan_interval: "monthly", invoice_status: "pending", subscription_status: "pending", paid_through: null, invoice_period_end: null }] };
       return { rows: [], rowCount: 1 };
     }} as unknown as Pick<Pool, "query">;
     let called = false;
