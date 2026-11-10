@@ -104,8 +104,10 @@ export class IronEntitlementOutboxWorker {
                                         AND s.product_id=i.product_id AND s.customer_id=i.customer_id
       JOIN fmcc_billing_customer_binding b ON b.tenant_id=i.tenant_id AND b.product_id=i.product_id
                                              AND b.customer_id=i.customer_id
+      -- An already-paid invoice must remain deliverable/revocable after the
+      -- commercial SKU is retired; do not depend on its current sale status.
       JOIN fmcc_billing_product_plan p ON p.tenant_id=s.tenant_id AND p.product_id=s.product_id
-                                          AND p.plan_code=s.plan_code AND p.status='active'
+                                          AND p.plan_code=s.plan_code
       WHERE o.id=$1 AND o.tenant_id=$2 AND o.product_id=$3
         AND o.subscription_id=$4 AND o.claim_token=$5 AND o.status='processing'
       LIMIT 2
