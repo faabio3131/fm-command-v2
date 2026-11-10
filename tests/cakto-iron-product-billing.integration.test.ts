@@ -147,6 +147,12 @@ describe("Cakto -> canonical IRON billing -> durable S2S (disposable PostgreSQL 
     expect(await billing.handleWebhook(initial.headers,initial.raw)).toBe("applied");
     const paid=await pool.query("SELECT paid_through FROM fmcc_billing_subscription WHERE id=$1",[subscriptionId]);
     const paidThrough=paid.rows[0].paid_through as Date;
+    // A SKU may be retired/repriced after a valid payment. That must never
+    // prevent a signed cancellation/refund from reconciling the old invoice.
+    await pool.query(
+      "UPDATE fmcc_billing_product_plan SET status='inactive',amount_minor=27900 WHERE tenant_id=$1 AND product_id=$2",
+      [tenant,productId],
+    );
     const cancellation=notification("subscription_canceled","order_cancel_"+randomUUID().slice(0,8),"cancelled");
     expect(await billing.handleWebhook(cancellation.headers,cancellation.raw)).toBe("applied");
     expect(await billing.handleWebhook(cancellation.headers,cancellation.raw)).toBe("duplicate");
