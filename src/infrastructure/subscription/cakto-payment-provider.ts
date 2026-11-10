@@ -57,6 +57,23 @@ export class CaktoPaymentProvider implements PaymentProvider {
     return { subscriptionRef: input.externalReference, checkoutUrl: url.toString() };
   }
 
+  /**
+   * Verified recurring notifications must refer to the exact commercial offer.
+   * A signed event for a one-time add-on or another billing interval must not
+   * renew or cancel a gym SaaS contract, even if its amount happens to match.
+   */
+  matchesRecurringOffer(raw: string, amountMinor: number, interval: "month" | "year"): boolean {
+    let envelope: unknown;
+    try { envelope = JSON.parse(raw) as unknown; } catch { return false; }
+    if (!envelope || typeof envelope !== "object" || Array.isArray(envelope)) return false;
+    const data = (envelope as { data?: unknown }).data;
+    const rows = Array.isArray(data) ? data : [data];
+    if (rows.length !== 1 || !rows[0] || typeof rows[0] !== "object" || Array.isArray(rows[0])) return false;
+    const record = rows[0] as { offer?: { id?: unknown }; product?: { id?: unknown } };
+    const matches = this.offers.filter(x => x.interval === interval && x.amountMinor === amountMinor);
+    return matches.length === 1 && matches[0].offerId === record.offer?.id && matches[0].productId === record.product?.id;
+  }
+
   /** Single-payment credits are distinct from recurring subscription checkout. */
   oneTimeCheckout(reference: string, amountMinor: number): string {
     if (!REF.test(reference) || !Number.isSafeInteger(amountMinor) || amountMinor <= 0)
