@@ -41,13 +41,14 @@ jobs:
           echo "configured=true" >> "$GITHUB_OUTPUT"
 
       # Ordem importa: números primeiro, depois alertas, depois relatórios (cada rodada já recalcula antes de usar; aqui é a
-      # rodada de segurança para empresas sem sincronização recente). Repetir qualquer rota é seguro (idempotentes).
+      # rodada de segurança para empresas sem sincronização recente). Entregas IRON usam outbox
+      # autenticada, com idempotência no receptor. O cron permanece desabilitado até aprovação do ambiente.
       - name: Recompute metrics, evaluate alerts, send due reports
         if: steps.config.outputs.configured == 'true'
         shell: bash
         run: |
           run_id="gha-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
-          for path in metrics/recompute alerts/evaluate reports/run; do
+          for path in metrics/recompute alerts/evaluate reports/run iron/entitlements/drain iron/ai-credits/drain; do
             curl --fail-with-body --silent --show-error --retry 2 --retry-all-errors --max-time 45 \
               --request POST \
               --header "Authorization: Bearer $FMCC_ALERT_AUTOMATION_SCHEDULER_SECRET" \
