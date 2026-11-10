@@ -42,6 +42,8 @@ export class IronAiCreditBilling {
 
   /** Read-only at the provider; canonical one-time invoice is issued in FM Command's own ledger. */
   async prepareCheckout(gymId: string, packageCode: string, idempotencyKey: string) {
+    if (this.env.FMCC_IRON_COMMERCIAL_SALES_ENABLED !== "true")
+      throw new Error("iron.credits_sales_not_authorized");
     if (!UUID.test(gymId) || !KEY.test(idempotencyKey))
       throw new Error("iron.credits_request_invalid");
     const pack = ironAiPack(packageCode);
