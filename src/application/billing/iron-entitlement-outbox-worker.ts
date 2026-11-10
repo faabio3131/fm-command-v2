@@ -201,7 +201,7 @@ export class IronEntitlementOutboxWorker {
       return (res.rowCount ?? 0) === 1 ? "delivered" : "retry";
     } catch (e) {
       const code = e instanceof Error ? e.message : "iron.delivery_unknown_error";
-      const permanent = /^iron\.(delivery_(host_invalid|config_missing|binding_missing|invoice_not_paid|invoice_state_invalid|invalid_gym)|subscription_not_unique_or_missing|plan_version_not_unique|plan_transition_unconfirmed|snapshot_invalid|command_.*)/.test(code)
+      const permanent = /^iron\.(delivery_(host_invalid|config_missing|binding_missing|invoice_not_paid|invoice_state_invalid|invalid_gym)|commercial_(plan_code_invalid|sku_version_unrecognized|sku_interval_mismatch|sku_interval_invalid)|subscription_not_unique_or_missing|plan_version_not_unique|plan_transition_unconfirmed|snapshot_invalid|command_.*)/.test(code)
         || /^iron\.s2s_http_40[0134]$/.test(code);
       const blocked = permanent || job.attempts >= 12;
       const backoffSeconds = Math.min(1800, 10 * 2 ** Math.min(job.attempts, 8));
