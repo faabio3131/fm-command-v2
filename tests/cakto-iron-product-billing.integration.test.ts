@@ -128,4 +128,40 @@ describe("Cakto -> canonical IRON billing -> durable S2S (disposable PostgreSQL 
     const tampered = notification("purchase_approved", "order_forged", "paid");
     await expect(billing.handleWebhook(tampered.headers, tampered.raw.replace('"amount":269', '"amount":1'))).rejects.toThrow("webhook.signature_invalid");
   }, 90_000);
+
+  dbIt("cancellation never bills another cycle and preserves paid access until end of term",async()=>{
+    const {subscriptionId}=await prepare();
+    const cfg={
+      FMCC_IRON_BILLING_TENANT_ID:tenant, FMCC_IRON_PRODUCT_ID:productId,
+      FMCC_IRON_COMMERCIAL_SALES_ENABLED:"true",
+      FMCC_CAKTO_WEBHOOK_SECRET:secret,
+      FMCC_CAKTO_CHECKOUTS_JSON:JSON.stringify([
+        {offerId:"offer_month",productId:"iron_product",
+          checkoutUrl:"https://pay.cakto.com.br/offer_month",amountMinor:26900,interval:"month"},
+      ]),
+    };
+    const billing=new CaktoIronProductBilling(cfg);
+    const initial=notification("purchase_approved","order_cancella_"+randomUUID().slice(0,8),"paid");
+    expect(await billing.handleWebhook(initial.headers,initial.raw)).toBe("applied");
+    const paid=await pool.query("SELECT paid_through FROM fmcc_billing_subscription WHERE id=$1",[subscriptionId]);
+    const paidThrough=paid.rows[0].paid_through as Date;
+    const cancellation=notification("subscription_canceled","order_cancel_"+randomUUID().slice(0,8),"cancelled");
+    expect(await billing.handleWebhook(cancellation.headers,cancellation.raw)).toBe("applied");
+    expect(await billing.handleWebhook(cancellation.headers,cancellation.raw)).toBe("duplicate");
+    const after=await pool.query("SELECT status,paid_through FROM fmcc_billing_subscription WHERE id=$1",[subscriptionId]);
+    expect(after.rows[0].status).toBe("cancelled");
+    expect((after.rows[0].paid_through as Date).getTime()).toBe(paidThrough.getTime());
+    const rows=await pool.query(
+      "SELECT event_type,status,available_at FROM fmcc_billing_iron_entitlement_outbox WHERE tenant_id=$1 AND subscription_id=$2 ORDER BY created_at",
+      [tenant,subscriptionId],
+    );
+    expect(rows.rows.filter((r:{event_type:string})=>r.event_type==="LICENSE_CANCEL")).toHaveLength(1);
+    const future=rows.rows.find((r:{event_type:string})=>r.event_type==="LICENSE_CANCEL");
+    expect((future.available_at as Date).getTime()).toBeGreaterThanOrEqual(paidThrough.getTime());
+    const renewed=notification("subscription_renewed","order_after_cancel_"+randomUUID().slice(0,8),"paid");
+    await expect(billing.handleWebhook(renewed.headers,renewed.raw))
+      .rejects.toThrow("cakto.cancelled_subscription_cannot_reactivate");
+    const count=await pool.query("SELECT count(*)::int AS n FROM fmcc_billing_invoice WHERE tenant_id=$1 AND subscription_id=$2",[tenant,subscriptionId]);
+    expect(count.rows[0].n).toBe(1);
+  }, 90_000);
 });
