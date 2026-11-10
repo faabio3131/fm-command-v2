@@ -81,6 +81,9 @@ describe("IRON canonical entitlement delivery contract", () => {
     }) as typeof fetch;
     expect(await new IronEntitlementOutboxWorker(pool,env,mockFetch).processOne()).toBe("delivered");
     expect(sqls.some(q=>q.includes("JOIN fmcc_billing_product_plan"))).toBe(true);
+    // Retiring a commercial SKU must not orphan paid invoice delivery or refund/cancel events.
+    expect(sqls.find(q=>q.includes("SELECT b.external_tenant_id")))
+      .not.toContain("p.status='active'");
   });
 
   it("rejects an annual commercial SKU bound to a monthly Command invoice", async () => {
