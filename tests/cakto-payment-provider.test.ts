@@ -50,6 +50,26 @@ describe("Cakto hosted checkout and authenticated webhook", () => {
       const y = webhook(order(changes)); expect(p.verifyWebhook(y.headers, y.body)).toBeNull();
     }
   });
+  it("does not reconcile a signed annual, add-on, or wrong-product event as a monthly membership", () => {
+    const p = provider();
+    const month = webhook(order());
+    expect(p.matchesRecurringOffer(month.body, 26900, "month")).toBe(true);
+    expect(p.matchesRecurringOffer(month.body, 26900, "year")).toBe(false);
+    expect(p.matchesRecurringOffer(month.body, 269000, "year")).toBe(false);
+    const annual = webhook(order({ amount: 2690, offer: { id: "offer_year" } }));
+    expect(p.matchesRecurringOffer(annual.body, 269000, "year")).toBe(true);
+    expect(p.matchesRecurringOffer(annual.body, 26900, "month")).toBe(false);
+    expect(p.matchesRecurringOffer("not-json", 26900, "month")).toBe(false);
+    const oneTime = new CaktoPaymentProvider({
+      ...config, FMCC_CAKTO_CHECKOUTS_JSON: JSON.stringify([
+        { offerId: "credit_pack", productId: "credits", checkoutUrl: "https://pay.cakto.com.br/credit_pack", amountMinor: 26900, interval: "one_time" },
+        { offerId: "offer_month", productId: "iron_product", checkoutUrl: "https://pay.cakto.com.br/offer_month", amountMinor: 26900, interval: "month" },
+      ]),
+    }, () => now);
+    expect(oneTime.matchesRecurringOffer(webhook(order({ offer: { id: "credit_pack" }, product: { id: "credits" } })).body, 26900, "month")).toBe(false);
+    expect(oneTime.matchesRecurringOffer(month.body, 26900, "month")).toBe(true);
+  });
+
   it("rejects stale, unsigned, and malformed deliveries", () => {
     const p = provider(), x = webhook(order());
     x.headers.set("x-cakto-timestamp", String(Math.floor(now.getTime() / 1000) - 301));
