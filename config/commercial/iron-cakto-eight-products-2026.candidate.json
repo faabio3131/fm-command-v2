@@ -1,0 +1,248 @@
+{
+  "schemaVersion": 1,
+  "status": "CANDIDATE_NOT_LIVE",
+  "authority": "FM_COMMAND_BILLING_WITH_IRON_CANONICAL_ENTITLEMENTS",
+  "sourceCandidate": "iron-fit-backend/config/commercial/iron-four-tiers-2026.candidate.json",
+  "description": "8 produtos separados na Cakto para identidade visual e comissão diferente por recorrência. Nenhum checkout ou id de oferta está inventado.",
+  "commissionPolicy": {
+    "base": "LIQUID_AFTER_PLATFORM_FEES",
+    "monthly": "50_PERCENT_ONLY_FIRST_PAID_INVOICE",
+    "annual": "10_PERCENT_ONLY_FIRST_PAID_INVOICE",
+    "renewalsPercent": 0,
+    "requireNativeCaktoVerification": true
+  },
+  "products": [
+    {
+      "sku": "IRON_START_M_2026",
+      "tier": "IRON_START",
+      "displayName": "IRON START — Plano Mensal",
+      "description": "IRON START — Plano Mensal do IRON FIT CORE, software de gestão para academias da FM Tecnologia. Prevê capacidade de até 100 alunos e franquia mensal de até 50 gerações de treino com inteligência artificial e 100 ações consultivas de IA, sem acúmulo de créditos. Os treinos sugeridos por IA dependem da revisão e aprovação de um profissional. Mensalidade recorrente, conforme as condições e o cancelamento previstos no contrato. Os recursos dependem das permissões, do plano e da homologação aplicável. A ativação só ocorre após confirmação financeira validada pelo FM Command e pelo IRON.",
+      "priceBRLMinor": 14700,
+      "currency": "BRL",
+      "frequency": "month",
+      "billingType": "recurring_subscription",
+      "coverFile": "IRON_START_M_2026.png",
+      "maxStudents": 100,
+      "monthlyWorkoutAI": 50,
+      "monthlyAdvisoryAI": 100,
+      "unitLimitCandidate": 1,
+      "delivery": "EXTERNAL_MEMBERSHIP_WEBHOOK",
+      "affiliate": {
+        "commissionPercent": 50,
+        "commissionOnPaymentNumber": 1,
+        "renewalCommissionPercent": 0,
+        "approval": "MANUAL",
+        "enableOnlyAfterFirstPaymentCommissionVerification": true
+      },
+      "provider": {
+        "id": null,
+        "offerId": null,
+        "checkoutUrl": null,
+        "affiliatePolicyVerified": false
+      }
+    },
+    {
+      "sku": "IRON_START_Y_2026",
+      "tier": "IRON_START",
+      "displayName": "IRON START — Plano Anual",
+      "description": "IRON START — Plano Anual do IRON FIT CORE, software de gestão para academias da FM Tecnologia. Prevê capacidade de até 100 alunos e franquia mensal de até 50 gerações de treino com inteligência artificial e 100 ações consultivas de IA, sem acúmulo de créditos. Os treinos sugeridos por IA dependem da revisão e aprovação de um profissional. Contratação com valor anual, conforme condições de cobrança e renovação informadas no checkout; a franquia de IA é mensal. Os recursos dependem das permissões, do plano e da homologação aplicável. A ativação só ocorre após confirmação financeira validada pelo FM Command e pelo IRON.",
+      "priceBRLMinor": 142800,
+      "currency": "BRL",
+      "frequency": "year",
+      "billingType": "recurring_subscription",
+      "coverFile": "IRON_START_Y_2026.png",
+      "maxStudents": 100,
+      "monthlyWorkoutAI": 50,
+      "monthlyAdvisoryAI": 100,
+      "unitLimitCandidate": 1,
+      "delivery": "EXTERNAL_MEMBERSHIP_WEBHOOK",
+      "affiliate": {
+        "commissionPercent": 10,
+        "commissionOnPaymentNumber": 1,
+        "renewalCommissionPercent": 0,
+        "approval": "MANUAL",
+        "enableOnlyAfterFirstPaymentCommissionVerification": true
+      },
+      "provider": {
+        "id": null,
+        "offerId": null,
+        "checkoutUrl": null,
+        "affiliatePolicyVerified": false
+      }
+    },
+    {
+      "sku": "IRON_GROWTH_M_2026",
+      "tier": "IRON_GROWTH",
+      "displayName": "IRON GROWTH — Plano Mensal",
+      "description": "IRON GROWTH — Plano Mensal do IRON FIT CORE, software de gestão para academias da FM Tecnologia. Prevê capacidade de até 300 alunos e franquia mensal de até 200 gerações de treino com inteligência artificial e 400 ações consultivas de IA, sem acúmulo de créditos. Os treinos sugeridos por IA dependem da revisão e aprovação de um profissional. Mensalidade recorrente, conforme as condições e o cancelamento previstos no contrato. Os recursos dependem das permissões, do plano e da homologação aplicável. A ativação só ocorre após confirmação financeira validada pelo FM Command e pelo IRON.",
+      "priceBRLMinor": 29700,
+      "currency": "BRL",
+      "frequency": "month",
+      "billingType": "recurring_subscription",
+      "coverFile": "IRON_GROWTH_M_2026.png",
+      "maxStudents": 300,
+      "monthlyWorkoutAI": 200,
+      "monthlyAdvisoryAI": 400,
+      "unitLimitCandidate": 1,
+      "delivery": "EXTERNAL_MEMBERSHIP_WEBHOOK",
+      "affiliate": {
+        "commissionPercent": 50,
+        "commissionOnPaymentNumber": 1,
+        "renewalCommissionPercent": 0,
+        "approval": "MANUAL",
+        "enableOnlyAfterFirstPaymentCommissionVerification": true
+      },
+      "provider": {
+        "id": null,
+        "offerId": null,
+        "checkoutUrl": null,
+        "affiliatePolicyVerified": false
+      }
+    },
+    {
+      "sku": "IRON_GROWTH_Y_2026",
+      "tier": "IRON_GROWTH",
+      "displayName": "IRON GROWTH — Plano Anual",
+      "description": "IRON GROWTH — Plano Anual do IRON FIT CORE, software de gestão para academias da FM Tecnologia. Prevê capacidade de até 300 alunos e franquia mensal de até 200 gerações de treino com inteligência artificial e 400 ações consultivas de IA, sem acúmulo de créditos. Os treinos sugeridos por IA dependem da revisão e aprovação de um profissional. Contratação com valor anual, conforme condições de cobrança e renovação informadas no checkout; a franquia de IA é mensal. Os recursos dependem das permissões, do plano e da homologação aplicável. A ativação só ocorre após confirmação financeira validada pelo FM Command e pelo IRON.",
+      "priceBRLMinor": 296400,
+      "currency": "BRL",
+      "frequency": "year",
+      "billingType": "recurring_subscription",
+      "coverFile": "IRON_GROWTH_Y_2026.png",
+      "maxStudents": 300,
+      "monthlyWorkoutAI": 200,
+      "monthlyAdvisoryAI": 400,
+      "unitLimitCandidate": 1,
+      "delivery": "EXTERNAL_MEMBERSHIP_WEBHOOK",
+      "affiliate": {
+        "commissionPercent": 10,
+        "commissionOnPaymentNumber": 1,
+        "renewalCommissionPercent": 0,
+        "approval": "MANUAL",
+        "enableOnlyAfterFirstPaymentCommissionVerification": true
+      },
+      "provider": {
+        "id": null,
+        "offerId": null,
+        "checkoutUrl": null,
+        "affiliatePolicyVerified": false
+      }
+    },
+    {
+      "sku": "IRON_SCALE_M_2026",
+      "tier": "IRON_SCALE",
+      "displayName": "IRON SCALE — Plano Mensal",
+      "description": "IRON SCALE — Plano Mensal do IRON FIT CORE, software de gestão para academias da FM Tecnologia. Prevê capacidade de até 700 alunos e franquia mensal de até 500 gerações de treino com inteligência artificial e 1000 ações consultivas de IA, sem acúmulo de créditos. Os treinos sugeridos por IA dependem da revisão e aprovação de um profissional. Mensalidade recorrente, conforme as condições e o cancelamento previstos no contrato. Os recursos dependem das permissões, do plano e da homologação aplicável. A ativação só ocorre após confirmação financeira validada pelo FM Command e pelo IRON.",
+      "priceBRLMinor": 49700,
+      "currency": "BRL",
+      "frequency": "month",
+      "billingType": "recurring_subscription",
+      "coverFile": "IRON_SCALE_M_2026.png",
+      "maxStudents": 700,
+      "monthlyWorkoutAI": 500,
+      "monthlyAdvisoryAI": 1000,
+      "unitLimitCandidate": 1,
+      "delivery": "EXTERNAL_MEMBERSHIP_WEBHOOK",
+      "affiliate": {
+        "commissionPercent": 50,
+        "commissionOnPaymentNumber": 1,
+        "renewalCommissionPercent": 0,
+        "approval": "MANUAL",
+        "enableOnlyAfterFirstPaymentCommissionVerification": true
+      },
+      "provider": {
+        "id": null,
+        "offerId": null,
+        "checkoutUrl": null,
+        "affiliatePolicyVerified": false
+      }
+    },
+    {
+      "sku": "IRON_SCALE_Y_2026",
+      "tier": "IRON_SCALE",
+      "displayName": "IRON SCALE — Plano Anual",
+      "description": "IRON SCALE — Plano Anual do IRON FIT CORE, software de gestão para academias da FM Tecnologia. Prevê capacidade de até 700 alunos e franquia mensal de até 500 gerações de treino com inteligência artificial e 1000 ações consultivas de IA, sem acúmulo de créditos. Os treinos sugeridos por IA dependem da revisão e aprovação de um profissional. Contratação com valor anual, conforme condições de cobrança e renovação informadas no checkout; a franquia de IA é mensal. Os recursos dependem das permissões, do plano e da homologação aplicável. A ativação só ocorre após confirmação financeira validada pelo FM Command e pelo IRON.",
+      "priceBRLMinor": 500400,
+      "currency": "BRL",
+      "frequency": "year",
+      "billingType": "recurring_subscription",
+      "coverFile": "IRON_SCALE_Y_2026.png",
+      "maxStudents": 700,
+      "monthlyWorkoutAI": 500,
+      "monthlyAdvisoryAI": 1000,
+      "unitLimitCandidate": 1,
+      "delivery": "EXTERNAL_MEMBERSHIP_WEBHOOK",
+      "affiliate": {
+        "commissionPercent": 10,
+        "commissionOnPaymentNumber": 1,
+        "renewalCommissionPercent": 0,
+        "approval": "MANUAL",
+        "enableOnlyAfterFirstPaymentCommissionVerification": true
+      },
+      "provider": {
+        "id": null,
+        "offerId": null,
+        "checkoutUrl": null,
+        "affiliatePolicyVerified": false
+      }
+    },
+    {
+      "sku": "IRON_ENTERPRISE_M_2026",
+      "tier": "IRON_ENTERPRISE",
+      "displayName": "IRON ENTERPRISE — Plano Mensal",
+      "description": "IRON ENTERPRISE — Plano Mensal do IRON FIT CORE, software de gestão para academias da FM Tecnologia. Prevê capacidade de até 1500 alunos e franquia mensal de até 1200 gerações de treino com inteligência artificial e 2500 ações consultivas de IA, sem acúmulo de créditos. Os treinos sugeridos por IA dependem da revisão e aprovação de um profissional. Mensalidade recorrente, conforme as condições e o cancelamento previstos no contrato. A disponibilidade de múltiplas unidades depende de habilitação e homologação aplicável. A ativação só ocorre após confirmação financeira validada pelo FM Command e pelo IRON.",
+      "priceBRLMinor": 89700,
+      "currency": "BRL",
+      "frequency": "month",
+      "billingType": "recurring_subscription",
+      "coverFile": "IRON_ENTERPRISE_M_2026.png",
+      "maxStudents": 1500,
+      "monthlyWorkoutAI": 1200,
+      "monthlyAdvisoryAI": 2500,
+      "unitLimitCandidate": 3,
+      "delivery": "EXTERNAL_MEMBERSHIP_WEBHOOK",
+      "affiliate": {
+        "commissionPercent": 50,
+        "commissionOnPaymentNumber": 1,
+        "renewalCommissionPercent": 0,
+        "approval": "MANUAL",
+        "enableOnlyAfterFirstPaymentCommissionVerification": true
+      },
+      "provider": {
+        "id": null,
+        "offerId": null,
+        "checkoutUrl": null,
+        "affiliatePolicyVerified": false
+      }
+    },
+    {
+      "sku": "IRON_ENTERPRISE_Y_2026",
+      "tier": "IRON_ENTERPRISE",
+      "displayName": "IRON ENTERPRISE — Plano Anual",
+      "description": "IRON ENTERPRISE — Plano Anual do IRON FIT CORE, software de gestão para academias da FM Tecnologia. Prevê capacidade de até 1500 alunos e franquia mensal de até 1200 gerações de treino com inteligência artificial e 2500 ações consultivas de IA, sem acúmulo de créditos. Os treinos sugeridos por IA dependem da revisão e aprovação de um profissional. Contratação com valor anual, conforme condições de cobrança e renovação informadas no checkout; a franquia de IA é mensal. A disponibilidade de múltiplas unidades depende de habilitação e homologação aplicável. A ativação só ocorre após confirmação financeira validada pelo FM Command e pelo IRON.",
+      "priceBRLMinor": 896400,
+      "currency": "BRL",
+      "frequency": "year",
+      "billingType": "recurring_subscription",
+      "coverFile": "IRON_ENTERPRISE_Y_2026.png",
+      "maxStudents": 1500,
+      "monthlyWorkoutAI": 1200,
+      "monthlyAdvisoryAI": 2500,
+      "unitLimitCandidate": 3,
+      "delivery": "EXTERNAL_MEMBERSHIP_WEBHOOK",
+      "affiliate": {
+        "commissionPercent": 10,
+        "commissionOnPaymentNumber": 1,
+        "renewalCommissionPercent": 0,
+        "approval": "MANUAL",
+        "enableOnlyAfterFirstPaymentCommissionVerification": true
+      },
+      "provider": {
+        "id": null,
+        "offerId": null,
+        "checkoutUrl": null,
+        "affiliatePolicyVerified": false
+      }
+    }
+  ]
+}
