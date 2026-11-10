@@ -59,12 +59,15 @@ describe("Cakto -> canonical IRON billing -> durable S2S (disposable PostgreSQL 
   dbIt("confirms first payment, records recurring cycle, isolates old refund, and suspends refunded current cycle", async () => {
     const { subscriptionId } = await prepare();
     const cfg = {
+      FMCC_IRON_COMMERCIAL_SALES_ENABLED: "true",
       FMCC_IRON_BILLING_TENANT_ID: tenant, FMCC_IRON_PRODUCT_ID: productId,
       FMCC_CAKTO_WEBHOOK_SECRET: secret,
       FMCC_CAKTO_CHECKOUTS_JSON: JSON.stringify([
         { offerId: "offer_month", productId: "iron_product", checkoutUrl: "https://pay.cakto.com.br/offer_month", amountMinor: 26900, interval: "month" },
       ]),
     };
+    const restricted = new CaktoIronProductBilling({ ...cfg, FMCC_IRON_COMMERCIAL_SALES_ENABLED: "false" });
+    await expect(restricted.checkoutUrl(invoiceId)).rejects.toThrow("cakto.iron_sales_not_authorized");
     const billing = new CaktoIronProductBilling(cfg);
     const checkout = await billing.checkoutUrl(invoiceId);
     expect(checkout).toContain("sck="+invoiceId);
