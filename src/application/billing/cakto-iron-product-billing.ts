@@ -50,9 +50,11 @@ export class CaktoIronProductBilling {
         eq(billingInvoices.productId, this.productId), eq(billingInvoices.id, invoiceId)))
       .limit(1);
     const r = rows[0];
+    // Signed events for already-paid invoices still require reconciliation when
+    // the commercial plan or gateway is retired. Their original invoice amount
+    // and verified offer binding, not the current price, remain authoritative.
     if (!r || r.gateway.provider !== "cakto" || r.gateway.environment !== "production" ||
-      r.gateway.status !== "enabled" || r.plan.status !== "active" ||
-      r.invoice.amountMinor !== r.plan.amountMinor || r.invoice.currency !== "BRL")
+      r.invoice.currency !== "BRL")
       throw new Error("cakto.invoice_binding_not_ready");
     return r;
   }
@@ -62,6 +64,10 @@ export class CaktoIronProductBilling {
     if (this.env.FMCC_IRON_COMMERCIAL_SALES_ENABLED !== "true")
       throw new Error("cakto.iron_sales_not_authorized");
     const r = await this.boundInvoice(invoiceId);
+    // Only NEW checkouts require the plan, gateway and current price to be live.
+    if (r.gateway.status !== "enabled" || r.plan.status !== "active" ||
+        r.invoice.amountMinor !== r.plan.amountMinor)
+      throw new Error("cakto.invoice_binding_not_ready");
     if (r.invoice.status !== "pending" || r.subscription.status !== "pending")
       throw new Error("cakto.invoice_not_pending");
     const interval = r.plan.interval === "monthly" ? "month" : r.plan.interval === "yearly" ? "year" : null;
