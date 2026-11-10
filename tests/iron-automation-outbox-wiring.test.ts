@@ -11,3 +11,16 @@ describe("IRON outbox delivery in governed FM Command automation", () => {
     expect(workflow).not.toMatch(/^\s+schedule:\s*$/m);
   });
 });
+
+  it("both IRON drains reuse the scheduler authority and bounded durable workers", () => {
+    for (const route of [
+      "src/app/api/internal/automation/iron/entitlements/drain/route.ts",
+      "src/app/api/internal/automation/iron/ai-credits/drain/route.ts",
+    ]) {
+      const source = readFileSync(route, "utf8");
+      expect(source).toContain("verifyScheduledWorkerBearer");
+      expect(source).toContain("alertAutomationEnv().schedulerSecret");
+      expect(source).toContain("for (let i");
+      expect(source).toContain('status: 401');
+    }
+  });
