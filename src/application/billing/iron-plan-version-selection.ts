@@ -1,4 +1,26 @@
 /**
+ * Eight commercial billing SKUs belong to four canonical IRON capability plans.
+ * Explicit billing interval validation is mandatory: a yearly SaaS invoice
+ * must never silently activate a monthly SKU (or a fabricated fifth tier).
+ * Legacy canonical codes remain compatible with earlier subscriptions.
+ */
+export function canonicalIronPlanCode(commercialPlanCode: string, billingInterval?: string): string {
+  if (typeof commercialPlanCode !== "string" ||
+      !/^[A-Z][A-Z0-9_]{1,63}$/.test(commercialPlanCode))
+    throw new Error("iron.commercial_plan_code_invalid");
+  const match = /^IRON_(START|GROWTH|SCALE|ENTERPRISE)_([MY])_2026$/.exec(commercialPlanCode);
+  if (match) {
+    const intendedInterval = match[2] === "M" ? "monthly" : "yearly";
+    if (billingInterval !== intendedInterval)
+      throw new Error("iron.commercial_plan_interval_mismatch");
+    return "IRON_" + match[1];
+  }
+  if (/^IRON_(START|GROWTH|SCALE|ENTERPRISE)_/.test(commercialPlanCode))
+    throw new Error("iron.commercial_plan_sku_unknown");
+  return commercialPlanCode;
+}
+
+/**
  * FM Command selects a precise published canonical IRON plan version.
  * Multiple published versions coexist during governed quota migrations.
  * Never silently choose latest: explicit commercial binding is mandatory.

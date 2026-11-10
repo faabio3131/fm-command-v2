@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { Pool } from "pg";
 import { resolveIronPublishedPlanVersion } from "./iron-plan-version-selection";
+import { assertIronCommercialPlanInterval } from "./iron-commercial-plan-identity";
 
 export type IronLicenseEvent = "LICENSE_ACTIVATE" | "LICENSE_SUSPEND" | "LICENSE_CANCEL";
 export type IronLicenseSyncCommand = {
@@ -54,7 +55,7 @@ type Pending = {
   id: string; tenant_id: string; product_id: string; invoice_id: string;
   subscription_id: string; event_type: IronLicenseEvent; attempts: number; claim_token: string;
 };
-type Binding = { gym_id: string; plan_code: string; invoice_status: string; subscription_status: string; paid_through: Date | null; invoice_period_end: Date | null };
+type Binding = { gym_id: string; plan_code: string; plan_interval: string; invoice_status: string; subscription_status: string; paid_through: Date | null; invoice_period_end: Date | null };
 export type WorkerResult = "idle" | "delivered" | "retry" | "blocked";
 
 export class IronEntitlementOutboxWorker {
@@ -93,7 +94,7 @@ export class IronEntitlementOutboxWorker {
 
   private async binding(job: Pending): Promise<Binding> {
     const result = await this.pool.query(`
-      SELECT b.external_tenant_id AS gym_id, s.plan_code,
+      SELECT b.external_tenant_id AS gym_id, s.plan_code, p.interval AS plan_interval,
              i.status AS invoice_status, s.status AS subscription_status,
              s.paid_through, i.period_end AS invoice_period_end
       FROM fmcc_billing_iron_entitlement_outbox o
@@ -103,6 +104,10 @@ export class IronEntitlementOutboxWorker {
                                         AND s.product_id=i.product_id AND s.customer_id=i.customer_id
       JOIN fmcc_billing_customer_binding b ON b.tenant_id=i.tenant_id AND b.product_id=i.product_id
                                              AND b.customer_id=i.customer_id
+      -- An already-paid invoice must remain deliverable/revocable after the
+      -- commercial SKU is retired; do not depend on its current sale status.
+      JOIN fmcc_billing_product_plan p ON p.tenant_id=s.tenant_id AND p.product_id=s.product_id
+                                          AND p.plan_code=s.plan_code
       WHERE o.id=$1 AND o.tenant_id=$2 AND o.product_id=$3
         AND o.subscription_id=$4 AND o.claim_token=$5 AND o.status='processing'
       LIMIT 2
@@ -136,10 +141,11 @@ export class IronEntitlementOutboxWorker {
     const cfg = this.config();
     const b = await this.binding(job);
     if (!UUID.test(b.gym_id)) throw new Error("iron.delivery_invalid_gym");
+    const canonicalPlanCode = assertIronCommercialPlanInterval(b.plan_code, b.plan_interval);
     const snap = await (await this.remote(cfg.base + "/snapshot", cfg.token)).json() as unknown;
     let ironSubId: string;
     try {
-      ironSubId = selectIronSubscription(snap, b.gym_id, b.plan_code);
+      ironSubId = selectIronSubscription(snap, b.gym_id, canonicalPlanCode);
     } catch {
       if (job.event_type !== "LICENSE_ACTIVATE") throw new Error("iron.subscription_not_unique_or_missing");
       const records = (snap as { subscriptions?: unknown })?.subscriptions;
@@ -149,20 +155,20 @@ export class IronEntitlementOutboxWorker {
         const item = v as Record<string, unknown>;
         return item.tenant_id === b.gym_id && item.status === "ACTIVE" && UUID.test(String(item.external_id ?? ""));
       }) as Array<{external_id: string; plan_code: string}>;
-      if (active.length !== 1 || active[0].plan_code === b.plan_code)
+      if (active.length !== 1 || active[0].plan_code === canonicalPlanCode)
         throw new Error("iron.subscription_not_unique_or_missing");
       const catalog = await (await this.remote(cfg.base + "/plan-versions", cfg.token)).json() as {
         plans?: Array<{ plan_code: string; version: number }>;
       };
       const planVersion = resolveIronPublishedPlanVersion(
         Array.isArray(catalog?.plans) ? catalog.plans : [],
-        b.plan_code,
+        canonicalPlanCode,
         this.env.FMCC_IRON_PLAN_VERSIONS_JSON,
       );
       const transition = {
         action: "subscription.plan.transition", gymId: b.gym_id,
         expectedSubscriptionId: active[0].external_id,
-        planCode: b.plan_code, planVersion, transitionKind: "PLAN_CHANGE",
+        planCode: canonicalPlanCode, planVersion, transitionKind: "PLAN_CHANGE",
         commercialStatus: "active",
         reason: "FM Command verified paid plan invoice " + job.invoice_id,
       };
@@ -197,7 +203,7 @@ export class IronEntitlementOutboxWorker {
       return (res.rowCount ?? 0) === 1 ? "delivered" : "retry";
     } catch (e) {
       const code = e instanceof Error ? e.message : "iron.delivery_unknown_error";
-      const permanent = /^iron\.(delivery_(host_invalid|config_missing|binding_missing|invoice_not_paid|invoice_state_invalid|invalid_gym)|subscription_not_unique_or_missing|plan_version_not_unique|plan_transition_unconfirmed|snapshot_invalid|command_.*)/.test(code)
+      const permanent = /^iron\.(delivery_(host_invalid|config_missing|binding_missing|invoice_not_paid|invoice_state_invalid|invalid_gym)|commercial_(plan_code_invalid|sku_version_unrecognized|sku_interval_mismatch|sku_interval_invalid)|subscription_not_unique_or_missing|plan_version_not_unique|plan_transition_unconfirmed|snapshot_invalid|command_.*)/.test(code)
         || /^iron\.s2s_http_40[0134]$/.test(code);
       const blocked = permanent || job.attempts >= 12;
       const backoffSeconds = Math.min(1800, 10 * 2 ** Math.min(job.attempts, 8));

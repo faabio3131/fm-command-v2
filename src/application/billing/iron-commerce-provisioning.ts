@@ -1,5 +1,6 @@
 import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
 import { CaktoIronProductBilling } from "@/application/billing/cakto-iron-product-billing";
+import { assertIronCommercialPlanInterval } from "@/application/billing/iron-commercial-plan-identity";
 import { CaktoPaymentProvider } from "@/infrastructure/subscription/cakto-payment-provider";
 import { PostgresProductBillingAuthorityRepository } from "@/infrastructure/billing/postgres-product-billing-authority-repository";
 
@@ -69,16 +70,24 @@ export class IronCommerceProvisioning {
     // Construction validates the Cakto seller's hosted offer URLs and IDs at startup.
     const provider = new CaktoPaymentProvider(this.env);
     const plans = await this.provider.listPlans(conf.tenantId, conf.productId);
-    return plans.filter(p => p.status === "active" && published.has(p.planCode) &&
-      provider.hasExactlyOneOffer(p.amountMinor, p.interval === "monthly" ? "month" : "year"))
-      .map(p => ({ planCode:p.planCode, name:p.name, interval:p.interval,
-        amountMinor:p.amountMinor, currency: "BRL" as const }));
+    return plans.filter(p => {
+      if (p.status !== "active") return false;
+      let canonical: string;
+      try { canonical = assertIronCommercialPlanInterval(p.planCode, p.interval); }
+      catch { return false; }
+      return published.has(canonical) &&
+        provider.hasExactlyOneOffer(p.amountMinor, p.interval === "monthly" ? "month" : "year");
+    }).map(p => ({ planCode:p.planCode, name:p.name, interval:p.interval,
+      amountMinor:p.amountMinor, currency: "BRL" as const }));
   }
 
   async prepare(input: IronCommerceRequest): Promise<{ checkoutUrl: string; invoiceId: string; productCode: "IRON_FIT_CORE" }> {
     if (!UUID.test(input.gymId) || !UUID.test(input.expectedSubscriptionId) ||
         !CODE.test(input.planCode) || !IDEM.test(input.idempotencyKey))
       throw new Error("iron.commerce_input_invalid");
+    // Do not create a pending invoice while sales are explicitly disabled.
+    if (this.env.FMCC_IRON_COMMERCIAL_SALES_ENABLED !== "true")
+      throw new Error("iron.commerce_sales_disabled");
     const conf = this.config();
     const [snapshot, planList] = await Promise.all([
       this.fetchControl(conf.base + "/snapshot", conf.token),
@@ -97,8 +106,14 @@ export class IronCommerceProvisioning {
         v.status === "ACTIVE";
     });
     if (owned.length !== 1) throw new Error("iron.commerce_subscription_invalid");
+    // The billing SKU owns price and billing interval; the IRON catalog only owns
+    // the canonical entitlement tier. Never send the SKU as an IRON plan code.
+    const billingPlans = (await this.provider.listPlans(conf.tenantId, conf.productId))
+      .filter(p => p.planCode === input.planCode && p.status === "active");
+    if (billingPlans.length !== 1) throw new Error("iron.commerce_billing_plan_not_available");
+    const canonical = assertIronCommercialPlanInterval(input.planCode, billingPlans[0].interval);
     const published = plans.some((s: unknown) => s && typeof s === "object" && !Array.isArray(s) &&
-      (s as Record<string, unknown>).plan_code === input.planCode);
+      (s as Record<string, unknown>).plan_code === canonical);
     if (!published) throw new Error("iron.commerce_plan_not_published");
     const hash = createHash("sha256").update(JSON.stringify({
       productId: conf.productId, externalTenantId: input.gymId, planCode: input.planCode,
