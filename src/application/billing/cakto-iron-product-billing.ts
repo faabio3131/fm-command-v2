@@ -59,6 +59,8 @@ export class CaktoIronProductBilling {
 
   /** Only an authenticated/prepared canonical invoice may enter a real Cakto checkout. */
   async checkoutUrl(invoiceId: string): Promise<string> {
+    if (this.env.FMCC_IRON_COMMERCIAL_SALES_ENABLED !== "true")
+      throw new Error("cakto.iron_sales_not_authorized");
     const r = await this.boundInvoice(invoiceId);
     if (r.invoice.status !== "pending" || r.subscription.status !== "pending")
       throw new Error("cakto.invoice_not_pending");
