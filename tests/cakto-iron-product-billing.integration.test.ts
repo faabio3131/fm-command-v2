@@ -18,9 +18,11 @@ let invoiceId = "";
 async function prepare() {
   const product = await pool.query("INSERT INTO fmcc_product_definition(tenant_id,slug,name) VALUES ($1,$2,'IRON CI') RETURNING id", [tenant, "iron-ci-"+randomUUID().slice(0, 8)]);
   productId = product.rows[0].id;
-  const customer = await pool.query("INSERT INTO fmcc_billing_customer(tenant_id,external_customer_id) VALUES($1,'ci-cakto-customer') RETURNING id", [tenant]);
+  const customer = await pool.query("INSERT INTO fmcc_billing_customer(tenant_id,external_customer_id) VALUES($1,$2) RETURNING id",
+    [tenant, "ci-cakto-customer-"+randomUUID().slice(0,8)]);
   const customerId = customer.rows[0].id;
-  const gateway = await pool.query("INSERT INTO fmcc_billing_gateway_account(tenant_id,provider,environment,label,secret_ref,status) VALUES($1,'cakto','production','ci','env://FMCC_CAKTO_WEBHOOK_SECRET','enabled') RETURNING id", [tenant]);
+  const gateway = await pool.query("INSERT INTO fmcc_billing_gateway_account(tenant_id,provider,environment,label,secret_ref,status) VALUES($1,'cakto','production',$2,'env://FMCC_CAKTO_WEBHOOK_SECRET','enabled') RETURNING id",
+    [tenant, "ci-"+randomUUID().slice(0,8)]);
   const accountId = gateway.rows[0].id;
   await pool.query("INSERT INTO fmcc_billing_customer_binding(tenant_id,product_id,customer_id,external_tenant_id) VALUES($1,$2,$3,$4)", [tenant, productId, customerId, gym]);
   await pool.query("INSERT INTO fmcc_billing_product_plan(tenant_id,product_id,plan_code,name,interval,amount_minor,status) VALUES($1,$2,'IRON_PRO','Iron PRO','monthly',26900,'active')", [tenant, productId]);
