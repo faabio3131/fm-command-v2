@@ -98,7 +98,7 @@ describe("IRON canonical entitlement delivery contract", () => {
       return {rows:[],rowCount:1};
     }} as unknown as Pick<Pool,"query">;
     const http=(async()=>{requests.push("NETWORK");throw Error("must not call")}) as typeof fetch;
-    expect(await new IronEntitlementOutboxWorker(pool,env,http).processOne()).toBe("retry");
+    expect(await new IronEntitlementOutboxWorker(pool,env,http).processOne()).toBe("blocked");
     expect(requests).not.toContain("NETWORK");
   });
 
