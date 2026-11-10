@@ -89,6 +89,10 @@ export class CaktoIronProductBilling {
     catch { return "unmatched"; } // No trust in email/CPF/redirect/unknown invoice.
     if (event.type === "payment_confirmed" && (!event.amount ||
       event.amount.currency !== "BRL" || event.amount.amountMinor !== binding.invoice.amountMinor)) return "ignored";
+    const interval = binding.plan.interval === "monthly" ? "month" :
+      binding.plan.interval === "yearly" ? "year" : null;
+    if (!interval || !this.provider.matchesRecurringOffer(raw, binding.invoice.amountMinor, interval))
+      return "ignored";
 
     return db.transaction(async (tx) => {
       // Anchor is the FIRST, pre-authorized checkout invoice ID from Cakto's sck.
