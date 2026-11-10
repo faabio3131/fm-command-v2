@@ -172,4 +172,102 @@ describe("Cakto -> canonical IRON billing -> durable S2S (disposable PostgreSQL 
     const count=await pool.query("SELECT count(*)::int AS n FROM fmcc_billing_invoice WHERE tenant_id=$1 AND subscription_id=$2",[tenant,subscriptionId]);
     expect(count.rows[0].n).toBe(1);
   }, 90_000);
+
+  dbIt("annual Cakto SKU pays a yearly invoice and activates ONLY the canonical IRON_START entitlement",async()=>{
+    const annualGym=randomUUID();
+    const annualIronSub=randomUUID();
+    const newProduct=await pool.query(
+      "INSERT INTO fmcc_product_definition(tenant_id,slug,name) VALUES($1,$2,'IRON ANNUAL CI') RETURNING id",
+      [tenant,"annual-ci-"+randomUUID().slice(0,8)],
+    );
+    const annualProductId=newProduct.rows[0].id as string;
+    const customer=await pool.query(
+      "INSERT INTO fmcc_billing_customer(tenant_id,external_customer_id) VALUES($1,$2) RETURNING id",
+      [tenant,"annual-ci-customer-"+randomUUID().slice(0,8)],
+    );
+    const customerId=customer.rows[0].id as string;
+    const gateway=await pool.query(
+      "INSERT INTO fmcc_billing_gateway_account(tenant_id,provider,environment,label,secret_ref,status) VALUES($1,'cakto','production',$2,'env://FMCC_CAKTO_WEBHOOK_SECRET','enabled') RETURNING id",
+      [tenant,"annual-ci-"+randomUUID().slice(0,8)],
+    );
+    const accountId=gateway.rows[0].id as string;
+    await pool.query(
+      "INSERT INTO fmcc_billing_customer_binding(tenant_id,product_id,customer_id,external_tenant_id) VALUES($1,$2,$3,$4)",
+      [tenant,annualProductId,customerId,annualGym],
+    );
+    await pool.query(
+      "INSERT INTO fmcc_billing_product_plan(tenant_id,product_id,plan_code,name,interval,amount_minor,status) VALUES($1,$2,'IRON_START_Y_2026','IRON START ANNUAL','yearly',142800,'active')",
+      [tenant,annualProductId],
+    );
+    const subscription=await pool.query(
+      "INSERT INTO fmcc_billing_subscription(tenant_id,product_id,customer_id,plan_code,status) VALUES($1,$2,$3,'IRON_START_Y_2026','pending') RETURNING id",
+      [tenant,annualProductId,customerId],
+    );
+    const annualSubscriptionId=subscription.rows[0].id as string;
+    const invoice=await pool.query(
+      "INSERT INTO fmcc_billing_invoice(tenant_id,product_id,customer_id,subscription_id,gateway_account_id,amount_minor,status) VALUES($1,$2,$3,$4,$5,142800,'pending') RETURNING id",
+      [tenant,annualProductId,customerId,annualSubscriptionId,accountId],
+    );
+    const annualInvoiceId=invoice.rows[0].id as string;
+    const billing=new CaktoIronProductBilling({
+      FMCC_IRON_BILLING_TENANT_ID:tenant,FMCC_IRON_PRODUCT_ID:annualProductId,
+      FMCC_IRON_COMMERCIAL_SALES_ENABLED:"true",FMCC_CAKTO_WEBHOOK_SECRET:secret,
+      FMCC_CAKTO_CHECKOUTS_JSON:JSON.stringify([{
+        offerId:"annual_ci_offer",productId:"annual_iron_product",
+        checkoutUrl:"https://pay.cakto.com.br/annual_ci_offer",
+        amountMinor:142800,interval:"year",
+      }]),
+    });
+    expect(await billing.checkoutUrl(annualInvoiceId)).toContain("sck="+annualInvoiceId);
+    const orderId="annual_purchase_"+randomUUID().slice(0,8);
+    const body=JSON.stringify({
+      event:"purchase_approved",data:{
+        id:orderId,offer_type:"main",sck:annualInvoiceId,
+        status:"paid",amount:1428,currency:"BRL",paidAt:new Date().toISOString(),
+        offer:{id:"annual_ci_offer"},product:{id:"annual_iron_product"},
+      },
+    });
+    const timestamp=String(Math.floor(Date.now()/1000));
+    const signature="v1="+createHmac("sha256",secret).update(timestamp+"."+body).digest("hex");
+    const headers=new Headers({"x-cakto-timestamp":timestamp,"x-cakto-signature":signature});
+    expect(await billing.handleWebhook(headers,body)).toBe("applied");
+    expect(await billing.handleWebhook(headers,body)).toBe("duplicate");
+    const paid=await pool.query(
+      "SELECT i.status AS invoice_status,i.period_end,s.plan_code,s.paid_through FROM fmcc_billing_invoice i JOIN fmcc_billing_subscription s ON s.id=i.subscription_id WHERE i.id=$1",
+      [annualInvoiceId],
+    );
+    expect(paid.rows[0].invoice_status).toBe("paid");
+    expect(paid.rows[0].plan_code).toBe("IRON_START_Y_2026");
+    expect(paid.rows[0].paid_through.getTime()-Date.now()).toBeGreaterThan(300*86_400_000);
+    expect(paid.rows[0].paid_through.getTime()).toBe(paid.rows[0].period_end.getTime());
+    const called:Array<{url:string;init:RequestInit}>=[];
+    const mockFetch=(async(url:string|URL|Request,init:RequestInit={})=>{
+      called.push({url:String(url),init});
+      if(String(url).endsWith("/snapshot"))return new Response(JSON.stringify({
+        subscriptions:[{tenant_id:annualGym,plan_code:"IRON_START",
+          external_id:annualIronSub,status:"ACTIVE"}],
+      }),{status:200});
+      return new Response(JSON.stringify({result:{entitlementStatus:"ACTIVE"}}),{status:201});
+    }) as typeof fetch;
+    const worker=new IronEntitlementOutboxWorker(pool,{
+      FMCC_IRON_CONTROL_PLANE_URL:"https://api.ironfitcore.com.br/api/v1/control-plane/fmcc",
+      FMCC_IRON_CONTROL_PLANE_TOKEN:"annual-ci-only-"+"t".repeat(40),
+    },mockFetch);
+    expect(await worker.processOne()).toBe("delivered");
+    const commands=called.filter(x=>x.init.method==="POST")
+      .map(x=>JSON.parse(x.init.body as string) as Record<string,unknown>);
+    expect(commands).toHaveLength(1);
+    expect(commands[0]).toMatchObject({
+      action:"subscription.status.sync",gymId:annualGym,
+      expectedSubscriptionId:annualIronSub,entitlementStatus:"ACTIVE",
+      paidThrough:paid.rows[0].paid_through.toISOString(),
+    });
+    expect(commands[0]).not.toHaveProperty("planCode");
+    const outbox=await pool.query(
+      "SELECT status FROM fmcc_billing_iron_entitlement_outbox WHERE tenant_id=$1 AND invoice_id=$2",
+      [tenant,annualInvoiceId],
+    );
+    expect(outbox.rows).toEqual([{status:"delivered"}]);
+  },90_000);
+
 });
