@@ -64,9 +64,9 @@
         "enableOnlyAfterFirstPaymentCommissionVerification": true
       },
       "provider": {
-        "id": null,
+        "id": "9bf4554d-ecb5-4b71-a906-2cc9897c305a",
         "offerId": null,
-        "checkoutUrl": null,
+        "checkoutUrl": "https://pay.cakto.com.br/9niteun_1304558",
         "affiliatePolicyVerified": false
       }
     },
@@ -93,9 +93,9 @@
         "enableOnlyAfterFirstPaymentCommissionVerification": true
       },
       "provider": {
-        "id": null,
+        "id": "1ac3fb88-a5bb-4dc7-8cad-816562a80e9a",
         "offerId": null,
-        "checkoutUrl": null,
+        "checkoutUrl": "https://pay.cakto.com.br/37ggkoi_1304607",
         "affiliatePolicyVerified": false
       }
     },
@@ -122,7 +122,7 @@
         "enableOnlyAfterFirstPaymentCommissionVerification": true
       },
       "provider": {
-        "id": null,
+        "id": "0492f534-03d2-4b8a-8e19-5f33cebc8ddd",
         "offerId": null,
         "checkoutUrl": null,
         "affiliatePolicyVerified": false
@@ -151,7 +151,7 @@
         "enableOnlyAfterFirstPaymentCommissionVerification": true
       },
       "provider": {
-        "id": null,
+        "id": "dde1a9e6-a0ef-4766-93b0-6b4ca0c69a6d",
         "offerId": null,
         "checkoutUrl": null,
         "affiliatePolicyVerified": false
@@ -180,9 +180,9 @@
         "enableOnlyAfterFirstPaymentCommissionVerification": true
       },
       "provider": {
-        "id": null,
+        "id": "9e3b2d78-8b9e-414e-a46d-c711e97fe009",
         "offerId": null,
-        "checkoutUrl": null,
+        "checkoutUrl": "https://pay.cakto.com.br/zudbm7w_1304943",
         "affiliatePolicyVerified": false
       }
     },
@@ -209,9 +209,9 @@
         "enableOnlyAfterFirstPaymentCommissionVerification": true
       },
       "provider": {
-        "id": null,
+        "id": "55d418ea-6228-4114-8b47-5987544bfe0f",
         "offerId": null,
-        "checkoutUrl": null,
+        "checkoutUrl": "https://pay.cakto.com.br/vma722f_1304965",
         "affiliatePolicyVerified": false
       }
     },
@@ -238,11 +238,20 @@
         "enableOnlyAfterFirstPaymentCommissionVerification": true
       },
       "provider": {
-        "id": null,
+        "id": "d07b1534-b335-420c-be64-2b3d4872aa41",
         "offerId": null,
-        "checkoutUrl": null,
+        "checkoutUrl": "https://pay.cakto.com.br/a2mk92n_1304974",
         "affiliatePolicyVerified": false
       }
     }
-  ]
+  ],
+  "reconciliation": {
+    "lastObservedAt": "2026-11-10",
+    "source": "Cakto authenticated producer console, IRON only; NOT authorization to sell",
+    "observedProductStatus": "INACTIVE",
+    "verifiedCheckoutUrls": 5,
+    "offerIdsCertified": 0,
+    "verifiedAffiliateFirstChargePolicies": 0,
+    "disclaimer": "Provider offerId (webhook field) must be obtained from Cakto official API, not inferred from checkout URL"
+  }
 }
