@@ -22,9 +22,10 @@ describe("IRON commercial Cakto eight-offer catalog",()=>{
       expect(product.currency).toBe("BRL");
       expect(product.delivery).toBe("EXTERNAL_MEMBERSHIP_WEBHOOK");
       expect(product.billingType).toBe("recurring_subscription");
-      expect(product.provider).toMatchObject({
-        id:null,offerId:null,checkoutUrl:null,affiliatePolicyVerified:false,
-      });
+      // Provider onboarding is partial: IDs/links may be known, but without a
+      // verified official offer ID and commission policy no SKU is sellable.
+      expect(product.provider.offerId).toBeNull();
+      expect(product.provider.affiliatePolicyVerified).toBe(false);
     }
   });
   it("retains approved prices and monthly/yearly billing period",()=>{
