@@ -113,7 +113,41 @@ describe("FM Command: IRON official trial customer portfolio", () => {
   it("handles genuine zero trials, and never invents a customer or metric", async () => {
     const empty = { ...snapshot(), customers: [], subscriptions: [], trials: [] };
     const actual = await new IronTrialPortfolioService(env, stubTransport(empty)).read(context);
-    expect(actual).toMatchObject({ status: "ready", total: 0, customers: [], truncated: false });
+    expect(actual).toMatchObject({ status: "ready", total: 0, customers: [], page: 1, pageCount: 1 });
+  });
+
+  it("paginates every academy instead of dropping customer records after the first page", () => {
+    const payload = snapshot();
+    payload.customers = [];
+    payload.subscriptions = [];
+    payload.trials = [];
+    for (let i = 1; i <= 55; i++) {
+      const suffix = String(i).padStart(12, "0");
+      const gymId = "00000000-0000-4000-8000-" + suffix;
+      const subscriptionId = "10000000-0000-4000-8000-" + suffix;
+      payload.customers.push({
+        tenant_id: gymId, name: "Academia " + i, active: true,
+        created_at: "2026-11-09T10:00:00.000Z",
+      });
+      payload.subscriptions.push({
+        external_id: subscriptionId, tenant_id: gymId,
+        status: "ACTIVE", plan_code: "IRON_V1_TRIAL",
+      });
+      payload.trials.push({
+        external_id: "trial-" + i, tenant_id: gymId, subscription_id: subscriptionId,
+        status: "active", started_at: "2026-11-09T10:00:00.000Z",
+        ends_at: "2026-12-09T10:00:00.000Z",
+      });
+    }
+    const first = projectIronTrialSnapshot(payload, 1);
+    const second = projectIronTrialSnapshot(payload, 2);
+    expect(first.total).toBe(55);
+    expect(first.pageCount).toBe(2);
+    expect(first.customers).toHaveLength(50);
+    expect(second.customers).toHaveLength(5);
+    const distinct = new Set([...first.customers, ...second.customers].map(row => row.gymId));
+    expect(distinct.size).toBe(55);
+    expect(projectIronTrialSnapshot(payload, 999).page).toBe(2);
   });
 
   it("rejects invalid or duplicated trial requests and dates rather than silently dropping records", () => {
