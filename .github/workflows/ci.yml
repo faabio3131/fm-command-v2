@@ -20,3 +20,11 @@ jobs:
       - run: npm ci --no-audit --no-fund
       - run: npm run typecheck
       - run: npm run lint
+      - name: Certify official IRON trial customer read model
+        run: npx vitest run tests/iron-trial-portfolio.unit.test.ts tests/iron-trial-portfolio-ui.test.ts
+      - name: Build FM Command production bundle
+        run: npm run build
+        env:
+          NEXT_TELEMETRY_DISABLED: "1"
+          DATABASE_URL: "postgresql://ci_user:ci_only_password@127.0.0.1:5432/ci_disconnected"
+          BETTER_AUTH_SECRET: "ci-build-only-non-production-secret-12345678"
