@@ -45,7 +45,7 @@ export default async function TrialsPage({
   const products = await productService.list(context);
   const params = await searchParams;
   const requestedProductId = params.productId?.trim();
-  const requestedPage = params.page && /^\\d+$/.test(params.page) ? Number(params.page) : 1;
+  const requestedPage = params.page && /^\d+$/.test(params.page) ? Number(params.page) : 1;
   let selectedProduct = undefined;
 
   if (requestedProductId) {
