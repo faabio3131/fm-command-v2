@@ -1,4 +1,5 @@
-import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
+import { createHash, timingSafeEqual } from "node:crypto";
+import { IronControlPlaneClient } from "@/application/integration/iron-control-plane-client";
 import { CaktoIronProductBilling } from "@/application/billing/cakto-iron-product-billing";
 import { assertIronCommercialPlanInterval } from "@/application/billing/iron-commercial-plan-identity";
 import { CaktoPaymentProvider } from "@/infrastructure/subscription/cakto-payment-provider";
@@ -29,43 +30,16 @@ export class IronCommerceProvisioning {
     private readonly provider = new PostgresProductBillingAuthorityRepository(),
   ) {}
 
+  private control() {
+    return new IronControlPlaneClient(this.env, this.transport);
+  }
+
   private config() {
-    const productId = this.env.FMCC_IRON_PRODUCT_ID ?? "";
-    const tenantId = this.env.FMCC_IRON_BILLING_TENANT_ID ?? "";
-    const base = this.env.FMCC_IRON_CONTROL_PLANE_URL ?? "";
-    const token = this.env.FMCC_IRON_CONTROL_PLANE_TOKEN ?? "";
-    if (!UUID.test(productId) || !/^[A-Za-z0-9._:-]{3,128}$/.test(tenantId) || token.length < 32)
-      throw new Error("iron.commerce_configuration_missing");
-    const url = new URL(base);
-    if (url.protocol !== "https:" || url.hostname !== "api.ironfitcore.com.br" ||
-      url.pathname !== "/api/v1/control-plane/fmcc" || url.search || url.hash ||
-      url.username || url.password) throw new Error("iron.commerce_control_plane_invalid");
-    return { productId, tenantId, base: url.toString().replace(/\/$/, ""), token };
+    return this.control().config();
   }
 
-  private async fetchControl(url: string, token: string): Promise<unknown> {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 12_000);
-    try {
-      const response = await this.transport(url, {
-        method: "GET", redirect: "error", cache: "no-store", signal: controller.signal,
-        headers: { authorization: "Bearer " + token, "x-correlation-id": "checkout-preflight-" + randomUUID() },
-      });
-      if (!response.ok) throw new Error("iron.commerce_control_plane_unavailable");
-      return await response.json();
-    } finally { clearTimeout(timer); }
-  }
-
-  /**
-   * Read-only IRON authority for Command's academy trial portfolio.
-   * Reuses the existing protected S2S transport, independent of Cakto offers.
-   * The authenticated FM company scope must match the configured owner tenant.
-   */
-  async readTrialSnapshot(companyTenantId: string, scopedProductId?: string): Promise<unknown | null> {
-    if (!companyTenantId || companyTenantId !== this.env.FMCC_IRON_BILLING_TENANT_ID) return null;
-    const conf = this.config();
-    if (scopedProductId && scopedProductId !== conf.productId) return null;
-    return this.fetchControl(conf.base + "/snapshot", conf.token);
+  private fetchControl(url: string, token: string): Promise<unknown> {
+    return this.control().fetchControl(url, token);
   }
 
   async offers(): Promise<Array<{planCode: string; name: string; interval: "monthly" | "yearly"; amountMinor: number; currency: "BRL"}>> {
