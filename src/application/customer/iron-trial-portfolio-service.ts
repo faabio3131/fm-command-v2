@@ -4,7 +4,7 @@ import { IronControlPlaneClient } from "@/application/integration/iron-control-p
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MAX_ROWS = 10_000;
-const VISIBLE_ROWS = 100;
+const VISIBLE_ROWS = 50;
 
 export type IronTrialCustomer = {
   readonly gymId: string;
@@ -25,7 +25,8 @@ export type IronTrialPortfolio =
       readonly sourceAuthority: "IRON_CANONICAL";
       readonly asOf: string;
       readonly total: number;
-      readonly truncated: boolean;
+      readonly page: number;
+      readonly pageCount: number;
       readonly customers: readonly IronTrialCustomer[];
     };
 
@@ -69,7 +70,7 @@ function records(value: unknown): RecordValue[] {
  * View model only. IRON owns Gym, CommercialTrialProvisioning and subscription.
  * FM Command does not persist a duplicate tenant or invent conversion facts.
  */
-export function projectIronTrialSnapshot(snapshot: unknown): Extract<IronTrialPortfolio, { status: "ready" }> {
+export function projectIronTrialSnapshot(snapshot: unknown, requestedPage = 1): Extract<IronTrialPortfolio, { status: "ready" }> {
   const source = object(snapshot);
   if (source.schema_version !== "iron.fmcc.commercial.v1" ||
       source.product_code !== "IRON_FIT_CORE") {
@@ -135,13 +136,19 @@ export function projectIronTrialSnapshot(snapshot: unknown): Extract<IronTrialPo
   });
 
   rows.sort((a, b) => b.trialStartedAt.localeCompare(a.trialStartedAt) || a.gymId.localeCompare(b.gymId));
+  const pageCount = Math.max(1, Math.ceil(rows.length / VISIBLE_ROWS));
+  const page = Math.min(
+    Number.isSafeInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1,
+    pageCount,
+  );
   return {
     status: "ready",
     sourceAuthority: "IRON_CANONICAL",
     asOf: isoDate(source.as_of),
     total: rows.length,
-    truncated: rows.length > VISIBLE_ROWS,
-    customers: rows.slice(0, VISIBLE_ROWS),
+    page,
+    pageCount,
+    customers: rows.slice((page - 1) * VISIBLE_ROWS, page * VISIBLE_ROWS),
   };
 }
 
@@ -157,7 +164,7 @@ export class IronTrialPortfolioService {
     private readonly transport: typeof fetch = fetch,
   ) {}
 
-  async read(context: TenantContext, selectedProductId?: string): Promise<IronTrialPortfolio> {
+  async read(context: TenantContext, selectedProductId?: string, page = 1): Promise<IronTrialPortfolio> {
     requirePermission(context, "commercial:read");
     const tenantId = this.env.FMCC_IRON_BILLING_TENANT_ID;
     if (tenantId && tenantId !== context.tenantId) return { status: "not_applicable" };
@@ -170,7 +177,7 @@ export class IronTrialPortfolioService {
       const snapshot = await new IronControlPlaneClient(this.env, this.transport)
         .readTrialSnapshot(context.tenantId, selectedProductId);
       if (snapshot === null) return { status: "not_applicable" };
-      return projectIronTrialSnapshot(snapshot);
+      return projectIronTrialSnapshot(snapshot, page);
     } catch {
       // Missing, stale, rejected and inconsistent upstream data is never zero.
       // Do not expose errors with environment details, Bearer or URL to users.
