@@ -24,7 +24,7 @@ const TRIAL_METRICS = new Set([
 export default async function TrialsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ productId?: string }>;
+  searchParams: Promise<{ productId?: string; page?: string }>;
 }) {
   let context;
   try {
@@ -43,7 +43,9 @@ export default async function TrialsPage({
   const productsRepository = new PostgresProductRepository();
   const productService = new ProductRegistryService(productsRepository);
   const products = await productService.list(context);
-  const requestedProductId = (await searchParams).productId?.trim();
+  const params = await searchParams;
+  const requestedProductId = params.productId?.trim();
+  const requestedPage = params.page && /^\\d+$/.test(params.page) ? Number(params.page) : 1;
   let selectedProduct = undefined;
 
   if (requestedProductId) {
@@ -66,10 +68,16 @@ export default async function TrialsPage({
   )?.value;
   const authority = metrics.find(({ value }) => value?.sourceAuthority)?.value
     ?.sourceAuthority;
-  const ironTrials = await new IronTrialPortfolioService().read(context, selectedProduct?.id);
+  const ironTrials = await new IronTrialPortfolioService().read(context, selectedProduct?.id, requestedPage);
   const timeZone = ironTrials.status === "ready" ? await getCompanyTimeZone(context.tenantId) : "UTC";
   const dateLabel = (iso: string) =>
     new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeZone }).format(new Date(iso));
+  const trialsPageUrl = (page: number) => {
+    const query = new URLSearchParams();
+    if (selectedProduct) query.set("productId", selectedProduct.id);
+    query.set("page", String(page));
+    return "/dashboard/trials?" + query.toString();
+  };
 
   return (
     <main className="dashboard-shell dashboard-shell-compact">
@@ -204,7 +212,14 @@ export default async function TrialsPage({
                   ))}
                 </div>
               )}
-              {ironTrials.truncated && <p>{t("trials.iron.truncated")}</p>}
+              {ironTrials.pageCount > 1 && (
+                <nav className="command-quick-actions" aria-label={t("trials.iron.pagination")}>
+                  <span>{t("trials.iron.page", { page: ironTrials.page, pages: ironTrials.pageCount })}</span>
+                  {ironTrials.page > 1 && <Link href={trialsPageUrl(ironTrials.page - 1)}>{t("trials.iron.previous")}</Link>}
+                  {ironTrials.page < ironTrials.pageCount &&
+                    <Link href={trialsPageUrl(ironTrials.page + 1)}>{t("trials.iron.next")}</Link>}
+                </nav>
+              )}
             </>
           )}
         </section>
