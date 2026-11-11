@@ -5,6 +5,8 @@ import { redirect } from "next/navigation";
 import { CoreQueryForm } from "@/app/dashboard/core-query-form";
 import { temporalLabel } from "@/app/dashboard/metric-text";
 import { createMetricService } from "@/application/metrics/metric-composition";
+import { IronTrialPortfolioService } from "@/application/customer/iron-trial-portfolio-service";
+import { getCompanyTimeZone } from "@/application/i18n/request-timezone";
 import { ProductRegistryService } from "@/application/products/product-registry-service";
 import { getRequestLocale } from "@/application/i18n/request-locale";
 import { resolveTenantContext } from "@/application/security/resolve-tenant-context";
@@ -64,6 +66,10 @@ export default async function TrialsPage({
   )?.value;
   const authority = metrics.find(({ value }) => value?.sourceAuthority)?.value
     ?.sourceAuthority;
+  const ironTrials = await new IronTrialPortfolioService().read(context, selectedProduct?.id);
+  const timeZone = ironTrials.status === "ready" ? await getCompanyTimeZone(context.tenantId) : "UTC";
+  const dateLabel = (iso: string) =>
+    new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeZone }).format(new Date(iso));
 
   return (
     <main className="dashboard-shell dashboard-shell-compact">
@@ -157,6 +163,50 @@ export default async function TrialsPage({
           <small>{t("trials.endedNote")}</small>
         </article>
       </section>
+
+      {ironTrials.status !== "not_applicable" && (
+        <section className="panel" aria-labelledby="iron-trial-customers-title">
+          <div className="section-heading">
+            <div>
+              <span className="eyebrow">{t("trials.iron.eyebrow")}</span>
+              <h2 id="iron-trial-customers-title">{t("trials.iron.title")}</h2>
+            </div>
+            <Link href={selectedProduct
+              ? `/dashboard/trials?productId=${encodeURIComponent(selectedProduct.id)}`
+              : "/dashboard/trials"}>{t("trials.iron.refresh")}</Link>
+          </div>
+          <p>{t("trials.iron.note")}</p>
+          {ironTrials.status === "unavailable" ? (
+            <p role="status">{t("trials.iron.unavailable")}</p>
+          ) : (
+            <>
+              <p>{t("trials.iron.total", { count: ironTrials.total })} · {t("trials.iron.asOf", { date: dateLabel(ironTrials.asOf) })}</p>
+              <p className="metric-provenance">{t("trials.iron.source")}</p>
+              {ironTrials.customers.length === 0 ? (
+                <p role="status">{t("trials.iron.empty")}</p>
+              ) : (
+                <div className="foundation-grid" aria-label={t("trials.iron.listAria")}>
+                  {ironTrials.customers.map((gym) => (
+                    <article key={gym.gymId}>
+                      <strong>{gym.gymName}</strong>
+                      <span>{t("trials.iron.registered", { date: dateLabel(gym.gymCreatedAt) })}</span>
+                      <span>{t("trials.iron.started", { date: dateLabel(gym.trialStartedAt) })}</span>
+                      <span>{t("trials.iron.ends", { date: dateLabel(gym.trialEndsAt) })}</span>
+                      <span>{gym.trialStatus === "active" ? t("trials.iron.active") : t("trials.iron.expired")}</span>
+                      <span>{t("trials.iron.subscription", { status:
+                        gym.subscriptionStatus === "ACTIVE" ? t("trials.iron.subscriptionActive") :
+                        gym.subscriptionStatus === "SUSPENDED" ? t("trials.iron.subscriptionSuspended") :
+                        t("trials.iron.subscriptionCanceled") })}</span>
+                      <span>{t("trials.iron.plan", { code: gym.planCode })}</span>
+                    </article>
+                  ))}
+                </div>
+              )}
+              {ironTrials.truncated && <p>{t("trials.iron.truncated")}</p>}
+            </>
+          )}
+        </section>
+      )}
 
       <section className="panel">
         <h2>{t("trials.conversionTitle")}</h2>
