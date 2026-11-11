@@ -197,7 +197,9 @@ export default async function TrialsPage({
                         gym.subscriptionStatus === "ACTIVE" ? t("trials.iron.subscriptionActive") :
                         gym.subscriptionStatus === "SUSPENDED" ? t("trials.iron.subscriptionSuspended") :
                         t("trials.iron.subscriptionCanceled") })}</span>
-                      <span>{t("trials.iron.plan", { code: gym.planCode })}</span>
+                      <span>{gym.planCode === "IRON_V1_TRIAL"
+                        ? t("trials.iron.planTrial")
+                        : t("trials.iron.planOther")}</span>
                     </article>
                   ))}
                 </div>
