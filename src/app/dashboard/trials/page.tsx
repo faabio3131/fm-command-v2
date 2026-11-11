@@ -5,6 +5,8 @@ import { redirect } from "next/navigation";
 import { CoreQueryForm } from "@/app/dashboard/core-query-form";
 import { temporalLabel } from "@/app/dashboard/metric-text";
 import { createMetricService } from "@/application/metrics/metric-composition";
+import { IronTrialPortfolioService } from "@/application/customer/iron-trial-portfolio-service";
+import { getCompanyTimeZone } from "@/application/i18n/request-timezone";
 import { ProductRegistryService } from "@/application/products/product-registry-service";
 import { getRequestLocale } from "@/application/i18n/request-locale";
 import { resolveTenantContext } from "@/application/security/resolve-tenant-context";
@@ -22,7 +24,7 @@ const TRIAL_METRICS = new Set([
 export default async function TrialsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ productId?: string }>;
+  searchParams: Promise<{ productId?: string; page?: string }>;
 }) {
   let context;
   try {
@@ -41,7 +43,9 @@ export default async function TrialsPage({
   const productsRepository = new PostgresProductRepository();
   const productService = new ProductRegistryService(productsRepository);
   const products = await productService.list(context);
-  const requestedProductId = (await searchParams).productId?.trim();
+  const params = await searchParams;
+  const requestedProductId = params.productId?.trim();
+  const requestedPage = params.page && /^\d+$/.test(params.page) ? Number(params.page) : 1;
   let selectedProduct = undefined;
 
   if (requestedProductId) {
@@ -64,6 +68,16 @@ export default async function TrialsPage({
   )?.value;
   const authority = metrics.find(({ value }) => value?.sourceAuthority)?.value
     ?.sourceAuthority;
+  const ironTrials = await new IronTrialPortfolioService().read(context, selectedProduct?.id, requestedPage);
+  const timeZone = ironTrials.status === "ready" ? await getCompanyTimeZone(context.tenantId) : "UTC";
+  const dateLabel = (iso: string) =>
+    new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeZone }).format(new Date(iso));
+  const trialsPageUrl = (page: number) => {
+    const query = new URLSearchParams();
+    if (selectedProduct) query.set("productId", selectedProduct.id);
+    query.set("page", String(page));
+    return "/dashboard/trials?" + query.toString();
+  };
 
   return (
     <main className="dashboard-shell dashboard-shell-compact">
@@ -157,6 +171,59 @@ export default async function TrialsPage({
           <small>{t("trials.endedNote")}</small>
         </article>
       </section>
+
+      {ironTrials.status !== "not_applicable" && (
+        <section className="panel" aria-labelledby="iron-trial-customers-title">
+          <div className="section-heading">
+            <div>
+              <span className="eyebrow">{t("trials.iron.eyebrow")}</span>
+              <h2 id="iron-trial-customers-title">{t("trials.iron.title")}</h2>
+            </div>
+            <Link href={selectedProduct
+              ? `/dashboard/trials?productId=${encodeURIComponent(selectedProduct.id)}`
+              : "/dashboard/trials"}>{t("trials.iron.refresh")}</Link>
+          </div>
+          <p>{t("trials.iron.note")}</p>
+          {ironTrials.status === "unavailable" ? (
+            <p role="status">{t("trials.iron.unavailable")}</p>
+          ) : (
+            <>
+              <p>{t("trials.iron.total", { count: ironTrials.total })} · {t("trials.iron.asOf", { date: dateLabel(ironTrials.asOf) })}</p>
+              <p className="metric-provenance">{t("trials.iron.source")}</p>
+              {ironTrials.customers.length === 0 ? (
+                <p role="status">{t("trials.iron.empty")}</p>
+              ) : (
+                <div className="foundation-grid" aria-label={t("trials.iron.listAria")}>
+                  {ironTrials.customers.map((gym) => (
+                    <article key={gym.gymId}>
+                      <strong>{gym.gymName}</strong>
+                      <span>{t("trials.iron.registered", { date: dateLabel(gym.gymCreatedAt) })}</span>
+                      <span>{t("trials.iron.started", { date: dateLabel(gym.trialStartedAt) })}</span>
+                      <span>{t("trials.iron.ends", { date: dateLabel(gym.trialEndsAt) })}</span>
+                      <span>{gym.trialStatus === "active" ? t("trials.iron.active") : t("trials.iron.expired")}</span>
+                      <span>{t("trials.iron.subscription", { status:
+                        gym.subscriptionStatus === "ACTIVE" ? t("trials.iron.subscriptionActive") :
+                        gym.subscriptionStatus === "SUSPENDED" ? t("trials.iron.subscriptionSuspended") :
+                        t("trials.iron.subscriptionCanceled") })}</span>
+                      <span>{gym.planCode === "IRON_V1_TRIAL"
+                        ? t("trials.iron.planTrial")
+                        : t("trials.iron.planOther")}</span>
+                    </article>
+                  ))}
+                </div>
+              )}
+              {ironTrials.pageCount > 1 && (
+                <nav className="command-quick-actions" aria-label={t("trials.iron.pagination")}>
+                  <span>{t("trials.iron.page", { page: ironTrials.page, pages: ironTrials.pageCount })}</span>
+                  {ironTrials.page > 1 && <Link href={trialsPageUrl(ironTrials.page - 1)}>{t("trials.iron.previous")}</Link>}
+                  {ironTrials.page < ironTrials.pageCount &&
+                    <Link href={trialsPageUrl(ironTrials.page + 1)}>{t("trials.iron.next")}</Link>}
+                </nav>
+              )}
+            </>
+          )}
+        </section>
+      )}
 
       <section className="panel">
         <h2>{t("trials.conversionTitle")}</h2>
