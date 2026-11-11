@@ -56,6 +56,18 @@ export class IronCommerceProvisioning {
     } finally { clearTimeout(timer); }
   }
 
+  /**
+   * Read-only IRON authority for Command's academy trial portfolio.
+   * Reuses the existing protected S2S transport, independent of Cakto offers.
+   * The authenticated FM company scope must match the configured owner tenant.
+   */
+  async readTrialSnapshot(companyTenantId: string, scopedProductId?: string): Promise<unknown | null> {
+    if (!companyTenantId || companyTenantId !== this.env.FMCC_IRON_BILLING_TENANT_ID) return null;
+    const conf = this.config();
+    if (scopedProductId && scopedProductId !== conf.productId) return null;
+    return this.fetchControl(conf.base + "/snapshot", conf.token);
+  }
+
   async offers(): Promise<Array<{planCode: string; name: string; interval: "monthly" | "yearly"; amountMinor: number; currency: "BRL"}>> {
     const conf = this.config();
     const route = await this.provider.getRoute(conf.tenantId, conf.productId);
