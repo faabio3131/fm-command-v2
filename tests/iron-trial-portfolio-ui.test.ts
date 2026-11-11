@@ -7,7 +7,7 @@ describe("FM Command IRON trial customers UI boundary", () => {
   it("resolves FM identity server-side and keeps company-level protection", () => {
     expect(page).toContain("resolveTenantContext(await headers())");
     expect(page).toContain("companyLevelDenied(context)");
-    expect(page).toContain("new IronTrialPortfolioService().read(context, selectedProduct?.id)");
+    expect(page).toContain("new IronTrialPortfolioService().read(context, selectedProduct?.id, requestedPage)");
     expect(page).not.toContain("X-Tenant-ID");
     expect(page).not.toContain("NEXT_PUBLIC_FMCC_IRON_CONTROL_PLANE_TOKEN");
   });
