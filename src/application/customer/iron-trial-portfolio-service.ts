@@ -1,6 +1,6 @@
 import type { TenantContext } from "@/domain/security/tenant-context";
 import { requirePermission } from "@/domain/security/tenant-context";
-import { IronCommerceProvisioning } from "@/application/billing/iron-commerce-provisioning";
+import { IronControlPlaneClient } from "@/application/integration/iron-control-plane-client";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MAX_ROWS = 10_000;
@@ -167,7 +167,7 @@ export class IronTrialPortfolioService {
     }
     if (!tenantId || !productId) return { status: "unavailable" };
     try {
-      const snapshot = await new IronCommerceProvisioning(this.env, this.transport)
+      const snapshot = await new IronControlPlaneClient(this.env, this.transport)
         .readTrialSnapshot(context.tenantId, selectedProductId);
       if (snapshot === null) return { status: "not_applicable" };
       return projectIronTrialSnapshot(snapshot);
